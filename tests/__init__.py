@@ -1,39 +1,43 @@
 """Library tests."""
+
+from __future__ import annotations
+
 import json
+
 from requests import Response
 
 from pyicloud import base
 
 from .const import (
     AUTHENTICATED_USER,
-    REQUIRES_2FA_USER,
     REQUIRES_2FA_TOKEN,
-    VALID_TOKEN,
-    VALID_USERS,
-    VALID_PASSWORD,
-    VALID_COOKIE,
+    REQUIRES_2FA_USER,
     VALID_2FA_CODE,
+    VALID_COOKIE,
+    VALID_PASSWORD,
+    VALID_TOKEN,
     VALID_TOKENS,
-)
-from .const_login import (
-    AUTH_OK,
-    LOGIN_WORKING,
-    LOGIN_2FA,
-    TRUSTED_DEVICES,
-    TRUSTED_DEVICE_1,
-    VERIFICATION_CODE_OK,
-    VERIFICATION_CODE_KO,
+    VALID_USERS,
 )
 from .const_account import ACCOUNT_DEVICES_WORKING, ACCOUNT_STORAGE_WORKING
 from .const_account_family import ACCOUNT_FAMILY_WORKING
 from .const_drive import (
+    DRIVE_FILE_DOWNLOAD_WORKING,
     DRIVE_FOLDER_WORKING,
     DRIVE_ROOT_INVALID,
-    DRIVE_SUBFOLDER_WORKING,
     DRIVE_ROOT_WORKING,
-    DRIVE_FILE_DOWNLOAD_WORKING,
+    DRIVE_SUBFOLDER_WORKING,
 )
 from .const_findmyiphone import FMI_FAMILY_WORKING
+from .const_login import (
+    AUTH_OK,
+    LOGIN_2FA,
+    LOGIN_WORKING,
+    TRUSTED_DEVICE_1,
+    TRUSTED_DEVICES,
+    VERIFICATION_CODE_KO,
+    VERIFICATION_CODE_OK,
+)
 
 
 class ResponseMock(Response):
@@ -93,10 +97,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
 
         if self.service.AUTH_ENDPOINT in url:
             if "signin" in url and method == "POST":
-                if (
-                    data.get("accountName") not in VALID_USERS
-                    or data.get("password") != VALID_PASSWORD
-                ):
+                if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._raise_error(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
                     self.service.session_data["session_token"] = REQUIRES_2FA_TOKEN
@@ -124,24 +125,14 @@ class PyiCloudSessionMock(base.PyiCloudSession):
             return ResponseMock(ACCOUNT_STORAGE_WORKING)
 
         # Drive
-        if (
-            "retrieveItemDetailsInFolders" in url
-            and method == "POST"
-            and data[0].get("drivewsid")
-        ):
+        if "retrieveItemDetailsInFolders" in url and method == "POST" and data[0].get("drivewsid"):
             if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::root":
                 return ResponseMock(DRIVE_ROOT_WORKING)
             if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::documents":
                 return ResponseMock(DRIVE_ROOT_INVALID)
-            if (
-                data[0].get("drivewsid")
-                == "FOLDER::com.apple.CloudDocs::1C7F1760-D940-480F-8C4F-005824A4E05B"
-            ):
+            if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::1C7F1760-D940-480F-8C4F-005824A4E05B":
                 return ResponseMock(DRIVE_FOLDER_WORKING)
-            if (
-                data[0].get("drivewsid")
-                == "FOLDER::com.apple.CloudDocs::D5AA0425-E84F-4501-AF5D-60F1D92648CF"
-            ):
+            if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::D5AA0425-E84F-4501-AF5D-60F1D92648CF":
                 return ResponseMock(DRIVE_SUBFOLDER_WORKING)
         # Drive download
         if "com.apple.CloudDocs/download/by_id" in url and method == "GET":
@@ -165,13 +156,10 @@ class PyiCloudServiceMock(base.PyiCloudService):
         self,
         apple_id,
         password=None,
-        cookie_directory=None,
         verify=True,
         client_id=None,
         with_family=True,
     ):
         """Set up pyicloud service mock."""
         base.PyiCloudSession = PyiCloudSessionMock
-        base.PyiCloudService.__init__(
-            self, apple_id, password, cookie_directory, verify, client_id, with_family
-        )
+        base.PyiCloudService.__init__(self, apple_id, password, "pytest", verify, client_id, with_family)

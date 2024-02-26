@@ -7,6 +7,8 @@ import http.cookiejar as cookielib
 import inspect
 import json
 import logging
+import os
+import re
 from os import mkdir, path
 from re import match
 from tempfile import gettempdir
@@ -29,6 +31,7 @@ from pyicloud.services import (
     PhotosService,
     RemindersService,
     UbiquityService,
+    account,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -188,11 +191,33 @@ class PyiCloudService:
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
+    @classmethod
+    def _setup_dir(cls, env_var_name, default_dir, appname):
+        env_dir = os.getenv(env_var_name, "")
+        env_dir = os.path.expanduser(os.path.normpath(env_dir))
+
+        default_dir = os.getenv(default_dir, f"~/{default_dir}")
+        default_dir = os.path.expanduser(os.path.normpath(default_dir))
+
+        dir_path = os.path.join(env_dir or default_dir, appname)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path, mode=0o700, exist_ok=True)
+
+        return dir_path
+
+    @classmethod
+    def setup_cookie_dir(cls, appname):
+        return cls._setup_dir("PYICLOUD_COOKIE_DIR", ".cache", appname)
+
+    @classmethod
+    def setup_config_dir(cls, appname):
+        return cls._setup_dir("PYICLOUD_CONFIG_DIR", ".config", appname)
+
     def __init__(
         self,
         apple_id,
         password=None,
-        cookie_directory=None,
+        appname="pyicloud",
         verify=True,
         client_id=None,
         with_family=True,
@@ -200,28 +225,19 @@ class PyiCloudService:
         self.user = {"accountName": apple_id, "password": password}
         self.data = {}
         self.params = {}
+        self.session_data = {}
         self.client_id = client_id or ("auth-%s" % str(uuid1()).lower())
         self.with_family = with_family
+
+        self.appname = appname
+        self._cookie_dir = None
+        self._session_dir = None
 
         self.password_filter = PyiCloudPasswordFilter(password)
         LOGGER.addFilter(self.password_filter)
 
-        if cookie_directory:
-            self._cookie_directory = path.expanduser(path.normpath(cookie_directory))
-            if not path.exists(self._cookie_directory):
-                mkdir(self._cookie_directory, 0o700)
-        else:
-            topdir = path.join(gettempdir(), "pyicloud")
-            self._cookie_directory = path.join(topdir, getpass.getuser())
-            if not path.exists(topdir):
-                mkdir(topdir, 0o777)
-            if not path.exists(self._cookie_directory):
-                mkdir(self._cookie_directory, 0o700)
-
-        LOGGER.debug("Using session file %s", self.session_path)
-
-        self.session_data = {}
         try:
+            LOGGER.debug("Using session file %s", self.session_path)
             with open(self.session_path, encoding="utf-8") as session_f:
                 self.session_data = json.load(session_f)
         except:  # pylint: disable=bare-except
@@ -378,18 +394,16 @@ class PyiCloudService:
     @property
     def cookiejar_path(self):
         """Get path for cookiejar file."""
-        return path.join(
-            self._cookie_directory,
-            "".join([c for c in self.user.get("accountName") if match(r"\w", c)]),
-        )
+        self._cookie_dir = self._cookie_dir or self.setup_cookie_dir(self.appname)
+        account_name = self.user.get("accountName")
+        return path.join(self._cookie_dir, re.sub(r"\W", "", account_name) + ".cookies")
 
     @property
     def session_path(self):
         """Get path for session data file."""
-        return path.join(
-            self._cookie_directory,
-            "".join([c for c in self.user.get("accountName") if match(r"\w", c)]) + ".session",
-        )
+        self._session_dir = self._session_dir or self.setup_config_dir(self.appname)
+        account_name = self.user.get("accountName")
+        return path.join(self._cookie_dir, re.sub(r"\W", "", account_name) + ".session")
 
     @property
     def requires_2sa(self):
