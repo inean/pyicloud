@@ -1,10 +1,14 @@
 """Cmdline tests."""
+
+from __future__ import annotations
+
 import os
 import pickle
 from unittest import TestCase
 from unittest.mock import patch
 
 import pytest
+
 from pyicloud import cmdline
 
 from . import PyiCloudServiceMock
@@ -44,35 +48,18 @@ class TestCmdline(TestCase):
         with pytest.raises(SystemExit, match="2"):
             self.main(["--username"])
 
-    @patch("keyring.get_password", return_value=None)
-    @patch("getpass.getpass")
-    def test_username_password_invalid(
-        self, mock_getpass, mock_get_password
-    ):  # pylint: disable=unused-argument
+    def test_username_password_invalid(self):  # pylint: disable=unused-argument
         """Test username and password commands."""
-        # No password supplied
-        mock_getpass.return_value = None
-        with pytest.raises(SystemExit, match="2"):
-            self.main(["--username", "invalid_user"])
-
         # Bad username or password
-        mock_getpass.return_value = "invalid_pass"
-        with pytest.raises(
-            RuntimeError, match="Bad username or password for invalid_user"
-        ):
+        with pytest.raises(RuntimeError, match="Bad username or password for invalid_user"):
             self.main(["--username", "invalid_user"])
 
         # We should not use getpass for this one, but we reset the password at login fail
-        with pytest.raises(
-            RuntimeError, match="Bad username or password for invalid_user"
-        ):
+        with pytest.raises(RuntimeError, match="Bad username or password for invalid_user"):
             self.main(["--username", "invalid_user", "--password", "invalid_pass"])
 
-    @patch("keyring.get_password", return_value=None)
     @patch("pyicloud.cmdline.input")
-    def test_username_password_requires_2fa(
-        self, mock_input, mock_get_password
-    ):  # pylint: disable=unused-argument
+    def test_username_password_requires_2fa(self, mock_input):  # pylint: disable=unused-argument
         """Test username and password commands."""
         # Valid connection for the first time
         mock_input.return_value = VALID_2FA_CODE
@@ -85,10 +72,7 @@ class TestCmdline(TestCase):
             ])
             # fmt: on
 
-    @patch("keyring.get_password", return_value=None)
-    def test_device_outputfile(
-        self, mock_get_password
-    ):  # pylint: disable=unused-argument
+    def test_device_outputfile(self):  # pylint: disable=unused-argument
         """Test the outputfile command."""
         with pytest.raises(SystemExit, match="0"):
             # fmt: off

@@ -1,33 +1,35 @@
 """Library base file."""
-from uuid import uuid1
+
+from __future__ import annotations
+
+import getpass
+import http.cookiejar as cookielib
 import inspect
 import json
 import logging
-from requests import Session
-from tempfile import gettempdir
-from os import path, mkdir
+from os import mkdir, path
 from re import match
-import http.cookiejar as cookielib
-import getpass
+from tempfile import gettempdir
+from uuid import uuid1
+
+from requests import Session
 
 from pyicloud.exceptions import (
-    PyiCloudFailedLoginException,
-    PyiCloudAPIResponseException,
     PyiCloud2SARequiredException,
+    PyiCloudAPIResponseException,
+    PyiCloudFailedLoginException,
     PyiCloudServiceNotActivatedException,
 )
 from pyicloud.services import (
-    FindMyiPhoneServiceManager,
-    CalendarService,
-    UbiquityService,
-    ContactsService,
-    RemindersService,
-    PhotosService,
     AccountService,
+    CalendarService,
+    ContactsService,
     DriveService,
+    FindMyiPhoneServiceManager,
+    PhotosService,
+    RemindersService,
+    UbiquityService,
 )
-from pyicloud.utils import get_password_from_keyring
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -63,7 +65,6 @@ class PyiCloudSession(Session):
         super().__init__()
 
     def request(self, method, url, **kwargs):  # pylint: disable=arguments-differ
-
         # Charge logging to the right service endpoint
         callee = inspect.stack()[2]
         module = inspect.getmodule(callee[0])
@@ -83,9 +84,7 @@ class PyiCloudSession(Session):
         for header, value in HEADER_DATA.items():
             if response.headers.get(header):
                 session_arg = value
-                self.service.session_data.update(
-                    {session_arg: response.headers.get(header)}
-                )
+                self.service.session_data.update({session_arg: response.headers.get(header)})
 
         # Save session_data to file
         with open(self.service.session_path, "w", encoding="utf-8") as outfile:
@@ -96,18 +95,11 @@ class PyiCloudSession(Session):
         self.cookies.save(ignore_discard=True, ignore_expires=True)
         LOGGER.debug("Cookies saved to %s", self.service.cookiejar_path)
 
-        if not response.ok and (
-            content_type not in json_mimetypes
-            or response.status_code in [421, 450, 500]
-        ):
+        if not response.ok and (content_type not in json_mimetypes or response.status_code in [421, 450, 500]):
             try:
                 # pylint: disable=protected-access
                 fmip_url = self.service._get_webservice_url("findme")
-                if (
-                    has_retried is None
-                    and response.status_code in [421, 450, 500]
-                    and fmip_url in url
-                ):
+                if has_retried is None and response.status_code in [421, 450, 500] and fmip_url in url:
                     # Handle re-authentication for Find My iPhone
                     LOGGER.debug("Re-authenticating Find My iPhone service")
                     try:
@@ -123,9 +115,7 @@ class PyiCloudSession(Session):
                 pass
 
             if has_retried is None and response.status_code in [421, 450, 500]:
-                api_error = PyiCloudAPIResponseException(
-                    response.reason, response.status_code, retry=True
-                )
+                api_error = PyiCloudAPIResponseException(response.reason, response.status_code, retry=True)
                 request_logger.debug(api_error)
                 kwargs["retried"] = True
                 return self.request(method, url, **kwargs)
@@ -162,16 +152,10 @@ class PyiCloudSession(Session):
         return response
 
     def _raise_error(self, code, reason):
-        if (
-            self.service.requires_2sa
-            and reason == "Missing X-APPLE-WEBAUTH-TOKEN cookie"
-        ):
+        if self.service.requires_2sa and reason == "Missing X-APPLE-WEBAUTH-TOKEN cookie":
             raise PyiCloud2SARequiredException(self.service.user["apple_id"])
         if code in ("ZONE_NOT_FOUND", "AUTHENTICATION_FAILED"):
-            reason = (
-                "Please log into https://icloud.com/ to manually "
-                "finish setting up your iCloud service"
-            )
+            reason = "Please log into https://icloud.com/ to manually " "finish setting up your iCloud service"
             api_error = PyiCloudServiceNotActivatedException(reason, code)
             LOGGER.error(api_error)
 
@@ -213,9 +197,6 @@ class PyiCloudService:
         client_id=None,
         with_family=True,
     ):
-        if password is None:
-            password = get_password_from_keyring(apple_id)
-
         self.user = {"accountName": apple_id, "password": password}
         self.data = {}
         self.params = {}
@@ -252,9 +233,7 @@ class PyiCloudService:
 
         self.session = PyiCloudSession(self)
         self.session.verify = verify
-        self.session.headers.update(
-            {"Origin": self.HOME_ENDPOINT, "Referer": "%s/" % self.HOME_ENDPOINT}
-        )
+        self.session.headers.update({"Origin": self.HOME_ENDPOINT, "Referer": "%s/" % self.HOME_ENDPOINT})
 
         cookiejar_path = self.cookiejar_path
         self.session.cookies = cookielib.LWPCookieJar(filename=cookiejar_path)
@@ -280,28 +259,26 @@ class PyiCloudService:
         subsequent logins will not cause additional e-mails from Apple.
         """
 
-        login_successful = False
         if self.session_data.get("session_token") and not force_refresh:
             LOGGER.debug("Checking session token validity")
             try:
                 self.data = self._validate_token()
-                login_successful = True
+                self._webservices = self.data["webservices"]
+                LOGGER.debug("Authentication with session token completed successfully")
+                return
             except PyiCloudAPIResponseException:
                 LOGGER.debug("Invalid authentication token, will log in from scratch.")
 
+        login_successful = False
         if not login_successful and service is not None:
             app = self.data["apps"][service]
             if "canLaunchWithOneFactor" in app and app["canLaunchWithOneFactor"]:
-                LOGGER.debug(
-                    "Authenticating as %s for %s", self.user["accountName"], service
-                )
+                LOGGER.debug("Authenticating as %s for %s", self.user["accountName"], service)
                 try:
                     self._authenticate_with_credentials_service(service)
                     login_successful = True
                 except Exception:
-                    LOGGER.debug(
-                        "Could not log into service. Attempting brand new login."
-                    )
+                    LOGGER.debug("Could not log into service. Attempting brand new login.")
 
         if not login_successful:
             LOGGER.debug("Authenticating as %s", self.user["accountName"])
@@ -348,9 +325,7 @@ class PyiCloudService:
         }
 
         try:
-            req = self.session.post(
-                "%s/accountLogin" % self.SETUP_ENDPOINT, data=json.dumps(data)
-            )
+            req = self.session.post("%s/accountLogin" % self.SETUP_ENDPOINT, data=json.dumps(data))
             self.data = req.json()
         except PyiCloudAPIResponseException as error:
             msg = "Invalid authentication token."
@@ -365,9 +340,7 @@ class PyiCloudService:
         }
 
         try:
-            self.session.post(
-                "%s/accountLogin" % self.SETUP_ENDPOINT, data=json.dumps(data)
-            )
+            self.session.post("%s/accountLogin" % self.SETUP_ENDPOINT, data=json.dumps(data))
 
             self.data = self._validate_token()
         except PyiCloudAPIResponseException as error:
@@ -415,8 +388,7 @@ class PyiCloudService:
         """Get path for session data file."""
         return path.join(
             self._cookie_directory,
-            "".join([c for c in self.user.get("accountName") if match(r"\w", c)])
-            + ".session",
+            "".join([c for c in self.user.get("accountName") if match(r"\w", c)]) + ".session",
         )
 
     @property
@@ -441,9 +413,7 @@ class PyiCloudService:
     @property
     def trusted_devices(self):
         """Returns devices trusted for two-step authentication."""
-        request = self.session.get(
-            "%s/listDevices" % self.SETUP_ENDPOINT, params=self.params
-        )
+        request = self.session.get("%s/listDevices" % self.SETUP_ENDPOINT, params=self.params)
         return request.json().get("devices")
 
     def send_verification_code(self, device):
@@ -531,18 +501,14 @@ class PyiCloudService:
     def _get_webservice_url(self, ws_key):
         """Get webservice URL, raise an exception if not exists."""
         if self._webservices.get(ws_key) is None:
-            raise PyiCloudServiceNotActivatedException(
-                "Webservice not available", ws_key
-            )
+            raise PyiCloudServiceNotActivatedException("Webservice not available", ws_key)
         return self._webservices[ws_key]["url"]
 
     @property
     def devices(self):
         """Returns all devices."""
         service_root = self._get_webservice_url("findme")
-        return FindMyiPhoneServiceManager(
-            service_root, self.session, self.params, self.with_family
-        )
+        return FindMyiPhoneServiceManager(service_root, self.session, self.params, self.with_family)
 
     @property
     def iphone(self):

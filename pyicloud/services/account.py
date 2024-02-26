@@ -1,4 +1,7 @@
 """Account service."""
+
+from __future__ import annotations
+
 from collections import OrderedDict
 
 from pyicloud.utils import underscore_to_camelcase
@@ -19,9 +22,7 @@ class AccountService:
         self._acc_endpoint = "%s/setup/web" % self._service_root
         self._acc_devices_url = "%s/device/getDevices" % self._acc_endpoint
         self._acc_family_details_url = "%s/family/getFamilyDetails" % self._acc_endpoint
-        self._acc_family_member_photo_url = (
-            "%s/family/getMemberPhoto" % self._acc_endpoint
-        )
+        self._acc_family_member_photo_url = "%s/family/getMemberPhoto" % self._acc_endpoint
         self._acc_storage_url = "https://setup.icloud.com/setup/ws/1/storageUsageInfo"
 
     @property
@@ -183,9 +184,7 @@ class FamilyMember:
         """Returns the photo."""
         params_photo = dict(self._params)
         params_photo.update({"memberId": self.dsid})
-        return self._session.get(
-            self._acc_family_member_photo_url, params=params_photo, stream=True
-        )
+        return self._session.get(self._acc_family_member_photo_url, params=params_photo, stream=True)
 
     def __getitem__(self, key):
         if self._attrs.get(key):
@@ -265,9 +264,7 @@ class AccountStorageUsage:
     @property
     def available_storage_in_percent(self):
         """Gets the available storage in percent."""
-        return round(
-            self.available_storage_in_bytes * 100 / self.total_storage_in_bytes, 2
-        )
+        return round(self.available_storage_in_bytes * 100 / self.total_storage_in_bytes, 2)
 
     @property
     def total_storage_in_bytes(self):
@@ -313,15 +310,11 @@ class AccountStorage:
     """Storage of the account."""
 
     def __init__(self, storage_data):
-        self.usage = AccountStorageUsage(
-            storage_data.get("storageUsageInfo"), storage_data.get("quotaStatus")
-        )
+        self.usage = AccountStorageUsage(storage_data.get("storageUsageInfo"), storage_data.get("quotaStatus"))
         self.usages_by_media = OrderedDict()
 
         for usage_media in storage_data.get("storageUsageByMedia"):
-            self.usages_by_media[usage_media["mediaKey"]] = AccountStorageUsageForMedia(
-                usage_media
-            )
+            self.usages_by_media[usage_media["mediaKey"]] = AccountStorageUsageForMedia(usage_media)
 
     def __str__(self):
         return f"{{usage: {self.usage}, usages_by_media: {self.usages_by_media}}}"

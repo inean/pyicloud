@@ -3,6 +3,8 @@
 A Command Line Wrapper to allow easy use of pyicloud for
 command line scripts, and related.
 """
+from __future__ import annotations
+
 import argparse
 import pickle
 import sys
@@ -11,6 +13,7 @@ from click import confirm
 
 from pyicloud import PyiCloudService
 from pyicloud.exceptions import PyiCloudFailedLoginException
+
 from . import utils
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
@@ -47,10 +50,7 @@ def main(args=None):
         action="store",
         dest="password",
         default="",
-        help=(
-            "Apple ID Password to Use; if unspecified, password will be "
-            "fetched from the system keyring."
-        ),
+        help="Apple ID Password to Use",
     )
     parser.add_argument(
         "-n",
@@ -59,13 +59,6 @@ def main(args=None):
         dest="interactive",
         default=True,
         help="Disable interactive prompts.",
-    )
-    parser.add_argument(
-        "--delete-from-keyring",
-        action="store_true",
-        dest="delete_from_keyring",
-        default=False,
-        help="Delete stored password in system keyring for this username.",
     )
     parser.add_argument(
         "--list",
@@ -169,9 +162,6 @@ def main(args=None):
     username = command_line.username
     password = command_line.password
 
-    if username and command_line.delete_from_keyring:
-        utils.delete_password_in_keyring(username)
-
     failure_count = 0
     while True:
         # Which password we use is determined by your username, so we
@@ -179,23 +169,8 @@ def main(args=None):
         if not username:
             parser.error("No username supplied")
 
-        if not password:
-            password = utils.get_password(
-                username, interactive=command_line.interactive
-            )
-
-        if not password:
-            parser.error("No password supplied")
-
         try:
-            api = PyiCloudService(username.strip(), password.strip())
-            if (
-                not utils.password_exists_in_keyring(username)
-                and command_line.interactive
-                and confirm("Save password in keyring?")
-            ):
-                utils.store_password_in_keyring(username, password)
-
+            api = PyiCloudService(*map(str.strip, (username, password or "")))
             if api.requires_2fa:
                 # fmt: off
                 print(
@@ -225,9 +200,7 @@ def main(args=None):
                         "    %s: %s"
                         % (
                             i,
-                            device.get(
-                                "deviceName", "SMS to %s" % device.get("phoneNumber")
-                            ),
+                            device.get("deviceName", "SMS to %s" % device.get("phoneNumber")),
                         )
                     )
 
@@ -247,11 +220,6 @@ def main(args=None):
                 print("")
             break
         except PyiCloudFailedLoginException as err:
-            # If they have a stored password; we just used it and
-            # it did not work; let's delete it if there is one.
-            if utils.password_exists_in_keyring(username):
-                utils.delete_password_in_keyring(username)
-
             message = "Bad username or password for {username}".format(
                 username=username,
             )
@@ -264,9 +232,7 @@ def main(args=None):
             print(message, file=sys.stderr)
 
     for dev in api.devices:
-        if not command_line.device_id or (
-            command_line.device_id.strip().lower() == dev.content["id"].strip().lower()
-        ):
+        if not command_line.device_id or (command_line.device_id.strip().lower() == dev.content["id"].strip().lower()):
             # List device(s)
             if command_line.locate:
                 dev.location()
@@ -309,9 +275,7 @@ def main(args=None):
             # Display a Message on the device
             if command_line.message:
                 if command_line.device_id:
-                    dev.display_message(
-                        subject="A Message", message=command_line.message, sounds=True
-                    )
+                    dev.display_message(subject="A Message", message=command_line.message, sounds=True)
                 else:
                     raise RuntimeError(
                         "%s %s"
@@ -333,8 +297,7 @@ def main(args=None):
                     raise RuntimeError(
                         "%s %s"
                         % (
-                            "Silent Messages can only be played "
-                            "on a singular device.",
+                            "Silent Messages can only be played " "on a singular device.",
                             DEVICE_ERROR,
                         )
                     )
