@@ -1,21 +1,96 @@
-[tool.black]
-line-length = 88
-target-version = ["py37", "py38", "py39", "py310"]
-exclude = '''
 
-(
-  /(
-      \.eggs
-    | \.git
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-  | exceptions.py
-)
-'''
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project]
+name = "pyicloud"
+description = "PyiCloud is a module which allows pythonistas to interact with iCloud webservices."
+authors = [{ name = "Carlos Martín", email = "inean.es@gmail.com" }]
+dependencies = [
+    "requests>=2.24.0",
+    "click>=7.1.2",
+    "tzlocal>=4.0",
+    "certifi>=2020.6.20",
+]
+dynamic = ["readme", "version"]
+
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["icloud", "find-my-iphone"]
+maintainers = [{ name = "The PyiCloud Authors" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/inean/pyicloud"
+Changelog = "https://github.com/inean/releases"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+line_length = 120
+profile = "black"
+
+[tool.pylint."MESSAGES CONTROL"]
+max-line-length = 120
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "black>=23.3.0",
+    "pylint>=2.12.2",
+    "pylint-strict-informational>=0.1",
+    "pytest>=7.0.1",
+    "tox-pdm>=0.7.2",
+]
+
+[project.scripts]
+icloud = "pyicloud.cmdline:main"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+min_version = 4.0
+isolated_build = True
+
+[gh-actions]
+python =
+    3.8: py38, lint
+    3.9: py39
+    3.10: py310
+    3.11: py311
+    3.12: py312
+
+[envlist]
+default = py38, py39, py310, ,py311, py312, lint
+
+[testenv]
+deps =
+    pytest
+commands =
+    pytest
+
+[testenv:lint]
+deps =
+    black
+    pylint
+commands =
+    black --check --fast .
+    pylint pyicloud tests
+"""
