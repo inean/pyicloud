@@ -10,7 +10,6 @@ import os
 import re
 from email.policy import default
 from os import path
-from uuid import uuid1
 
 from requests import Session
 
@@ -89,13 +88,13 @@ class PyiCloudSession(Session):
                 self.service.session_data.update({session_arg: response.headers.get(header)})
 
         # Save session_data to file
-        with open(self.service.session_path, "w", encoding="utf-8") as outfile:
+        with open(self.service.config.session_file, "w", encoding="utf-8") as outfile:
             json.dump(self.service.session_data, outfile)
             LOGGER.debug("Saved session data to file")
 
         # Save cookies to file
         self.cookies.save(ignore_discard=True, ignore_expires=True)
-        LOGGER.debug("Cookies saved to %s", self.service.cookiejar_path)
+        LOGGER.debug("Cookies saved to %s", self.service.config.cookiejar_file)
 
         if not response.ok and (content_type not in json_mimetypes or response.status_code in [421, 450, 500]):
             try:
@@ -190,17 +189,20 @@ class PyiCloudService:
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
-    def __init__(self, apple_id, password=None, appname="pyicloud", verify=True, client_id=None, config=None):
+    # FIXME: If apple_id and password are not provided, ignore cookies and session stuff
+    # FIXME: if apple_id is missig, take default oine from config file
+    def __init__(self, apple_id=None, password=None, config=None):
         self.config = config or PyiCloudConfig.from_file()
+        self.config.apple_id = apple_id or self.config.apple_id
 
-        self.user = {"accountName": apple_id, "password": password}
-        self.data = {}
-        self.params = {}
-        self.session_data = {}
-        self.client_id = client_id or ("auth-%s" % str(uuid1()).lower())
+        self.user = {"accountName": apple_id or self.config.apple_id, "password": password}
+        self.client_id = self.config.client_id
         self.with_family = self.config.with_family
 
-        self.appname = appname
+        self.data = {}  # Make protected?
+        self.params = {}  # Make protected?
+        self.session_data = {}  # Make protected?
+
         self._cookie_dir = None
         self._session_dir = None
 
@@ -209,21 +211,22 @@ class PyiCloudService:
 
         self.session_data = {}
         try:
-            LOGGER.debug("Using session file %s", self.session_path)
-            with open(self.session_path, encoding="utf-8") as session_f:
+            LOGGER.debug("Using session file %s", self.config.session_file)
+            with open(self.config.session_file, encoding="utf-8") as session_f:
                 self.session_data = json.load(session_f)
         except:  # pylint: disable=bare-except
             LOGGER.info("Session file does not exist")
+
         if self.session_data.get("client_id"):
             self.client_id = self.session_data.get("client_id")
         else:
             self.session_data.update({"client_id": self.client_id})
 
         self.session = PyiCloudSession(self)
-        self.session.verify = verify
+        self.session.verify = self.config.verify
         self.session.headers.update({"Origin": self.HOME_ENDPOINT, "Referer": "%s/" % self.HOME_ENDPOINT})
 
-        cookiejar_path = self.cookiejar_path
+        cookiejar_path = self.config.cookiejar_file
         self.session.cookies = cookielib.LWPCookieJar(filename=cookiejar_path)
         if path.exists(cookiejar_path):
             try:
@@ -362,20 +365,6 @@ class PyiCloudService:
         if overrides:
             headers.update(overrides)
         return headers
-
-    @property
-    def cookiejar_path(self):
-        """Get path for cookiejar file."""
-        self._cookie_dir = self._cookie_dir or self.config.setup_cookie_dir()
-        account_name = self.user.get("accountName")
-        return path.join(self._cookie_dir, re.sub(r"\W", "", account_name) + ".cookies")
-
-    @property
-    def session_path(self):
-        """Get path for session data file."""
-        self._session_dir = self._session_dir or self.config.setup_config_dir()
-        account_name = self.user.get("accountName")
-        return path.join(self._session_dir, re.sub(r"\W", "", account_name) + ".session")
 
     @property
     def requires_2sa(self):
