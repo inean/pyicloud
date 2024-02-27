@@ -14,6 +14,7 @@ from uuid import uuid1
 
 from requests import Session
 
+from pyicloud.config import PyiCloudConfig
 from pyicloud.exceptions import (
     PyiCloud2SARequiredException,
     PyiCloudAPIResponseException,
@@ -234,14 +235,10 @@ class PyiCloudService:
         return cls._setup_dir(appname, **config_params)
 
     def __init__(
-        self,
-        apple_id,
-        password=None,
-        appname="pyicloud",
-        verify=True,
-        client_id=None,
-        with_family=True,
+        self, apple_id, password=None, appname="pyicloud", verify=True, client_id=None, with_family=True, config=None
     ):
+        config = config or PyiCloudConfig.from_file()
+
         self.user = {"accountName": apple_id, "password": password}
         self.data = {}
         self.params = {}
