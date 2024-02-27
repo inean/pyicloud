@@ -68,3 +68,6 @@ desktop.ini
 
 pdm.lock
 .pdm-python
+
+cache/**
+config/**

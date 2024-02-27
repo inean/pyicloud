@@ -38,15 +38,9 @@ classifiers = [
 Homepage = "https://github.com/inean/pyicloud"
 Changelog = "https://github.com/inean/releases"
 
-[tool.black]
-line-length = 120
+[project.scripts]
+icloud = "pyicloud.cmdline:main"
 
-[tool.isort]
-line_length = 120
-profile = "black"
-
-[tool.pylint."MESSAGES CONTROL"]
-max-line-length = 120
 
 [tool.pdm]
 distribution = false
@@ -60,8 +54,18 @@ dev = [
     "tox-pdm>=0.7.2",
 ]
 
-[project.scripts]
-icloud = "pyicloud.cmdline:main"
+[tool.pdm.scripts]
+icloud = { call = "pyicloud.cmdline:main" }
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+line_length = 120
+profile = "black"
+
+[tool.pylint."MESSAGES CONTROL"]
+max-line-length = 120
 
 [tool.tox]
 legacy_tox_ini = """

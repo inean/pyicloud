@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import getpass
 import http.cookiejar as cookielib
 import inspect
 import json
 import logging
 import os
 import re
-from os import mkdir, path
-from re import match
-from tempfile import gettempdir
+from email.policy import default
+from os import path
 from uuid import uuid1
 
 from requests import Session
@@ -192,26 +190,48 @@ class PyiCloudService:
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
     @classmethod
-    def _setup_dir(cls, env_var_name, default_dir, appname):
+    def _setup_dir(cls, appname, env_var_name, system_env_var_name, default_dir):
+        # try to find locally first. Run recursively from current dir to rootdir
+        # looking for {appname} fdir. If found, use it.
+        dir_path = os.getcwd()
+        while dir_path not in {path.abspath(os.sep), ""}:
+            candidate_path = path.join(dir_path, default_dir)
+            if path.isdir(candidate_path):
+                return candidate_path
+            dir_path = path.dirname(dir_path)
+
+        # Compute the directory path from env
         env_dir = os.getenv(env_var_name, "")
-        env_dir = os.path.expanduser(os.path.normpath(env_dir))
+        env_dir = path.expanduser(os.path.normpath(env_dir))
 
-        default_dir = os.getenv(default_dir, f"~/{default_dir}")
-        default_dir = os.path.expanduser(os.path.normpath(default_dir))
+        # Compute default system directory path
+        default_dir = os.getenv(system_env_var_name, f"~/.{default_dir}")
+        default_dir = path.expanduser(path.normpath(default_dir))
+        default_dir = path.join(default_dir, appname)
 
-        dir_path = os.path.join(env_dir or default_dir, appname)
+        dir_path = env_dir or default_dir
         if not os.path.exists(dir_path):
             os.makedirs(dir_path, mode=0o700, exist_ok=True)
 
         return dir_path
 
     @classmethod
-    def setup_cookie_dir(cls, appname):
-        return cls._setup_dir("PYICLOUD_COOKIE_DIR", ".cache", appname)
+    def setup_cookie_dir(cls, appname="pyicloud"):
+        cookie_params = {
+            "env_var_name": "PYICLOUD_COOKIE_DIR",
+            "system_env_var_name": "XDG_CACHE_HOME",
+            "default_dir": "cache",
+        }
+        return cls._setup_dir(appname, **cookie_params)
 
     @classmethod
-    def setup_config_dir(cls, appname):
-        return cls._setup_dir("PYICLOUD_CONFIG_DIR", ".config", appname)
+    def setup_config_dir(cls, appname="pyicloud"):
+        config_params = {
+            "env_var_name": "PYICLOUD_CONFIG_DIR",
+            "system_env_var_name": "XDG_CONFIG_HOME",
+            "default_dir": "config",
+        }
+        return cls._setup_dir(appname, **config_params)
 
     def __init__(
         self,
@@ -236,6 +256,7 @@ class PyiCloudService:
         self.password_filter = PyiCloudPasswordFilter(password)
         LOGGER.addFilter(self.password_filter)
 
+        self.session_data = {}
         try:
             LOGGER.debug("Using session file %s", self.session_path)
             with open(self.session_path, encoding="utf-8") as session_f:
@@ -403,7 +424,7 @@ class PyiCloudService:
         """Get path for session data file."""
         self._session_dir = self._session_dir or self.setup_config_dir(self.appname)
         account_name = self.user.get("accountName")
-        return path.join(self._cookie_dir, re.sub(r"\W", "", account_name) + ".session")
+        return path.join(self._session_dir, re.sub(r"\W", "", account_name) + ".session")
 
     @property
     def requires_2sa(self):
