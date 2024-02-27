@@ -190,61 +190,15 @@ class PyiCloudService:
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
-    @classmethod
-    def _setup_dir(cls, appname, env_var_name, system_env_var_name, default_dir):
-        # try to find locally first. Run recursively from current dir to rootdir
-        # looking for {appname} fdir. If found, use it.
-        dir_path = os.getcwd()
-        while dir_path not in {path.abspath(os.sep), ""}:
-            candidate_path = path.join(dir_path, default_dir)
-            if path.isdir(candidate_path):
-                return candidate_path
-            dir_path = path.dirname(dir_path)
-
-        # Compute the directory path from env
-        env_dir = os.getenv(env_var_name, "")
-        env_dir = path.expanduser(os.path.normpath(env_dir))
-
-        # Compute default system directory path
-        default_dir = os.getenv(system_env_var_name, f"~/.{default_dir}")
-        default_dir = path.expanduser(path.normpath(default_dir))
-        default_dir = path.join(default_dir, appname)
-
-        dir_path = env_dir or default_dir
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path, mode=0o700, exist_ok=True)
-
-        return dir_path
-
-    @classmethod
-    def setup_cookie_dir(cls, appname="pyicloud"):
-        cookie_params = {
-            "env_var_name": "PYICLOUD_COOKIE_DIR",
-            "system_env_var_name": "XDG_CACHE_HOME",
-            "default_dir": "cache",
-        }
-        return cls._setup_dir(appname, **cookie_params)
-
-    @classmethod
-    def setup_config_dir(cls, appname="pyicloud"):
-        config_params = {
-            "env_var_name": "PYICLOUD_CONFIG_DIR",
-            "system_env_var_name": "XDG_CONFIG_HOME",
-            "default_dir": "config",
-        }
-        return cls._setup_dir(appname, **config_params)
-
-    def __init__(
-        self, apple_id, password=None, appname="pyicloud", verify=True, client_id=None, with_family=True, config=None
-    ):
-        config = config or PyiCloudConfig.from_file()
+    def __init__(self, apple_id, password=None, appname="pyicloud", verify=True, client_id=None, config=None):
+        self.config = config or PyiCloudConfig.from_file()
 
         self.user = {"accountName": apple_id, "password": password}
         self.data = {}
         self.params = {}
         self.session_data = {}
         self.client_id = client_id or ("auth-%s" % str(uuid1()).lower())
-        self.with_family = with_family
+        self.with_family = self.config.with_family
 
         self.appname = appname
         self._cookie_dir = None
@@ -412,14 +366,14 @@ class PyiCloudService:
     @property
     def cookiejar_path(self):
         """Get path for cookiejar file."""
-        self._cookie_dir = self._cookie_dir or self.setup_cookie_dir(self.appname)
+        self._cookie_dir = self._cookie_dir or self.config.setup_cookie_dir()
         account_name = self.user.get("accountName")
         return path.join(self._cookie_dir, re.sub(r"\W", "", account_name) + ".cookies")
 
     @property
     def session_path(self):
         """Get path for session data file."""
-        self._session_dir = self._session_dir or self.setup_config_dir(self.appname)
+        self._session_dir = self._session_dir or self.config.setup_config_dir()
         account_name = self.user.get("accountName")
         return path.join(self._session_dir, re.sub(r"\W", "", account_name) + ".session")
 
