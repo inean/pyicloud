@@ -58,6 +58,8 @@ class PyiCloudPasswordFilter(logging.Filter):
 class PyiCloudSession(Session):
     """iCloud session."""
 
+    SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
+
     def __init__(self, owner):
         self._owner = owner
         self._state = {}
@@ -100,7 +102,7 @@ class PyiCloudSession(Session):
         """Checks if the current cookie set is still valid."""
         LOGGER.debug("Checking session token validity")
         try:
-            req = self.post("%s/validate" % PyiCloud.SETUP_ENDPOINT, data="null")
+            req = self.post("%s/validate" % self.SETUP_ENDPOINT, data="null")
             LOGGER.debug("Session token is still valid")
             self._state = req.json()
         except PyiCloudAPIResponseException as err:
@@ -169,7 +171,7 @@ class PyiCloudSession(Session):
 
         try:
             data = response.json()
-        except:  # pylint: disable=bare-except
+        except Exception:
             logger.warning("Failed to parse response with JSON mimetype")
             return response
 
@@ -197,7 +199,7 @@ class PyiCloudSession(Session):
         if self._owner.requires_2sa and reason == "Missing X-APPLE-WEBAUTH-TOKEN cookie":
             raise PyiCloud2SARequiredException(self._owner.user["apple_id"])
         if code in ("ZONE_NOT_FOUND", "AUTHENTICATION_FAILED"):
-            reason = "Please log into https://icloud.com/ to manually " "finish setting up your iCloud service"
+            reason = "Please log into https://icloud.com/ to manually finish setting up your iCloud service"
             api_error = PyiCloudServiceNotActivatedException(reason, code)
             LOGGER.error(api_error)
 
@@ -228,8 +230,8 @@ class PyiCloudUser:
 
         # Some services don't require 2FA, so we can authenticate directly
         #
-        auth_challenge = services.iphone.authenticate(force_refresh=True)
-        while wait auth_challenge.err():
+        auth_challenge = services.iphone.authenticate()
+        while auth_challenge.err():
             if auth_challenge.requires_2fa:
                 ...
             if auth_challenge.requires_2sa:
@@ -518,7 +520,7 @@ class PyiCloudUser:
     @property
     def trusted_devices(self):
         """Returns devices trusted for two-step authentication."""
-        request = self._session.get("%s/listDevices" % self.SETUP_ENDPOINT, params=self._params)
+        request = self._session.get("%s/listDevices" % self.SETUP_ENDPOINT, params=self.params)
         return request.json().get("devices")
 
     def __str__(self):
@@ -526,6 +528,10 @@ class PyiCloudUser:
 
     def __repr__(self):
         return f"<{self}>"
+
+
+# Alias
+PyCloud = PyiCloudUser
 
 
 class PyiCloudServices:
@@ -539,6 +545,29 @@ class PyiCloudServices:
         pyicloud.iphone.location()
     """
 
+    class _Proxy:
+        def __init__(self, cls, service, endpoint, params):
+            self._endpoint = endpoint
+            self._service = service
+            self._params = params
+            # Private Props
+            self.__cls = cls
+            self.__target = None
+
+        def authenticate(self):
+            self._endpoint.authenticate(service=self._service)
+            self.__target = self.__cls(self._endpoint[self._service], **self._params)
+
+        def __getattr__(self, name):
+            if not self.__target:
+                raise Exception("You must authenticate before accessing this attribute.")
+            return getattr(self._service, name)
+
+        def __getitem__(self, name):
+            if not self.__target:
+                raise Exception("You must authenticate before accessing this attribute.")
+            return self.__target[name]
+
     def __init__(self, endpoint):
         self._endpoint = endpoint
         # Expensive services
@@ -549,13 +578,16 @@ class PyiCloudServices:
     @property
     def devices(self):
         """Returns all devices."""
+        cls = FindMyiPhoneServiceManager
+        service = "findme"
         kwargs = {
-            "service_root": self._endpoint["findme"],
             "session": self._endpoint.session,
             "params": self._endpoint.params,
             "with_family": self._endpoint.config.with_family,
         }
-        return FindMyiPhoneServiceManager(**kwargs)
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        return cls(self._endpoint[service], **kwargs)
 
     @property
     def iphone(self):
@@ -565,78 +597,103 @@ class PyiCloudServices:
     @property
     def account(self):
         """Gets the 'Account' service."""
+        cls = AccountService
+        service = "account"
         kwargs = {
-            "service_root": self._endpoint["account"],
+            "service_root": self._endpoint[service],
             "session": self._endpoint.session,
             "params": self._endpoint.params,
         }
-        return AccountService(**kwargs)
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        return cls(**kwargs)
 
     @property
     def files(self):
         """Gets the 'File' service."""
-        if not self._files:
-            kwargs = {
-                "service_root": self._endpoint["ubiquity"],
-                "session": self._endpoint.session,
-                "params": self._endpoint.params,
-            }
-            self._files = UbiquityService(**kwargs)
+        cls = UbiquityService
+        service = "ubiquity"
+        kwargs = {
+            "service_root": self._endpoint[service],
+            "session": self._endpoint.session,
+            "params": self._endpoint.params,
+        }
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        self._files = cls(**kwargs)
         return self._files
 
     @property
     def photos(self):
         """Gets the 'Photo' service."""
-        if not self._photos:
-            kwargs = {
-                "service_root": self._endpoint["ckdatabasews"],
-                "session": self._endpoint.session,
-                "params": self._endpoint.params,
-            }
-            self._photos = PhotosService(**kwargs)
+        cls = PhotosService
+        service = "ckdatabasews"
+        kwargs = {
+            "service_root": self._endpoint[service],
+            "session": self._endpoint.session,
+            "params": self._endpoint.params,
+        }
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        self._photos = cls(**kwargs)
         return self._photos
 
     @property
     def calendar(self):
         """Gets the 'Calendar' service."""
+        cls = CalendarService
+        service = "calendar"
         kwargs = {
-            "service_root": self._endpoint["calendar"],
+            "service_root": self._endpoint[service],
             "session": self._endpoint.session,
             "params": self._endpoint.params,
         }
-        return CalendarService(**kwargs)
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        return cls(**kwargs)
 
     @property
     def contacts(self):
         """Gets the 'Contacts' service."""
+        cls = ContactsService
+        service = "contacts"
         kwargs = {
-            "service_root": self._endpoint["contacts"],
+            "service_root": self._endpoint[service],
             "session": self._endpoint.session,
             "params": self._endpoint.params,
         }
-        return ContactsService(**kwargs)
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        return cls(**kwargs)
 
     @property
     def reminders(self):
         """Gets the 'Reminders' service."""
+        cls = RemindersService
+        service = "reminders"
         kwargs = {
-            "service_root": self._endpoint["reminders"],
+            "service_root": self._endpoint[service],
             "session": self._endpoint.session,
             "params": self._endpoint.params,
         }
-        return RemindersService(**kwargs)
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        return cls(**kwargs)
 
     @property
     def drive(self):
         """Gets the 'Drive' service."""
-        if not self._drive:
-            kwargs = {
-                "service_root": self._endpoint["drivews"],
-                "document_root": self._endpoint["docws"],
-                "session": self._endpoint.session,
-                "params": self._endpoint.params,
-            }
-            self._drive = DriveService(**kwargs)
+        cls = DriveService
+        service = "drivews"
+        kwargs = {
+            "service_root": self._endpoint[service],
+            "document_root": self._endpoint["docws"],
+            "session": self._endpoint.session,
+            "params": self._endpoint.params,
+        }
+        if service not in self._endpoint:
+            return self._Proxy(cls, service, self._endpoint, kwargs)
+        self._drive = cls(**kwargs)
         return self._drive
 
     def __str__(self):
