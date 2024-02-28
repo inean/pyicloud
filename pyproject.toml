@@ -16,7 +16,7 @@ dependencies = [
 ]
 dynamic = ["readme", "version"]
 
-requires-python = ">=3.8"
+requires-python = ">=3.8.1"
 license = { text = "MIT" }
 keywords = ["icloud", "find-my-iphone"]
 maintainers = [{ name = "The PyiCloud Authors" }]
@@ -53,6 +53,7 @@ dev = [
     "pylint-strict-informational>=0.1",
     "pytest>=7.0.1",
     "tox-pdm>=0.7.2",
+    "flake8-pyproject>=1.2.3",
 ]
 
 [tool.pdm.scripts]
@@ -60,6 +61,13 @@ icloud = { call = "pyicloud.cmdline:main" }
 
 [tool.black]
 line-length = 120
+
+[tool.flake8]
+max-line-length = 120
+per-file-ignores = ['__init__.py:F401']
+exclude = [".git", "__pycache__"]
+extend-ignore = ["E203"]
+count = true
 
 [tool.isort]
 line_length = 120

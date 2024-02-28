@@ -67,7 +67,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
         data = json.loads(kwargs.get("data", "{}"))
 
         # Login
-        if self.service.SETUP_ENDPOINT in url:
+        if self._owner.SETUP_ENDPOINT in url:
             if "accountLogin" in url and method == "POST":
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._raise_error(None, "Unknown reason")
@@ -86,7 +86,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
             if "validateVerificationCode" in url and method == "POST":
                 TRUSTED_DEVICE_1.update({"verificationCode": "0", "trustBrowser": True})
                 if data == TRUSTED_DEVICE_1:
-                    self.service.user["apple_id"] = AUTHENTICATED_USER
+                    self._owner.user["apple_id"] = AUTHENTICATED_USER
                     return ResponseMock(VERIFICATION_CODE_OK)
                 self._raise_error(None, "FOUND_CODE")
 
@@ -95,22 +95,22 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                     return ResponseMock(LOGIN_WORKING)
                 self._raise_error(None, "Session expired")
 
-        if self.service.AUTH_ENDPOINT in url:
+        if self._owner.AUTH_ENDPOINT in url:
             if "signin" in url and method == "POST":
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._raise_error(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
-                    self.service.session_data["session_token"] = REQUIRES_2FA_TOKEN
+                    self._owner.session_data["session_token"] = REQUIRES_2FA_TOKEN
                     return ResponseMock(AUTH_OK)
 
-                self.service.session_data["session_token"] = VALID_TOKEN
+                self._owner.session_data["session_token"] = VALID_TOKEN
                 return ResponseMock(AUTH_OK)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
                     self._raise_error(None, "Incorrect code")
 
-                self.service.session_data["session_token"] = VALID_TOKEN
+                self._owner.session_data["session_token"] = VALID_TOKEN
                 return ResponseMock("", status_code=204)
 
             if "trust" in url and method == "GET":
