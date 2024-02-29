@@ -50,7 +50,6 @@ distribution = false
 dev = [
     "black>=23.3.0",
     "pylint>=2.12.2",
-    "pylint-strict-informational>=0.1",
     "pytest>=7.0.1",
     "tox-pdm>=0.7.2",
     "flake8-pyproject>=1.2.3",

@@ -17,7 +17,7 @@ repos:
       - id: requirements-txt-fixer
       - id: trailing-whitespace
   - repo: https://github.com/psf/black
-    rev: 23.9.1
+    rev: 24.2.0
     hooks:
       - id: black
         language_version: python3
@@ -25,15 +25,7 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ["-a", "from __future__ import annotations", "--profile=black"]
-      - id: isort
         name: isort (python)
-      - id: isort
-        name: isort (cython)
-        types: [cython]
-      - id: isort
-        name: isort (pyi)
-        types: [pyi]
 
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.15.1
@@ -64,9 +56,3 @@ repos:
       - id: rst-backticks
       - id: rst-directive-colons
       - id: rst-inline-touching-normal
-
-  - repo: https://github.com/mgedmin/check-manifest
-    rev: "0.49"
-    hooks:
-      - id: check-manifest
-        stages: [manual]
