@@ -61,43 +61,70 @@ icloud = { call = "pyicloud.cmdline:main" }
 
 [tool.black]
 line-length = 120
-
-[tool.flake8]
-max-line-length = 120
-per-file-ignores = ['__init__.py:F401']
-exclude = [".git", "__pycache__"]
-extend-ignore = ["E203"]
-count = true
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include_trailing_comma = false
+include = '(pyicloud|tests)\/.*(\.py|GET|POST)'
 
 [tool.isort]
 line_length = 120
 profile = "black"
 
-[tool.pylint."MESSAGES CONTROL"]
+[tool.pylint.FORMAT]
+expected-line-ending-format = 'LF'
+ignore-long-lines = '^\s*(# )?<?https?://\S+>?$'
+indent-after-paren = 4
+indent-string = '    '
 max-line-length = 120
+
+
+[tool.pylint.MASTER]
+jobs = 0
+ignore = '.git'
+persistent = 'no'
+suggestion-mode = 'yes'
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = '''
+  format,
+  duplicate-code,
+  inconsistent-return-statements,
+  too-few-public-methods,
+  too-many-ancestors,
+  too-many-arguments,
+  too-many-branches,
+  too-many-instance-attributes,
+  too-many-lines,
+  too-many-locals,
+  too-many-public-methods,
+  too-many-return-statements,
+  too-many-statements,
+  too-many-boolean-expressions,
+  unnecessary-pass,
+  useless-object-inheritance,
+  wrong-import-order,
+  consider-using-f-string
+'''
+[tool.pylint."BASIC"]
+good-names = 'id,i,j,k'
+
+[tool.pylint.EXCEPTIONS]
+overgeneral-exceptions = '''
+    BaseException,
+    Exception,
+    PYiCloudException
+'''
 
 [tool.tox]
 legacy_tox_ini = """
 [tox]
 min_version = 4.0
 isolated_build = True
+envlist = py38, py39, py310, ,py311, py312, lint
 
-[gh-actions]
-python =
-    3.8: py38, lint
-    3.9: py39
-    3.10: py310
-    3.11: py311
-    3.12: py312
-
-[envlist]
-default = py38, py39, py310, ,py311, py312, lint
 
 [testenv]
-deps =
-    pytest
-commands =
-    pytest
+deps = pytest
+commands = pytest
 
 [testenv:lint]
 deps =
@@ -106,4 +133,12 @@ deps =
 commands =
     black --check --fast .
     pylint pyicloud tests
+
+[gh-actions]
+python =
+    3.8: py38, lint
+    3.9: py39
+    3.10: py310
+    3.11: py311
+    3.12: py312
 """
