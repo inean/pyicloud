@@ -1,9 +1,10 @@
 """Drive service tests."""
+
 from unittest import TestCase
 
 import pytest
 
-from . import PyiCloudServiceMock
+from . import PyiCloudMock, PyiCloudServicesMock
 from .const import AUTHENTICATED_USER, VALID_PASSWORD
 
 
@@ -14,7 +15,9 @@ class DriveServiceTest(TestCase):
 
     def setUp(self):
         """Set up tests."""
-        self.service = PyiCloudServiceMock(AUTHENTICATED_USER, VALID_PASSWORD)
+        api = PyiCloudMock(AUTHENTICATED_USER, VALID_PASSWORD)
+        api.authenticate()
+        self.service = PyiCloudServicesMock(api)
 
     def test_root(self):
         """Test the root folder."""

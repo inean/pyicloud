@@ -11,7 +11,7 @@ import pytest
 
 from pyicloud import cmdline
 
-from . import PyiCloudServiceMock
+from . import PyiCloudMock
 from .const import AUTHENTICATED_USER, REQUIRES_2FA_USER, VALID_2FA_CODE, VALID_PASSWORD
 from .const_findmyiphone import FMI_FAMILY_WORKING
 
@@ -23,7 +23,7 @@ class TestCmdline(TestCase):
 
     def setUp(self):
         """Set up tests."""
-        cmdline.PyiCloudService = PyiCloudServiceMock
+        cmdline.PyiCloudService = PyiCloudMock
         self.main = cmdline.main
 
     def test_no_arg(self):

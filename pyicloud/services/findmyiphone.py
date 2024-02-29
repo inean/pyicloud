@@ -1,4 +1,5 @@
 """Find my iPhone service."""
+
 import json
 
 from pyicloud.exceptions import PyiCloudNoDevicesException
@@ -138,9 +139,7 @@ class AppleDevice:
         )
         self.session.post(self.sound_url, params=self.params, data=data)
 
-    def display_message(
-        self, subject="Find My iPhone Alert", message="This is a note", sounds=False
-    ):
+    def display_message(self, subject="Find My iPhone Alert", message="This is a note", sounds=False):
         """Send a request to the device to play a sound.
 
         It's possible to pass a custom message by changing the `subject`.
@@ -156,9 +155,7 @@ class AppleDevice:
         )
         self.session.post(self.message_url, params=self.params, data=data)
 
-    def lost_device(
-        self, number, text="This iPhone has been lost. Please call me.", newpasscode=""
-    ):
+    def lost_device(self, number, text="This iPhone has been lost. Please call me.", newpasscode=""):
         """Send a request to the device to trigger 'lost mode'.
 
         The device will show the message in `text`, and if a number has

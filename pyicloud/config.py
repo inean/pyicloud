@@ -10,7 +10,6 @@ import yaml
 
 class PyiCloudConfig:
     APP_DEFAULT_CONFIG_VALUES = {
-        "apple_id": None,
         "with_family": True,
         "verify": True,
         "client_id": ("auth-%s" % str(uuid1()).lower()),
@@ -62,21 +61,22 @@ class PyiCloudConfig:
         return cls._setup_dir(**config_params)
 
     @classmethod
-    def from_file(cls):
+    def from_file(cls, apple_id: str = ""):
         config_file = path.join(cls.setup_config_dir(), "config.yml")
-        return cls._init_from_file(config_file)
+        return cls._init_from_file(apple_id, config_file)
 
     @classmethod
-    def _init_from_file(cls, config_file=None):
+    def _init_from_file(cls, apple_id: str = "", config_file=None):
         config_file = config_file or path.join(cls.setup_config_dir(), "config.yml")
         try:
             with open(config_file, encoding="utf-8") as stream:
-                return cls(yaml.safe_load(stream), config_file)
+                return cls(apple_id, config_file, yaml.safe_load(stream))
         except FileNotFoundError:
-            return cls({}, config_file)
+            return cls(apple_id, config_file)
 
-    def __init__(self, config, config_file=None):
-        self._config = config
+    def __init__(self, apple_id: str = "", config_file=None, config=None):
+        self.apple_id = apple_id
+        self._config = config or {}
         self._config_file = config_file
         self._cookie_file = None
         self._session_file = None
@@ -86,22 +86,20 @@ class PyiCloudConfig:
         try:
             return self._config.get(name, self.APP_DEFAULT_CONFIG_VALUES[name])
         except KeyError as exc:
-            if hasattr(self.__class__, name):
-                attr = getattr(self.__class__, name)
-                if isinstance(attr, property):
-                    return attr.fget(self)
+            if hasattr(self.__class__, name) and isinstance((attr := getattr(self.__class__, name)), property):
+                return attr.fget(self)
             # If the name is not a property, raise an AttributeError
             raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'") from exc
 
     def __setattr__(self, name, value):
-        if not name.startswith("_"):
-            if name in self.APP_DEFAULT_CONFIG_VALUES:
-                self._config[name] = value
-                if self._keep_in_sync and self._config_file:
-                    with open(self._config_file, "w", encoding="utf-8") as stream:
-                        yaml.safe_dump(self._config, stream)
-        else:
-            super().__setattr__(name, value)
+        if name in self.APP_DEFAULT_CONFIG_VALUES:
+            self._config[name] = value
+            if self._keep_in_sync and self._config_file:
+                with open(self._config_file, "w", encoding="utf-8") as stream:
+                    yaml.safe_dump(self._config, stream)
+            return
+
+        super().__setattr__(name, value)
 
     def __repr__(self):
         return f"PyiCloudConfig({self._config})"

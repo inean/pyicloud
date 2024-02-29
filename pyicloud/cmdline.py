@@ -6,10 +6,12 @@ command line scripts, and related.
 from __future__ import annotations
 
 import argparse
+import getpass
+import logging
 import pickle
 import sys
 
-from pyicloud import PyiCloudService
+from pyicloud.base import PyiCloud, PyiCloudServices
 from pyicloud.exceptions import PyiCloudFailedLoginException
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
@@ -32,16 +34,18 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    parser = argparse.ArgumentParser(description="Find My iPhone CommandLine Tool")
+    parser = argparse.ArgumentParser(prog="icloud", description="Find My iPhone CommandLine Tool")
 
     parser.add_argument(
+        "-u",
         "--username",
         action="store",
         dest="username",
-        default="",
+        required=True,
         help="Apple ID to Use",
     )
     parser.add_argument(
+        "-p",
         "--password",
         action="store",
         dest="password",
@@ -143,7 +147,12 @@ def main(args=None):
         default="",
         help="Forcibly display this message when activating lost mode.",
     )
-
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Increase output verbosity",
+    )
     # Output device data to an pickle file
     parser.add_argument(
         "--outputfile",
@@ -155,10 +164,14 @@ def main(args=None):
 
     command_line = parser.parse_args(args)
 
-    username = command_line.username
-    password = command_line.password
+    if command_line.verbose:
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+    username = str.strip(command_line.username)
+    password = str.strip(command_line.password)
 
     failure_count = 0
+    api = PyiCloud(username, password or "")
     while True:
         # Which password we use is determined by your username, so we
         # do need to check for this first and separately.
@@ -166,7 +179,13 @@ def main(args=None):
             parser.error("No username supplied")
 
         try:
-            api = PyiCloudService(*map(str.strip, (username, password or "")))
+            api.authenticate()
+
+            if api.requires_password:
+                if command_line.interactive:
+                    api.password = getpass.getpass("Password: ")
+                    continue
+
             if api.requires_2fa:
                 # fmt: off
                 print(
@@ -216,18 +235,15 @@ def main(args=None):
                 print("")
             break
         except PyiCloudFailedLoginException as err:
-            message = "Bad username or password for {username}".format(
-                username=username,
-            )
+            message = f"Bad username or password for {username}"
             password = None
 
-            failure_count += 1
-            if failure_count >= 3:
+            if (failure_count := failure_count + 1) >= 1:
                 raise RuntimeError(message) from err
 
             print(message, file=sys.stderr)
 
-    for dev in api.devices:
+    for dev in PyiCloudServices(endpoint=api).devices:
         if not command_line.device_id or (command_line.device_id.strip().lower() == dev.content["id"].strip().lower()):
             # List device(s)
             if command_line.locate:

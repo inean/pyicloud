@@ -100,17 +100,17 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._raise_error(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
-                    self._owner.session_data["session_token"] = REQUIRES_2FA_TOKEN
+                    self._owner._session_data["session_token"] = REQUIRES_2FA_TOKEN
                     return ResponseMock(AUTH_OK)
 
-                self._owner.session_data["session_token"] = VALID_TOKEN
+                self._owner._session_data["session_token"] = VALID_TOKEN
                 return ResponseMock(AUTH_OK)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
                     self._raise_error(None, "Incorrect code")
 
-                self._owner.session_data["session_token"] = VALID_TOKEN
+                self._owner._session_data["session_token"] = VALID_TOKEN
                 return ResponseMock("", status_code=204)
 
             if "trust" in url and method == "GET":
@@ -149,18 +149,25 @@ class PyiCloudSessionMock(base.PyiCloudSession):
         return None
 
 
-class PyiCloudServiceMock(base.PyiCloudService):
+class PyiCloudMock(base.PyiCloud):
     """Mocked PyiCloudService."""
 
     def __init__(
         self,
         apple_id,
-        password=None,
-        verify=True,
-        client_id=None,
-        with_family=True,
-        config=None,
+        password,
     ):
         """Set up pyicloud service mock."""
         base.PyiCloudSession = PyiCloudSessionMock
-        base.PyiCloudService.__init__(self, apple_id, password)
+        base.PyiCloud.__init__(self, apple_id, password)
+
+
+class PyiCloudServicesMock(base.PyiCloudServices):
+    """Mocked PyiCloudService."""
+
+    def __init__(
+        self,
+        endpoint,
+    ):
+        """Set up pyicloud service mock."""
+        base.PyiCloudServices.__init__(self, endpoint)

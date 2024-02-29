@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest import TestCase
 
-from . import PyiCloudServiceMock
+from . import PyiCloudMock, PyiCloudServicesMock
 from .const import AUTHENTICATED_USER, VALID_PASSWORD
 
 
@@ -15,7 +15,9 @@ class AccountServiceTest(TestCase):
 
     def setUp(self):
         """Set up tests."""
-        self.service = PyiCloudServiceMock(AUTHENTICATED_USER, VALID_PASSWORD).account
+        api = PyiCloudMock(AUTHENTICATED_USER, VALID_PASSWORD)
+        api.authenticate()
+        self.service = PyiCloudServicesMock(api).account
 
     def test_repr(self):
         """Tests representation."""
