@@ -10,7 +10,7 @@ from http import cookiejar
 from requests import Session
 from requests.cookies import cookiejar_from_dict
 
-from pyicloud.config import PyiCloudConfig
+from pyicloud.config import PyiCloudFileConfig
 from pyicloud.exceptions import (
     PyiCloud2SARequiredException,
     PyiCloudAPIResponseException,
@@ -59,14 +59,45 @@ class PyiCloudSession(Session):
 
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
+    # *fmt: off
+    BASE_COOKIES = (["dslang", "site"],)
+    LOGIN_COOKIES = (["aasp"],)
+    LOGGED_COOKIES = (
+        [
+            "acn01",
+            "X-APPLE-DS-WEB-SESSION-TOKEN",
+            "X-APPLE-UNIQUE-CLIENT-ID",
+            "X-APPLE-WEBAUTH-LOGIN",
+            "X-APPLE-WEBAUTH-USER",
+            "X-APPLE-WEBAUTH-VALIDATE",
+            *BASE_COOKIES,
+            *LOGIN_COOKIES,
+        ],
+    )
+    FA1_COOKIES = (
+        [
+            "X-APPLE-WEBAUTH-HSA-LOGIN",
+            *BASE_COOKIES,
+            *LOGGED_COOKIES,
+        ],
+    )
+    # *fmt: on
+    FA2_COOKIES = [
+        "X-APPLE-WEBAUTH-FMIP",
+        "X-APPLE-WEBAUTH-HSA-TRUST",
+        "X-APPLE-WEBAUTH-TOKEN",
+        *BASE_COOKIES,
+        *LOGGED_COOKIES,
+    ]
+
     def __init__(self, owner, password_filter=None):
         super().__init__()
 
         # init elements
         self._owner = owner
-        self._password_filter = None
 
         # Register filter if necessary
+        self._password_filter = None
         self.password_filter = password_filter
 
     @property
@@ -138,7 +169,7 @@ class PyiCloudSession(Session):
         # Save session to file
         self._owner.update_session(session_updates)
         # Save cookies to file
-        self.save_cookies_to_file(self._owner.config.cookiejar_file)
+        self.save_cookies_to_file(self._owner._config._cookiejar_file)
 
         if not response.ok and (content_type not in json_mimetypes or response.status_code in [421, 450, 500]):
             try:
@@ -249,7 +280,7 @@ class PyiCloudUser:
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
-    def __init__(self, apple_id: str, password: str = "", config=PyiCloudConfig.from_file()):
+    def __init__(self, apple_id: str, password: str = "", config=PyiCloudFileConfig.create()):
         # Public Props
         self.params = {}
 
@@ -261,7 +292,9 @@ class PyiCloudUser:
         self._config = config
         self._password_filter = None
 
-        # Prepare Session
+        # Update config after setting apple_id
+        self.config = config
+
         self._session = PyiCloudSession(self)
         self._session.verify = self.config.verify
         self._session.headers.update({"Origin": self.HOME_ENDPOINT, "Referer": "%s/" % self.HOME_ENDPOINT})
@@ -270,14 +303,15 @@ class PyiCloudUser:
         # trigger session customization so, set after usinf props
         self.apple_id = apple_id
         self.password = password
+        # Prepare Session
 
     def update_session(self, data):
         """Update session data."""
         self._session_data.update(data)
         # Save session_data to file
-        with open(self.config.session_file, "w", encoding="utf-8") as outfile:
+        with open(self._config._session_file, "w", encoding="utf-8") as outfile:
             json.dump(self._session_data, outfile)
-            LOGGER.debug("Saved session data to %s", self.config.session_file)
+            LOGGER.debug("Saved session data to %s", self._config._session_file)
 
     def authenticate(self, force_refresh=False, service=None):
         """
@@ -519,8 +553,8 @@ class PyiCloudUser:
         self._ws = {}
         self._session_data = {}
         try:
-            LOGGER.debug("Using session file %s", self.config.session_file)
-            with open(self.config.session_file, encoding="utf-8") as f:
+            LOGGER.debug("Using session file %s", self._config._session_file)
+            with open(self._config._session_file, encoding="utf-8") as f:
                 self._session_data = json.load(f)
         except json.JSONDecodeError:
             LOGGER.error("Session file is not a valid JSON file")
@@ -532,14 +566,14 @@ class PyiCloudUser:
             self.config.client_id = self._session_data.get("client_id")
         self._session_data.update({"client_id": self.config.client_id})
         # Load Cookies
-        self._session.load_cookies_from_file(self.config.cookiejar_file)
+        self._session.load_cookies_from_file(self._config._cookiejar_file)
 
     @property
     def config(self):
         """Config getter."""
         if self._config is None:
             raise PyiCloudException("Config is not set")
-        return self._config
+        return self._config.config
 
     @config.setter
     def config(self, value):
