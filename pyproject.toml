@@ -13,10 +13,12 @@ dependencies = [
     "tzlocal>=4.0",
     "certifi>=2020.6.20",
     "pyyaml>=6.0.1",
+    "anyio>=4.3.0",
+    "asyncclick>=8.1.7.1",
 ]
 dynamic = ["readme", "version"]
 
-requires-python = ">=3.8.1"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 keywords = ["icloud", "find-my-iphone"]
 maintainers = [{ name = "The PyiCloud Authors" }]
@@ -42,26 +44,19 @@ Changelog = "https://github.com/inean/releases"
 [project.scripts]
 icloud = "pyicloud.cmdline:main"
 
-
 [tool.pdm]
 distribution = false
 
 [tool.pdm.dev-dependencies]
-dev = [
-    "black>=23.3.0",
-    "pylint>=2.12.2",
-    "pytest>=7.0.1",
-    "tox-pdm>=0.7.2",
-    "flake8-pyproject>=1.2.3",
-]
+test = ["pytest>=8.0.1", "tox-pdm>=0.7.2"]
+dev = ["black>=23.3.0", "pylint>=2.12.2", "flake8-pyproject>=1.2.3"]
 
 [tool.pdm.scripts]
 icloud = { call = "pyicloud.cmdline:main" }
 
 [tool.black]
 line-length = 120
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
-include_trailing_comma = false
+target-version = ['py310', 'py311', 'py312']
 include = '(pyicloud|tests)\/.*(\.py|GET|POST)'
 
 [tool.isort]
@@ -118,7 +113,7 @@ legacy_tox_ini = """
 [tox]
 min_version = 4.0
 isolated_build = True
-envlist = py38, py39, py310, ,py311, py312, lint
+envlist =  py310, ,py311, py312, lint
 
 
 [testenv]
@@ -135,9 +130,8 @@ commands =
 
 [gh-actions]
 python =
-    3.8: py38, lint
-    3.9: py39
-    3.10: py310
+
+    3.10: py310, lint
     3.11: py311
     3.12: py312
 """

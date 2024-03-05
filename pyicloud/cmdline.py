@@ -5,11 +5,13 @@ command line scripts, and related.
 """
 from __future__ import annotations
 
-import argparse
 import getpass
 import logging
 import pickle
 import sys
+
+import anyio
+import asyncclick as click
 
 from pyicloud.base import PyiCloud, PyiCloudServices
 from pyicloud.exceptions import PyiCloudFailedLoginException
@@ -29,140 +31,47 @@ def create_pickled_data(idevice, filename):
         pickle.dump(idevice.content, pickle_file, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def main(args=None):
+class _DictProxy:
+    def __init__(self, dict_obj):
+        self._dict = dict_obj
+
+    def __getattr__(self, name):
+        try:
+            return self._dict[name]
+        except KeyError:
+            pass
+        return getattr(self._dict, name)
+
+    @property
+    def mirror(self):
+        return self._dict
+
+
+# fmt: off
+@click.command(name="icloud", help="Find My iPhone CommandLine Tool")
+@click.option("-u", "--username", required=True, help="Apple ID to Use")
+@click.option("-p", "--password", default="", help="Apple ID Password to Use")
+@click.option("--non-interactive", "interactive", is_flag=True, default=True, help="Disable interactive prompts.")
+@click.option("--list", "list", is_flag=True, default=False, help="Short Listings for Device(s) associated with account")
+@click.option("--llist", "longlist", is_flag=True, default=False, help="Detailed Listings for Device(s) associated with account")
+@click.option("--locate", is_flag=True, default=False, help="Retrieve Location for the iDevice (non-exclusive).")
+@click.option("--device", "device_id", default=False, help="Only effect this device")
+@click.option("--sound", is_flag=True, default=False, help="Play a sound on the device")
+@click.option("--message", default=False, help="Optional Text Message to display with a sound")
+@click.option("--silentmessage", default=False, help="Optional Text Message to display with no sounds")
+@click.option("--lostmode", is_flag=True, default=False, help="Enable Lost mode for the device")
+@click.option("--lostphone", default=False, help="Phone Number allowed to call when lost mode is enabled")
+@click.option("--lostpassword", default=False, help="Forcibly active this passcode on the idevice")
+@click.option("--lostmessage", default="", help="Forcibly display this message when activating lost mode.")
+@click.option("-v", "--verbose", is_flag=True, help="Increase output verbosity")
+@click.option("--outputfile", "output_to_file", is_flag=True, default=False, help="Save device data to a file in the current directory.")
+# fmt: on
+
+
+async def main(**kwargs):
     """Main commandline entrypoint."""
-    if args is None:
-        args = sys.argv[1:]
 
-    parser = argparse.ArgumentParser(prog="icloud", description="Find My iPhone CommandLine Tool")
-
-    parser.add_argument(
-        "-u",
-        "--username",
-        action="store",
-        dest="username",
-        required=True,
-        help="Apple ID to Use",
-    )
-    parser.add_argument(
-        "-p",
-        "--password",
-        action="store",
-        dest="password",
-        default="",
-        help="Apple ID Password to Use",
-    )
-    parser.add_argument(
-        "-n",
-        "--non-interactive",
-        action="store_false",
-        dest="interactive",
-        default=True,
-        help="Disable interactive prompts.",
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        dest="list",
-        default=False,
-        help="Short Listings for Device(s) associated with account",
-    )
-    parser.add_argument(
-        "--llist",
-        action="store_true",
-        dest="longlist",
-        default=False,
-        help="Detailed Listings for Device(s) associated with account",
-    )
-    parser.add_argument(
-        "--locate",
-        action="store_true",
-        dest="locate",
-        default=False,
-        help="Retrieve Location for the iDevice (non-exclusive).",
-    )
-
-    # Restrict actions to a specific devices UID / DID
-    parser.add_argument(
-        "--device",
-        action="store",
-        dest="device_id",
-        default=False,
-        help="Only effect this device",
-    )
-
-    # Trigger Sound Alert
-    parser.add_argument(
-        "--sound",
-        action="store_true",
-        dest="sound",
-        default=False,
-        help="Play a sound on the device",
-    )
-
-    # Trigger Message w/Sound Alert
-    parser.add_argument(
-        "--message",
-        action="store",
-        dest="message",
-        default=False,
-        help="Optional Text Message to display with a sound",
-    )
-
-    # Trigger Message (without Sound) Alert
-    parser.add_argument(
-        "--silentmessage",
-        action="store",
-        dest="silentmessage",
-        default=False,
-        help="Optional Text Message to display with no sounds",
-    )
-
-    # Lost Mode
-    parser.add_argument(
-        "--lostmode",
-        action="store_true",
-        dest="lostmode",
-        default=False,
-        help="Enable Lost mode for the device",
-    )
-    parser.add_argument(
-        "--lostphone",
-        action="store",
-        dest="lost_phone",
-        default=False,
-        help="Phone Number allowed to call when lost mode is enabled",
-    )
-    parser.add_argument(
-        "--lostpassword",
-        action="store",
-        dest="lost_password",
-        default=False,
-        help="Forcibly active this passcode on the idevice",
-    )
-    parser.add_argument(
-        "--lostmessage",
-        action="store",
-        dest="lost_message",
-        default="",
-        help="Forcibly display this message when activating lost mode.",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Increase output verbosity",
-    )
-    # Output device data to an pickle file
-    parser.add_argument(
-        "--outputfile",
-        action="store_true",
-        dest="output_to_file",
-        default="",
-        help="Save device data to a file in the current directory.",
-    )
-
-    command_line = parser.parse_args(args)
+    command_line = _DictProxy(kwargs)
 
     if command_line.verbose:
         logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -176,7 +85,7 @@ def main(args=None):
         # Which password we use is determined by your username, so we
         # do need to check for this first and separately.
         if not username:
-            parser.error("No username supplied")
+            raise click.ClickException("No username supplied")
 
         try:
             api.authenticate()
@@ -334,4 +243,4 @@ def main(args=None):
 
 
 if __name__ == "__main__":
-    main()
+    main(_anyio_backend="asyncio")

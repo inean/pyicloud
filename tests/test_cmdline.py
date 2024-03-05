@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import os
 import pickle
-from unittest import TestCase
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
 import pytest
+from asyncclick.testing import CliRunner
 
 from pyicloud import cmdline
 
@@ -16,89 +17,102 @@ from .const import AUTHENTICATED_USER, REQUIRES_2FA_USER, VALID_2FA_CODE, VALID_
 from .const_findmyiphone import FMI_FAMILY_WORKING
 
 
-class TestCmdline(TestCase):
+class TestCmdline(IsolatedAsyncioTestCase):
     """Cmdline test cases."""
-
-    main = None
 
     def setUp(self):
         """Set up tests."""
-        cmdline.PyiCloudService = PyiCloudMock
+        cmdline.PyiCloud = PyiCloudMock
         self.main = cmdline.main
 
-    def test_no_arg(self):
+    @pytest.mark.anyio
+    async def test_no_arg(self):
         """Test no args."""
-        with pytest.raises(SystemExit, match="2"):
-            self.main()
+        runner = CliRunner()
 
-        with pytest.raises(SystemExit, match="2"):
-            self.main(None)
+        result = await runner.invoke(self.main)
+        assert result.exit_code == 2
 
-        with pytest.raises(SystemExit, match="2"):
-            self.main([])
+        result = await runner.invoke(self.main, args=[])
+        assert result.exit_code == 2
 
-    def test_help(self):
+    @pytest.mark.anyio
+    async def test_help(self):
         """Test the help command."""
-        with pytest.raises(SystemExit, match="0"):
-            self.main(["--help"])
+        runner = CliRunner()
 
-    def test_username(self):
+        result = await runner.invoke(self.main, ["--help"])
+        assert result.exit_code == 0
+
+    @pytest.mark.anyio
+    async def test_username(self):
         """Test the username command."""
         # No username supplied
-        with pytest.raises(SystemExit, match="2"):
-            self.main(["--username"])
+        runner = CliRunner()
 
-    def test_username_password_invalid(self):  # pylint: disable=unused-argument
+        result = await runner.invoke(self.main, ["--username"])
+        assert result.exit_code == 2
+
+    @pytest.mark.anyio
+    async def test_username_password_invalid(self):  # pylint: disable=unused-argument
         """Test username and password commands."""
         # Bad username or password
-        with pytest.raises(RuntimeError, match="Bad username or password for invalid_user"):
-            self.main(["--username", "invalid_user"])
+        runner = CliRunner()
+
+        result = await runner.invoke(self.main, ["--username", "invalid_user"])
+        assert "Bad username or password for invalid_user" in str(result.exception)
 
         # We should not use getpass for this one, but we reset the password at login fail
-        with pytest.raises(RuntimeError, match="Bad username or password for invalid_user"):
-            self.main(["--username", "invalid_user", "--password", "invalid_pass"])
+        result = await runner.invoke(self.main, ["--username", "invalid_user", "--password", "invalid_pass"])
+        assert "Bad username or password for invalid_user" in str(result.exception)
 
+    @pytest.mark.anyio
     @patch("pyicloud.cmdline.input")
-    def test_username_password_requires_2fa(self, mock_input):  # pylint: disable=unused-argument
+    async def test_username_password_requires_2fa(self, mock_input):  # pylint: disable=unused-argument
         """Test username and password commands."""
         # Valid connection for the first time
         mock_input.return_value = VALID_2FA_CODE
-        with pytest.raises(SystemExit, match="0"):
-            # fmt: off
-            self.main([
-                '--username', REQUIRES_2FA_USER,
-                '--password', VALID_PASSWORD,
-                '--non-interactive',
-            ])
-            # fmt: on
+        runner = CliRunner()
 
-    def test_device_outputfile(self):  # pylint: disable=unused-argument
+        result = await runner.invoke(
+            self.main,
+            [
+                "--username",
+                REQUIRES_2FA_USER,
+                "--password",
+                VALID_PASSWORD,
+                "--non-interactive",
+            ],
+        )
+        assert result.exit_code == 0
+
+    @pytest.mark.anyio
+    async def test_device_outputfile(self):  # pylint: disable=unused-argument
         """Test the outputfile command."""
-        with pytest.raises(SystemExit, match="0"):
-            # fmt: off
-            self.main([
-                '--username', AUTHENTICATED_USER,
-                '--password', VALID_PASSWORD,
-                '--non-interactive',
-                '--outputfile'
-            ])
-            # fmt: on
+        runner = CliRunner()
+
+        result = await runner.invoke(
+            self.main,
+            ["--username", AUTHENTICATED_USER, "--password", VALID_PASSWORD, "--non-interactive", "--outputfile"],
+        )
+        assert result.exit_code == 0
 
         devices = FMI_FAMILY_WORKING.get("content")
-        for device in devices:
-            file_name = device.get("name").strip().lower() + ".fmip_snapshot"
+        if devices:
+            for device in devices:
+                file_name = device.get("name").strip().lower() + ".fmip_snapshot"
 
-            pickle_file = open(file_name, "rb")
-            assert pickle_file
+                pickle_file = open(file_name, "rb")
+                assert pickle_file
 
-            contents = []
-            with pickle_file as opened_file:
-                while True:
-                    try:
-                        contents.append(pickle.load(opened_file))
-                    except EOFError:
-                        break
-            assert contents == [device]
+                contents = []
+                with pickle_file as opened_file:
+                    while True:
+                        try:
+                            contents.append(pickle.load(opened_file))
+                        except EOFError:
+                            break
+                assert contents == [device]
 
-            pickle_file.close()
-            os.remove(file_name)
+                pickle_file.close()
+                os.remove(file_name)
