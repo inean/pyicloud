@@ -118,6 +118,7 @@ class PyiCloudSession(Session):
 
     def load_cookies_from_file(self, cookiejar_file):
         """Load cookies from file."""
+        self.cookies = self._owner._config.cookies.matter
         lwp_cookie_jar = cookiejar.LWPCookieJar(filename=cookiejar_file)
         try:
             lwp_cookie_jar.load(ignore_discard=True, ignore_expires=True)
