@@ -6,6 +6,7 @@ import inspect
 import json
 import logging
 from http import cookiejar
+from urllib import request
 
 from requests import Session
 from requests.cookies import cookiejar_from_dict
@@ -29,15 +30,9 @@ from pyicloud.services import (
     UbiquityService,
 )
 
-LOGGER = logging.getLogger(__name__)
+from pprint import pformat
 
-HEADER_DATA = {
-    "X-Apple-ID-Account-Country": "account_country",
-    "X-Apple-ID-Session-Id": "session_id",
-    "X-Apple-Session-Token": "session_token",
-    "X-Apple-TwoSV-Trust-Token": "trust_token",
-    "scnt": "scnt",
-}
+LOGGER = logging.getLogger(__name__)
 
 
 class PyiCloudPasswordFilter(logging.Filter):
@@ -54,41 +49,59 @@ class PyiCloudPasswordFilter(logging.Filter):
         return True
 
 
+def log_request(func):
+    def wrapper(self, method, url, **kwargs):
+        # Charge logging to the right service endpoint
+        callee = inspect.stack()[2]
+        module = inspect.getmodule(callee[0])
+        logger = logging.getLogger(module.__name__).getChild("http")
+        logger.debug("%s %s %s", method, url, kwargs.get("data", ""))
+        return func(self, method, url, logger, **kwargs)
+
+    return wrapper
+
+
 class PyiCloudSession(Session):
     """iCloud session."""
 
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
-    # *fmt: off
-    BASE_COOKIES = (["dslang", "site"],)
-    LOGIN_COOKIES = (["aasp"],)
-    LOGGED_COOKIES = (
-        [
-            "acn01",
-            "X-APPLE-DS-WEB-SESSION-TOKEN",
-            "X-APPLE-UNIQUE-CLIENT-ID",
-            "X-APPLE-WEBAUTH-LOGIN",
-            "X-APPLE-WEBAUTH-USER",
-            "X-APPLE-WEBAUTH-VALIDATE",
-            *BASE_COOKIES,
-            *LOGIN_COOKIES,
-        ],
-    )
-    FA1_COOKIES = (
-        [
-            "X-APPLE-WEBAUTH-HSA-LOGIN",
-            *BASE_COOKIES,
-            *LOGGED_COOKIES,
-        ],
-    )
-    # *fmt: on
-    FA2_COOKIES = [
+    HEADER_DATA = {
+        "X-Apple-ID-Account-Country": "account_country",
+        "X-Apple-ID-Session-Id": "session_id",
+        "X-Apple-Session-Token": "session_token",
+        "X-Apple-TwoSV-Trust-Token": "trust_token",
+        "scnt": "scnt",
+    }
+
+    BASE_COOKIES: list[str] = ["dslang", "site"]
+    LOGIN_COOKIES: list[str] = ["aasp"]
+    LOGGED_COOKIES: list[str] = [
+        "acn01",
+        "X-APPLE-DS-WEB-SESSION-TOKEN",
+        "X-APPLE-UNIQUE-CLIENT-ID",
+        "X-APPLE-WEBAUTH-LOGIN",
+        "X-APPLE-WEBAUTH-USER",
+        "X-APPLE-WEBAUTH-VALIDATE",
+        *BASE_COOKIES,
+        *LOGIN_COOKIES,
+    ]
+
+    VERIFY_COOKIES: list[str] = [
+        "X-APPLE-WEBAUTH-HSA-LOGIN",
+        *BASE_COOKIES,
+        *LOGGED_COOKIES,
+    ]
+
+    VERIFIED_COOKIES: list[str] = [
         "X-APPLE-WEBAUTH-FMIP",
         "X-APPLE-WEBAUTH-HSA-TRUST",
         "X-APPLE-WEBAUTH-TOKEN",
         *BASE_COOKIES,
         *LOGGED_COOKIES,
     ]
+
+    JSON_MIMETYPES = ["application/json", "text/json"]
 
     def __init__(self, owner, password_filter=None):
         super().__init__()
@@ -118,7 +131,6 @@ class PyiCloudSession(Session):
 
     def load_cookies_from_file(self, cookiejar_file):
         """Load cookies from file."""
-        self.cookies = self._owner._config.cookies.matter
         lwp_cookie_jar = cookiejar.LWPCookieJar(filename=cookiejar_file)
         try:
             lwp_cookie_jar.load(ignore_discard=True, ignore_expires=True)
@@ -126,14 +138,16 @@ class PyiCloudSession(Session):
         except FileNotFoundError:
             LOGGER.info("Failed to read cookiejar %s", cookiejar_file)
         # Convert LWPCookieJar to a dictionary
-        cookie_dict = {c.name: c.value for c in lwp_cookie_jar}
+        cookie_dict = {c.name: c.value for c in lwp_cookie_jar if c.name in self.VERIFIED_COOKIES}
         # Create a RequestsCookieJar from the dictionary
         self.cookies = cookiejar_from_dict(cookie_dict)
+        LOGGER.debug("Loaded cookies %s", pformat(cookie_dict))
 
-    def save_cookies_to_file(self, cookiejar_file):
+    def _save_cookies_to_file(self, cookiejar_file):
         """Save cookies to file."""
         # Convert RequestsCookieJar to LWPCookieJar
         lwp_cookie_jar = cookiejar.LWPCookieJar()
+
         for c in self.cookies:
             args = dict(vars(c).items())
             # Convert non standard attributes from RequestsCookieJar to LWPCookieJar
@@ -148,42 +162,49 @@ class PyiCloudSession(Session):
         except FileNotFoundError:
             LOGGER.warning("Failed to save cookiejar %s", cookiejar_file)
 
-    def request(self, method, url, **kwargs):  # pylint: disable=arguments-differ
-        # Charge logging to the right service endpoint
-        callee = inspect.stack()[2]
-        module = inspect.getmodule(callee[0])
-        logger = logging.getLogger(module.__name__).getChild("http")
-        logger.debug("%s %s %s", method, url, kwargs.get("data", ""))
-
-        has_retried = kwargs.get("retried")
-        kwargs.pop("retried", None)
-        response = super().request(method, url, **kwargs)
-
+    def _update_session(self, response):
         content_type = response.headers.get("Content-Type", "").split(";")[0]
-        json_mimetypes = ["application/json", "text/json"]
-
         session_updates = {
             value: header_value
-            for header, value in HEADER_DATA.items()
+            for header, value in self.HEADER_DATA.items()
             if (header_value := response.headers.get(header))
         }
         # Save session to file
-        self._owner.update_session(session_updates)
-        # Save cookies to file
-        self.save_cookies_to_file(self._owner._config._cookiejar_file)
+        self._owner._session_data.update(session_updates)
+        # Save session_data to file
+        with open(self._owner._config._session_file, "w", encoding="utf-8") as outfile:
+            json.dump(self._owner._session_data, outfile)
+            LOGGER.debug("Saved session data to %s", self._owner._config._session_file)
 
-        if not response.ok and (content_type not in json_mimetypes or response.status_code in [421, 450, 500]):
+        return content_type
+
+    @log_request
+    def request(self, method, url, logger=LOGGER, **kwargs):  # pylint: disable=arguments-differ
+
+        has_retried = kwargs.pop("retried", False)
+        response = super().request(method, url, **kwargs)
+
+        # Save cookies to file
+        self._save_cookies_to_file(self._owner._config._cookiejar_file)
+
+        # Update session
+        content_type = self._update_session(response)
+
+        LOGGER.debug("Response Code: %s", response.status_code)
+        LOGGER.debug(pformat(response))
+
+        if not response.ok and (content_type not in self.JSON_MIMETYPES or response.status_code == 450):
+            # Handle re-authentication for Find My iPhone
             try:
                 # pylint: disable=protected-access
                 fmip_url = self._owner["findme"]
-                if has_retried is None and response.status_code in [421, 450, 500] and fmip_url in url:
+
+                if not has_retried and response.status_code == 450 and fmip_url in url:
                     # Handle re-authentication for Find My iPhone
                     LOGGER.debug("Re-authenticating Find My iPhone service")
                     try:
                         # If 450, authentication requires a full sign in to the account
-                        service = None if response.status_code == 450 else "find"
-                        self._owner.authenticate(True, service)
-
+                        self._owner.authenticate(True, "find")
                     except PyiCloudAPIResponseException:
                         LOGGER.debug("Re-authentication failed")
                     kwargs["retried"] = True
@@ -191,26 +212,36 @@ class PyiCloudSession(Session):
             except Exception:
                 pass
 
-            if has_retried is None and response.status_code in [421, 450, 500]:
-                api_error = PyiCloudAPIResponseException(response.reason, response.status_code, retry=True)
-                logger.debug(api_error)
-                kwargs["retried"] = True
-                return self.request(method, url, **kwargs)
+        if (
+            not response.ok
+            and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500])
+            and (not has_retried and response.status_code in [421, 450, 500])
+        ):
+            api_error = PyiCloudAPIResponseException(response.reason, response.status_code, retry=True)
+            logger.debug(api_error)
+            kwargs["retried"] = True
+            return self.request(method, url, **kwargs)
 
+        if not response.ok and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500]):
             self._raise_error(response.status_code, response.reason)
 
-        if content_type not in json_mimetypes:
+        if content_type not in self.JSON_MIMETYPES:
             return response
 
         try:
             data = response.json()
         except Exception:
-            logger.debug(response)
+            logger.debug(pformat(response))
             logger.warning("Failed to parse response with JSON mimetype")
             return response
 
-        logger.debug(data)
+        logger.debug(pformat(data))
 
+        self._parse_error(data)
+
+        return response
+
+    def _parse_error(self, data):
         if isinstance(data, dict):
             reason = data.get("errorMessage")
             reason = reason or data.get("reason")
@@ -226,8 +257,6 @@ class PyiCloudSession(Session):
 
             if reason:
                 self._raise_error(code, reason)
-
-        return response
 
     def _raise_error(self, code, reason):
         if self._owner.requires_2sa and reason == "Missing X-APPLE-WEBAUTH-TOKEN cookie":
@@ -249,6 +278,31 @@ class PyiCloudSession(Session):
         api_error = PyiCloudAPIResponseException(reason, code)
         LOGGER.error(api_error)
         raise api_error
+
+
+class Event:
+    def __init__(self, events, allow_duplicates=True):
+        self._events = {event: [] for event in events}
+
+    def subscribe(self, event_name, func):
+        if event_name not in self._events:
+            raise ValueError(f"No such event: {event_name}")
+        if func in self._events[event_name]:
+            raise ValueError(f"Function already subscribed to event: {event_name}")
+        self._events[event_name].append(func)
+
+    def unsubscribe(self, event_name, func):
+        if event_name not in self._events:
+            raise ValueError(f"No such event: {event_name}")
+        if func not in self._events[event_name]:
+            raise ValueError(f"Function not subscribed to event: {event_name}")
+        self._events[event_name].remove(func)
+
+    def fire(self, event_name, *args, **kwargs):
+        if event_name not in self._events:
+            raise ValueError(f"No such event: {event_name}")
+        for subscriber in self._events[event_name]:
+            subscriber(*args, **kwargs)
 
 
 class PyiCloudUser:
@@ -293,6 +347,8 @@ class PyiCloudUser:
         self._config = config
         self._password_filter = None
 
+        self._events = Event(["apple_id_changed"])
+
         # Update config after setting apple_id
         self.config = config
 
@@ -305,14 +361,6 @@ class PyiCloudUser:
         self.apple_id = apple_id
         self.password = password
         # Prepare Session
-
-    def update_session(self, data):
-        """Update session data."""
-        self._session_data.update(data)
-        # Save session_data to file
-        with open(self._config._session_file, "w", encoding="utf-8") as outfile:
-            json.dump(self._session_data, outfile)
-            LOGGER.debug("Saved session data to %s", self._config._session_file)
 
     def authenticate(self, force_refresh=False, service=None):
         """
@@ -546,6 +594,8 @@ class PyiCloudUser:
             raise PyiCloudException("Apple ID cannot be empty")
         if self._apple_id == value:
             return
+        if self._apple_id and self._apple_id != value:
+            raise PyiCloudException("Apple ID cannot be changed")
 
         self._apple_id = value
         self._config.apple_id = value

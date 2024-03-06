@@ -9,6 +9,7 @@ import getpass
 import logging
 import pickle
 import sys
+from os import name
 
 import anyio
 import asyncclick as click
@@ -63,7 +64,7 @@ class _DictProxy:
 @click.option("--lostphone", default=False, help="Phone Number allowed to call when lost mode is enabled")
 @click.option("--lostpassword", default=False, help="Forcibly active this passcode on the idevice")
 @click.option("--lostmessage", default="", help="Forcibly display this message when activating lost mode.")
-@click.option("-v", "--verbose", is_flag=True, help="Increase output verbosity")
+@click.option("-v","verbose", count=True, help="Increase output verbosity")
 @click.option("--outputfile", "output_to_file", is_flag=True, default=False, help="Save device data to a file in the current directory.")
 # fmt: on
 
@@ -73,8 +74,13 @@ async def main(**kwargs):
 
     command_line = _DictProxy(kwargs)
 
-    if command_line.verbose:
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    match command_line.verbose:
+        case 2 if command_line.verbose >= 2:
+            logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+        case 1:
+            logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+        case _:
+            logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
 
     username = str.strip(command_line.username)
     password = str.strip(command_line.password)
