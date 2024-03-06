@@ -6,6 +6,7 @@ import inspect
 import json
 import logging
 from http import cookiejar
+from pprint import pformat
 from urllib import request
 
 from requests import Session
@@ -30,13 +31,33 @@ from pyicloud.services import (
     UbiquityService,
 )
 
-from pprint import pformat
-
 LOGGER = logging.getLogger(__name__)
 
 
 class PyiCloudPasswordFilter(logging.Filter):
     """Password log hider."""
+
+    _ACTIVE_FILTERS = {}
+
+    @classmethod
+    def register(cls, instance, logger=LOGGER):
+        """Register the object to the active filters."""
+        if logger not in cls._ACTIVE_FILTERS:
+            cls._ACTIVE_FILTERS[logger] = {}
+        assert instance not in cls._ACTIVE_FILTERS[logger]
+        cls._ACTIVE_FILTERS[logger][instance] = None
+
+    @classmethod
+    def on_password_changed(cls, value):
+        """Update the password for the active filters."""
+        for logger in cls._ACTIVE_FILTERS:
+            for instance, password_filter in cls._ACTIVE_FILTERS[logger].items():
+                if password_filter:
+                    logger.removeFilter(password_filter)
+                if value:
+                    password_filter = cls(value)
+                    logger.addFilter(password_filter)
+                    cls._ACTIVE_FILTERS[logger][instance] = password_filter
 
     def __init__(self, password):
         super().__init__(password)
@@ -103,31 +124,17 @@ class PyiCloudSession(Session):
 
     JSON_MIMETYPES = ["application/json", "text/json"]
 
-    def __init__(self, owner, password_filter=None):
+    def __init__(self, owner):
         super().__init__()
 
         # init elements
         self._owner = owner
 
-        # Register filter if necessary
-        self._password_filter = None
-        self.password_filter = password_filter
-
-    @property
-    def password_filter(self):
-        """Password filter getter."""
-        raise AttributeError("Password filter is write-only")
-
-    @password_filter.setter
-    def password_filter(self, value):
+        # set password filter
         callee = inspect.stack()[2]
         module = inspect.getmodule(callee[0])
         logger = logging.getLogger(module.__name__).getChild("http")
-        if self._password_filter:
-            logger.removeFilter(self._password_filter)
-        self._password_filter = value
-        if self._password_filter:
-            logger.addFilter(self._password_filter)
+        PyiCloudPasswordFilter.register(self, logger)
 
     def load_cookies_from_file(self, cookiejar_file):
         """Load cookies from file."""
@@ -341,13 +348,13 @@ class PyiCloudUser:
 
         # Private Props
         self._apple_id = ""
+        self._password = ""
+
         self._ws = {}
         self._state = {}
-        self._password = ""
         self._config = config
-        self._password_filter = None
 
-        self._events = Event(["apple_id_changed"])
+        self._events = Event(["apple_id_changed", "password_changed"])
 
         # Update config after setting apple_id
         self.config = config
@@ -356,6 +363,8 @@ class PyiCloudUser:
         self._session.verify = self.config.verify
         self._session.headers.update({"Origin": self.HOME_ENDPOINT, "Referer": "%s/" % self.HOME_ENDPOINT})
 
+        PyiCloudPasswordFilter.register(self)
+        self._events.subscribe("password_changed", PyiCloudPasswordFilter.on_password_changed)
         # Write Only Props. Changes to apple_id and password will
         # trigger session customization so, set after usinf props
         self.apple_id = apple_id
@@ -640,14 +649,8 @@ class PyiCloudUser:
 
     @password.setter
     def password(self, value):
-        if self._password_filter:
-            LOGGER.removeFilter(self._password_filter)
-            self._session.password_filter = None
         self._password = value
-        if value:
-            self._password_filter = PyiCloudPasswordFilter(value)
-            LOGGER.addFilter(self._password_filter)
-            self._session.password_filter = self._password_filter
+        self._events.fire("password_changed", value)
 
     @property
     def session(self):
