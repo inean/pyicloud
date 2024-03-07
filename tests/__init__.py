@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from requests import Response
+import httpx
 
 from pyicloud import base
 
@@ -40,12 +40,12 @@ from .const_login import (
 )
 
 
-class ResponseMock(Response):
+class ResponseMock(httpx.Response):
     """Mocked Response."""
 
     def __init__(self, result, status_code=200, **kwargs):
         """Set up response mock."""
-        Response.__init__(self)
+        super().__init__(status_code)
         self.result = result
         self.status_code = status_code
         self.raw = kwargs.get("raw")
@@ -55,6 +55,10 @@ class ResponseMock(Response):
     def text(self):
         """Return text."""
         return json.dumps(self.result)
+
+    def json(self):
+        """Return json."""
+        return json.loads(self.text)
 
 
 class PyiCloudSessionMock(base.PyiCloudSession):
@@ -134,6 +138,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                 return ResponseMock(DRIVE_FOLDER_WORKING)
             if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::D5AA0425-E84F-4501-AF5D-60F1D92648CF":
                 return ResponseMock(DRIVE_SUBFOLDER_WORKING)
+
         # Drive download
         if "com.apple.CloudDocs/download/by_id" in url and method == "GET":
             if params.get("document_id") == "516C896C-6AA5-4A30-B30E-5502C2333DAE":

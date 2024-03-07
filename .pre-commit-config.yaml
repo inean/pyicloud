@@ -3,6 +3,15 @@ ci:
   autofix_commit_msg: "style: pre-commit fixes"
 
 repos:
+  - repo: local
+    hooks:
+      - id: pdm-hook
+        name: Activate virtuelenv
+        entry: pdm venv activate
+        language: python
+        pass_filenames: false
+        additional_dependencies: [pdm]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:

@@ -84,5 +84,5 @@ class DriveServiceTest(TestCase):
     def test_file_open(self):
         """Test the /pyiCloud/Test/Scanned document 1.pdf file open."""
         file_test = self.service.drive["pyiCloud"]["Test"]["Scanned document 1.pdf"]
-        with file_test.open(stream=True) as response:
-            assert response.raw
+        with file_test.open() as response:
+            assert response.iter_raw()

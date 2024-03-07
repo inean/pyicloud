@@ -1,16 +1,18 @@
 """Drive service."""
-from datetime import datetime, timedelta
+
+import http
+import io
 import json
 import logging
-import io
 import mimetypes
 import os
 import time
+from datetime import datetime, timedelta
 from re import search
-from requests import Response
+
+import httpx
 
 from pyicloud.exceptions import PyiCloudAPIResponseException
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -64,16 +66,14 @@ class DriveService:
         package_token = response_json.get("package_token")
         data_token = response_json.get("data_token")
         if data_token and data_token.get("url"):
-            return self.session.get(data_token["url"], params=self.params, **kwargs)
+            return self.session.stream("GET", data_token["url"], params=self.params, **kwargs)
         if package_token and package_token.get("url"):
-            return self.session.get(package_token["url"], params=self.params, **kwargs)
+            return self.session.stream("GET", package_token["url"], params=self.params, **kwargs)
         raise KeyError("'data_token' nor 'package_token'")
 
     def get_app_data(self):
         """Returns the app library (previously ubiquity)."""
-        request = self.session.get(
-            self._service_root + "/retrieveAppLibraries", params=self.params
-        )
+        request = self.session.get(self._service_root + "/retrieveAppLibraries", params=self.params)
         self._raise_if_error(request)
         return request.json()["items"]
 
@@ -229,11 +229,9 @@ class DriveService:
     def __getitem__(self, key):
         return self.root[key]
 
-    def _raise_if_error(self, response):  # pylint: disable=no-self-use
-        if not response.ok:
-            api_error = PyiCloudAPIResponseException(
-                response.reason, response.status_code
-            )
+    def _raise_if_error(self, response: httpx.Response):  # pylint: disable=no-self-use
+        if not response.is_success:
+            api_error = PyiCloudAPIResponseException(response.reason_phrase, response.status_code)
             LOGGER.error(api_error)
             raise api_error
 
@@ -266,10 +264,7 @@ class DriveNode:
                 self.data.update(self.connection.get_node_data(self.data["docwsid"]))
             if "items" not in self.data:
                 raise KeyError("No items in folder, status: %s" % self.data["status"])
-            self._children = [
-                DriveNode(self.connection, item_data)
-                for item_data in self.data["items"]
-            ]
+            self._children = [DriveNode(self.connection, item_data) for item_data in self.data["items"]]
         return self._children
 
     @property
@@ -299,8 +294,7 @@ class DriveNode:
         """Gets the node file."""
         # iCloud returns 400 Bad Request for 0-byte files
         if self.data["size"] == 0:
-            response = Response()
-            response.raw = io.BytesIO()
+            response = httpx.Response(httpx.codes.OK, content=b"")
             return response
         return self.connection.get_file(self.data["docwsid"], **kwargs)
 
@@ -320,15 +314,11 @@ class DriveNode:
 
     def rename(self, name):
         """Rename an iCloud Drive item."""
-        return self.connection.rename_items(
-            self.data["drivewsid"], self.data["etag"], name
-        )
+        return self.connection.rename_items(self.data["drivewsid"], self.data["etag"], name)
 
     def delete(self):
         """Delete an iCloud Drive item."""
-        return self.connection.move_items_to_trash(
-            self.data["drivewsid"], self.data["etag"]
-        )
+        return self.connection.move_items_to_trash(self.data["drivewsid"], self.data["etag"])
 
     def get(self, name):
         """Gets the node child."""

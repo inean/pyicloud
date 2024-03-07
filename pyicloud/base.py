@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import inspect
 import json
-import logging
 from http import cookiejar
 from pprint import pformat
 
-from requests import Session
-from requests.cookies import cookiejar_from_dict
+import httpx
 
 from pyicloud.config import PyiCloudFileConfig
 from pyicloud.exceptions import (
@@ -38,7 +35,7 @@ class PyiCloudConstants:
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
 
-class PyiCloudSession(Session):
+class PyiCloudSession(httpx.Client):
     """iCloud session."""
 
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
@@ -81,7 +78,7 @@ class PyiCloudSession(Session):
     JSON_MIMETYPES = ["application/json", "text/json"]
 
     def __init__(self, owner, auth_callback=None, error_callback=None):
-        super().__init__()
+        super().__init__(follow_redirects=True)
 
         # init elements
         self._owner = owner
@@ -101,24 +98,13 @@ class PyiCloudSession(Session):
             LOGGER.debug("Read cookies from %s", cookiejar_file)
         except FileNotFoundError:
             LOGGER.info("Failed to read cookiejar %s", cookiejar_file)
-        # Convert LWPCookieJar to a dictionary
-        cookie_dict = {c.name: c.value for c in lwp_cookie_jar if c.name in self.VERIFIED_COOKIES}
-        # Create a RequestsCookieJar from the dictionary
-        self.cookies = cookiejar_from_dict(cookie_dict)
-        LOGGER.debug("Loaded cookies %s", pformat(cookie_dict))
+        self.cookies = httpx.Cookies(lwp_cookie_jar)
 
     def _save_cookies_to_file(self, cookiejar_file):
         """Save cookies to file."""
-        # Convert RequestsCookieJar to LWPCookieJar
         lwp_cookie_jar = cookiejar.LWPCookieJar()
-
-        for c in self.cookies:
-            args = dict(vars(c).items())
-            # Convert non standard attributes from RequestsCookieJar to LWPCookieJar
-            args["rest"] = args["_rest"]
-            args.pop("_rest")
-            c = cookiejar.Cookie(**args)
-            lwp_cookie_jar.set_cookie(c)
+        for cookie in self.cookies.jar:
+            lwp_cookie_jar.set_cookie(cookie)
         try:
             # Save LWPCookieJar to file
             LOGGER.debug("Saved cookies to %s", cookiejar_file)
@@ -157,7 +143,7 @@ class PyiCloudSession(Session):
         LOGGER.debug("Response Code: %s", response.status_code)
         LOGGER.debug(pformat(response))
 
-        if not response.ok and (content_type not in self.JSON_MIMETYPES or response.status_code == 450):
+        if not response.is_success and (content_type not in self.JSON_MIMETYPES or response.status_code == 450):
             # Handle re-authentication for Find My iPhone
             try:
                 # pylint: disable=protected-access
@@ -178,17 +164,19 @@ class PyiCloudSession(Session):
                 pass
 
         if (
-            not response.ok
+            not response.is_success
             and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500])
             and (not has_retried and response.status_code in [421, 450, 500])
         ):
-            api_error = PyiCloudAPIResponseException(response.reason, response.status_code, retry=True)
+            api_error = PyiCloudAPIResponseException(response.reason_phrase, response.status_code, retry=True)
             logger.debug(api_error)
             kwargs["retried"] = True
             return self.request(method, url, **kwargs)
 
-        if not response.ok and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500]):
-            self._error_callback(response.status_code, response.reason)
+        if not response.is_success and (
+            content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500]
+        ):
+            self._error_callback(response.status_code, response.reason_phrase)
 
         if content_type not in self.JSON_MIMETYPES:
             return response
