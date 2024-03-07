@@ -32,6 +32,12 @@ from pyicloud.services import (
 )
 
 
+class PyiCloudConstants:
+    AUTH_ENDPOINT = "https://idmsa.apple.com/appleauth/auth"
+    HOME_ENDPOINT = "https://www.icloud.com"
+    SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
+
+
 class PyiCloudSession(Session):
     """iCloud session."""
 
@@ -74,11 +80,16 @@ class PyiCloudSession(Session):
 
     JSON_MIMETYPES = ["application/json", "text/json"]
 
-    def __init__(self, owner):
+    def __init__(self, owner, auth_callback=None, error_callback=None):
         super().__init__()
 
         # init elements
         self._owner = owner
+        self._config = owner._config
+
+        self._auth_callback = auth_callback or self._owner.authenticate
+        self._error_callback = error_callback or self._owner._raise_error
+
         # set password filter
         PyiCloudPasswordFilter.register(self, logger=get_logger("http"))
 
@@ -125,9 +136,9 @@ class PyiCloudSession(Session):
         # Save session to file
         self._owner._session_data.update(session_updates)
         # Save session_data to file
-        with open(self._owner._config._session_file, "w", encoding="utf-8") as outfile:
+        with open(self._config._session_file, "w", encoding="utf-8") as outfile:
             json.dump(self._owner._session_data, outfile)
-            LOGGER.debug("Saved session data to %s", self._owner._config._session_file)
+            LOGGER.debug("Saved session data to %s", self._config._session_file)
 
         return content_type
 
@@ -138,7 +149,7 @@ class PyiCloudSession(Session):
         response = super().request(method, url, **kwargs)
 
         # Save cookies to file
-        self._save_cookies_to_file(self._owner._config._cookiejar_file)
+        self._save_cookies_to_file(self._config._cookiejar_file)
 
         # Update session
         content_type = self._update_session(response)
@@ -151,13 +162,14 @@ class PyiCloudSession(Session):
             try:
                 # pylint: disable=protected-access
                 fmip_url = self._owner["findme"]
+                print(fmip_url, url)
 
                 if not has_retried and response.status_code == 450 and fmip_url in url:
                     # Handle re-authentication for Find My iPhone
                     LOGGER.debug("Re-authenticating Find My iPhone service")
                     try:
                         # If 450, authentication requires a full sign in to the account
-                        self._owner.authenticate(True, "find")
+                        self._auth_callback(True, "find")
                     except PyiCloudAPIResponseException:
                         LOGGER.debug("Re-authentication failed")
                     kwargs["retried"] = True
@@ -176,7 +188,7 @@ class PyiCloudSession(Session):
             return self.request(method, url, **kwargs)
 
         if not response.ok and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500]):
-            self._raise_error(response.status_code, response.reason)
+            self._error_callback(response.status_code, response.reason)
 
         if content_type not in self.JSON_MIMETYPES:
             return response
@@ -209,28 +221,7 @@ class PyiCloudSession(Session):
                 code = data.get("serverErrorCode")
 
             if reason:
-                self._raise_error(code, reason)
-
-    def _raise_error(self, code, reason):
-        if self._owner.requires_2sa and reason == "Missing X-APPLE-WEBAUTH-TOKEN cookie":
-            raise PyiCloud2SARequiredException(self._owner.user["apple_id"])
-        if code in ("ZONE_NOT_FOUND", "AUTHENTICATION_FAILED"):
-            reason = "Please log into https://icloud.com/ to manually finish setting up your iCloud service"
-            api_error = PyiCloudServiceNotActivatedException(reason, code)
-            LOGGER.error(api_error)
-
-            raise (api_error)
-        if code == "ACCESS_DENIED":
-            reason = (
-                reason + ".  Please wait a few minutes then try again."
-                "The remote servers might be trying to throttle requests."
-            )
-        if code in [421, 450, 500]:
-            reason = "Authentication required for Account."
-
-        api_error = PyiCloudAPIResponseException(reason, code)
-        LOGGER.error(api_error)
-        raise api_error
+                self._error_callback(code, reason)
 
 
 class Event:
@@ -414,6 +405,27 @@ class PyiCloudUser:
             LOGGER.debug("Invalid authentication token")
             raise err
 
+    def _raise_error(self, code, reason):
+        if self.requires_2sa and reason == "Missing X-APPLE-WEBAUTH-TOKEN cookie":
+            raise PyiCloud2SARequiredException(self.apple_id)
+        if code in ("ZONE_NOT_FOUND", "AUTHENTICATION_FAILED"):
+            reason = "Please log into https://icloud.com/ to manually finish setting up your iCloud service"
+            api_error = PyiCloudServiceNotActivatedException(reason, code)
+            LOGGER.error(api_error)
+
+            raise (api_error)
+        if code == "ACCESS_DENIED":
+            reason = (
+                reason + ".  Please wait a few minutes then try again."
+                "The remote servers might be trying to throttle requests."
+            )
+        if code in [421, 450, 500]:
+            reason = "Authentication required for Account."
+
+        api_error = PyiCloudAPIResponseException(reason, code)
+        LOGGER.error(api_error)
+        raise api_error
+
     def _authenticate_fetch_trust_token(self):
         """Authenticate using session token."""
         data = {
@@ -553,6 +565,9 @@ class PyiCloudUser:
             raise PyiCloudException("Apple ID cannot be changed")
 
         self._apple_id = value
+        self._events.fire("apple_id_changed", value)
+
+        # FIXME: Move to event handler
         self._config.apple_id = value
 
         # Fetch Auth/Session Data now that we have apple_id set
@@ -583,10 +598,17 @@ class PyiCloudUser:
 
     @config.setter
     def config(self, value):
-        if self.apple_id is None:
-            raise PyiCloudException("Apple ID is not set")
+        if not value:
+            raise PyiCloudException("Config cannot be empty")
+        if self._config == value:
+            return
+        if self._config and self._config != value:
+            raise PyiCloudException("Config cannot be changed")
+
         self._config = value
-        self._config.apple_id = self.apple_id
+        self._events.subscribe("apple_id_changed", lambda id_: setattr(self._config, "apple_id", id_))
+        if self.apple_id:
+            self._config.apple_id = self.apple_id
 
     @property
     def password(self):

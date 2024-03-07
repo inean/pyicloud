@@ -9,7 +9,6 @@ def get_logger(name):
     """Get a logger for the given name."""
     callee = inspect.stack()[3]
     module = inspect.getmodule(callee[0])
-    print(module.__name__)
     return logging.getLogger(module.__name__).getChild(name)
 
 

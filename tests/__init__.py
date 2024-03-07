@@ -70,7 +70,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
         if self._owner.SETUP_ENDPOINT in url:
             if "accountLogin" in url and method == "POST":
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
-                    self._raise_error(None, "Unknown reason")
+                    self._error_callback(None, "Unknown reason")
                 if data.get("dsWebAuthToken") == REQUIRES_2FA_TOKEN:
                     return ResponseMock(LOGIN_2FA)
                 return ResponseMock(LOGIN_WORKING)
@@ -88,17 +88,17 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                 if data == TRUSTED_DEVICE_1:
                     self._owner.user["apple_id"] = AUTHENTICATED_USER
                     return ResponseMock(VERIFICATION_CODE_OK)
-                self._raise_error(None, "FOUND_CODE")
+                self._error_callback(None, "FOUND_CODE")
 
             if "validate" in url and method == "POST":
                 if headers.get("X-APPLE-WEBAUTH-TOKEN") == VALID_COOKIE:
                     return ResponseMock(LOGIN_WORKING)
-                self._raise_error(None, "Session expired")
+                self._error_callback(None, "Session expired")
 
         if self._owner.AUTH_ENDPOINT in url:
             if "signin" in url and method == "POST":
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
-                    self._raise_error(None, "Unknown reason")
+                    self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
                     self._owner._session_data["session_token"] = REQUIRES_2FA_TOKEN
                     return ResponseMock(AUTH_OK)
@@ -108,7 +108,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
-                    self._raise_error(None, "Incorrect code")
+                    self._error_callback(None, "Incorrect code")
 
                 self._owner._session_data["session_token"] = VALID_TOKEN
                 return ResponseMock("", status_code=204)

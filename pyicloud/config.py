@@ -7,7 +7,6 @@ import re
 from abc import ABC, abstractmethod
 from http import cookiejar
 from os import path
-from tkinter import N
 from uuid import uuid1
 
 import yaml
