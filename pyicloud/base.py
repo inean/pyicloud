@@ -90,28 +90,6 @@ class PyiCloudSession(httpx.Client):
         # set password filter
         PyiCloudPasswordFilter.register(self, logger=get_logger("http"))
 
-    def load_cookies_from_file(self, cookiejar_file):
-        """Load cookies from file."""
-        lwp_cookie_jar = cookiejar.LWPCookieJar(filename=cookiejar_file)
-        try:
-            lwp_cookie_jar.load(ignore_discard=True, ignore_expires=True)
-            LOGGER.debug("Read cookies from %s", cookiejar_file)
-        except FileNotFoundError:
-            LOGGER.info("Failed to read cookiejar %s", cookiejar_file)
-        self.cookies = httpx.Cookies(lwp_cookie_jar)
-
-    def _save_cookies_to_file(self, cookiejar_file):
-        """Save cookies to file."""
-        lwp_cookie_jar = cookiejar.LWPCookieJar()
-        for cookie in self.cookies.jar:
-            lwp_cookie_jar.set_cookie(cookie)
-        try:
-            # Save LWPCookieJar to file
-            LOGGER.debug("Saved cookies to %s", cookiejar_file)
-            lwp_cookie_jar.save(filename=cookiejar_file, ignore_discard=True, ignore_expires=True)
-        except FileNotFoundError:
-            LOGGER.warning("Failed to save cookiejar %s", cookiejar_file)
-
     def _update_session(self, response):
         content_type = response.headers.get("Content-Type", "").split(";")[0]
         session_updates = {
@@ -134,8 +112,8 @@ class PyiCloudSession(httpx.Client):
         has_retried = kwargs.pop("retried", False)
         response = super().request(method, url, **kwargs)
 
-        # Save cookies to file
-        self._save_cookies_to_file(self._config._cookiejar_file)
+        # Save response cookies to file
+        self._config.cookies.save()
 
         # Update session
         content_type = self._update_session(response)
@@ -575,7 +553,8 @@ class PyiCloudUser:
             self.config.client_id = self._session_data.get("client_id")
         self._session_data.update({"client_id": self.config.client_id})
         # Load Cookies
-        self._session.load_cookies_from_file(self._config._cookiejar_file)
+        self._config.cookies.link(self._session.cookies)
+        self._config.cookies.load()
 
     @property
     def config(self):

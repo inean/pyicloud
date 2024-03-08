@@ -5,18 +5,23 @@ import logging
 import os
 import re
 from abc import ABC, abstractmethod
-from http import cookiejar
+from http.cookiejar import CookieJar, LWPCookieJar
 from os import path
 from uuid import uuid1
 
 import yaml
+from httpx import Cookies
 
 LOGGER = logging.getLogger(__name__)
 
 
 class _Proxy(ABC):
-    def __init__(self, from_file: str = ""):
-        self._from_file = from_file
+    def __init__(self, path: str = ""):
+        self._path = path
+
+    @property
+    def path(self):
+        return self._path
 
     @property
     @abstractmethod
@@ -33,62 +38,72 @@ class _Proxy(ABC):
 
     def revert(self):
         """Revert object to last saved state."""
-        if self._from_file:
-            self.load(self._from_file)
+        if self._path:
+            self.load(self._path)
 
 
-class _CookieJarProxy(_Proxy):
-    def __init__(self, cookie_jar: cookiejar.LWPCookieJar = cookiejar.LWPCookieJar(), from_file: str = ""):
-        _Proxy.__init__(self, from_file)
-        self._cookie_jar = cookie_jar
-        self._cookie_dict = {cookie.name: cookie.value for cookie in cookie_jar}
+class _Cookies(_Proxy):
+    def __init__(self, cookies: CookieJar | dict | Cookies = {}, path: str = ""):
+        _Proxy.__init__(self, path)
+        if isinstance(cookies, Cookies):
+            self._cookies = cookies
+            self._isowned = False
+            return
+        # Create a cookie jar from the cookies
+        self._cookies = Cookies(cookies)
+        self._isowned = True
 
     def __getattr__(self, name):
-        try:
-            cookie = self._cookie_dict[name]
-        except KeyError:
-            pass
         # If the cookie does not exist, delegate to the CookieJar object
-        return getattr(self._cookie_jar, name)
+        return getattr(self._cookies, name)
 
     def __setattr__(self, name, value):
-        if name in ("_from_file", "_cookie_jar", "_cookie_dict"):
+        if name.startswith("_") or name in vars(self.__class__).keys():
             super().__setattr__(name, value)
             return
-        if name == "set_cookie":
-            self._cookie_dict[value.name] = value.value
-            self._cookie_jar.set_cookie(value)
-            return
-        raise AttributeError(f"Attribute {name} not found")
+        setattr(self._cookies, name, value)
 
     def load(self, from_file: str = ""):
-        from_file = from_file or self._from_file
+        from_file = from_file or self.path
         LOGGER.debug("Using cookiejar file %s", from_file)
-        lwp_cookie_jar = cookiejar.LWPCookieJar(from_file)
         try:
-            lwp_cookie_jar.load(ignore_discard=True, ignore_expires=True)
             LOGGER.debug("Read cookies from %s", from_file)
-            self._cookie_jar = lwp_cookie_jar
+            cookies = LWPCookieJar(filename=from_file)
+            cookies.load(ignore_discard=True, ignore_expires=True)
+            self._cookies.clear()
+            for cookie in cookies:
+                self._cookies.jar.set_cookie(cookie)
         except FileNotFoundError:
             LOGGER.info("Failed to read cookiejar %s", from_file)
-            self._cookie_jar = cookiejar.LWPCookieJar()  # create an empty cookie jar
-        # Recreate the cookie dictionary
-        self._cookie_dict = {cookie.name: cookie.value for cookie in self._cookie_jar}
 
-    def save(self, from_file: str = ""):
+    def save(self, to_file: str = ""):
         """Save cookies to file."""
-        from_file = from_file or self._from_file
-        LOGGER.debug("Using cookiejar file %s", from_file)
+        to_file = to_file or self.path
+        cookies = LWPCookieJar()
+        for cookie in self._cookies.jar:
+            cookies.set_cookie(cookie)
         try:
             # Save LWPCookieJar to file
-            LOGGER.debug("Saved cookies to %s", from_file)
-            self._cookie_jar.save(filename=from_file, ignore_discard=True)
+            LOGGER.debug("Saved cookies to %s", to_file)
+            cookies.save(filename=to_file, ignore_discard=True, ignore_expires=True)
         except FileNotFoundError:
-            LOGGER.warning("Failed to save cookiejar %s", from_file)
+            LOGGER.warning("Failed to save cookiejar %s", to_file)
+
+    def link(self, value: Cookies):
+        """Use an external cookie object"""
+        if not self._isowned and self._cookies != value:
+            raise RuntimeError("Actually with a borrow cookie Jar")
+        self._cookies = value
+        self._isowned = False
+
+    def unlink(self):
+        """Unlink the cookie object"""
+        self._cookies = Cookies()
+        self._isowned = True
 
     @property
     def matter(self):
-        return self._cookie_jar
+        return self._cookies
 
 
 class _ConfigProxy(_Proxy):
@@ -99,8 +114,8 @@ class _ConfigProxy(_Proxy):
         "client_id": ("auth-%s" % str(uuid1()).lower()),
     }
 
-    def __init__(self, dict_obj, from_file: str = ""):
-        _Proxy.__init__(self, from_file)
+    def __init__(self, dict_obj, path: str = ""):
+        _Proxy.__init__(self, path)
         self._config: dict = dict_obj
 
     def __getattr__(self, name):
@@ -112,7 +127,7 @@ class _ConfigProxy(_Proxy):
         return getattr(self._config, name)
 
     def __setattr__(self, name, value):
-        if name in ("_from_file", "_config"):
+        if name in ("_path", "_config"):
             super().__setattr__(name, value)
             return
         if name in self.CONFIG_VALUES:
@@ -121,7 +136,7 @@ class _ConfigProxy(_Proxy):
         setattr(self._config, name, value)
 
     def load(self, from_file: str = ""):
-        from_file = from_file or self._from_file
+        from_file = from_file or self.path
         try:
             LOGGER.debug("Using config file %s", from_file)
             with open(from_file, encoding="utf-8") as stream:
@@ -132,14 +147,13 @@ class _ConfigProxy(_Proxy):
             LOGGER.info("Config file does not exist")
         return {}
 
-    def save(self, from_file: str = "", data: dict = {}):
+    def save(self, to_file: str = ""):
         """Update session data."""
-        from_file = from_file or self._from_file
+        to_file = to_file or self.path
         # Save session_data to file
-        with open(from_file, "w", encoding="utf-8") as outfile:
-            self._config.update(data)
-            yaml.dump(from_file, outfile)
-            LOGGER.debug("Saved config to %s", from_file)
+        with open(to_file, "w", encoding="utf-8") as outfile:
+            yaml.dump(to_file, outfile)
+            LOGGER.debug("Saved config to %s", to_file)
 
     @property
     def matter(self):
@@ -147,7 +161,8 @@ class _ConfigProxy(_Proxy):
 
 
 class _DictProxy(_Proxy):
-    def __init__(self, dict_obj, from_file: str = ""):
+    def __init__(self, dict_obj, path: str = ""):
+        _Proxy.__init__(self, path)
         self._dict: dict = dict_obj
 
     def __getattr__(self, name):
@@ -158,7 +173,7 @@ class _DictProxy(_Proxy):
         return getattr(self._dict, name)
 
     def load(self, from_file: str = ""):
-        from_file = from_file or self._from_file
+        from_file = from_file or self.path
         try:
             LOGGER.debug("Using session file %s", from_file)
             with open(from_file, encoding="utf-8") as f:
@@ -169,14 +184,14 @@ class _DictProxy(_Proxy):
             LOGGER.info("Session file does not exist")
         return {}
 
-    def save(self, from_file: str = "", data: dict = {}):
+    def save(self, to_file: str = "", data: dict = {}):
         """Update session data."""
-        from_file = from_file or self._from_file
+        to_file = to_file or self.path
         # Save session_data to file
-        with open(from_file, "w", encoding="utf-8") as outfile:
+        with open(to_file, "w", encoding="utf-8") as outfile:
             self._dict.update(data)
-            json.dump(from_file, outfile)
-            LOGGER.debug("Saved session data to %s", from_file)
+            json.dump(to_file, outfile)
+            LOGGER.debug("Saved session data to %s", to_file)
 
     @property
     def matter(self):
@@ -225,7 +240,7 @@ class PyiCloudConfig(ABC):
 
         self._config: _ConfigProxy | None = None
         self._session: _DictProxy | None = None
-        self._cookies: _CookieJarProxy | None = None
+        self._cookies: _Cookies | None = None
 
     @classmethod
     @abstractmethod
@@ -362,19 +377,19 @@ class PyiCloudFileConfig(PyiCloudConfig):
     @property
     def config(self) -> _ConfigProxy:
         if self._config is None:
-            self._config = _ConfigProxy({}, from_file=self._config_file)
+            self._config = _ConfigProxy({}, path=self._config_file)
         return self._config
 
     @property
     def session(self) -> _DictProxy:
         if self._session is None:
-            self._session = _DictProxy({"client_id": self.config.client_id}, from_file=self._session_file)
+            self._session = _DictProxy({"client_id": self.config.client_id}, path=self._session_file)
         return self._session
 
     @property
-    def cookies(self) -> _CookieJarProxy:
+    def cookies(self) -> _Cookies:
         if self._cookies is None:
-            self._cookies = _CookieJarProxy(from_file=self._cookiejar_file)
+            self._cookies = _Cookies(path=self._cookiejar_file)
         return self._cookies
 
     def load(self):

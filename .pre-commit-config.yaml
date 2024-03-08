@@ -5,8 +5,8 @@ ci:
 repos:
   - repo: local
     hooks:
-      - id: pdm-hook
-        name: Activate virtuelenv
+      - id: venv
+        name: Activate workspace venv
         entry: pdm venv activate
         language: python
         pass_filenames: false
