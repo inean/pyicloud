@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-from http import cookiejar
-from pprint import pformat
 
 import httpx
 
-from pyicloud.config import PyiCloudFileConfig
+from pyicloud.config import PyiCloudFileConfig as Config
 from pyicloud.exceptions import (
     PyiCloud2SARequiredException,
     PyiCloudAPIResponseException,
@@ -27,6 +25,11 @@ from pyicloud.services import (
     RemindersService,
     UbiquityService,
 )
+from pyicloud.states import Account as BaseAccount
+from pyicloud.states import Disconnected, Logged, SignIn, Verified, Verify, VerifyFrom, VerifyWith
+
+from ._events import Events
+from ._states import ConditionalLink, Link, RetryLink
 
 
 class PyiCloudConstants:
@@ -119,7 +122,6 @@ class PyiCloudSession(httpx.Client):
         content_type = self._update_session(response)
 
         LOGGER.debug("Response Code: %s", response.status_code)
-        LOGGER.debug(pformat(response))
 
         if not response.is_success and (content_type not in self.JSON_MIMETYPES or response.status_code == 450):
             # Handle re-authentication for Find My iPhone
@@ -162,11 +164,8 @@ class PyiCloudSession(httpx.Client):
         try:
             data = response.json()
         except Exception:
-            logger.debug(pformat(response))
             logger.warning("Failed to parse response with JSON mimetype")
             return response
-
-        logger.debug(pformat(data))
 
         self._parse_error(data)
 
@@ -190,29 +189,37 @@ class PyiCloudSession(httpx.Client):
                 self._error_callback(code, reason)
 
 
-class Event:
-    def __init__(self, events, allow_duplicates=True):
-        self._events = {event: [] for event in events}
+class PyiAccount(BaseAccount):
 
-    def subscribe(self, event_name, func):
-        if event_name not in self._events:
-            raise ValueError(f"No such event: {event_name}")
-        if func in self._events[event_name]:
-            raise ValueError(f"Function already subscribed to event: {event_name}")
-        self._events[event_name].append(func)
+    events = Events(
+        [
+            "user_changed",
+            "password_changed",
+        ]
+    )
 
-    def unsubscribe(self, event_name, func):
-        if event_name not in self._events:
-            raise ValueError(f"No such event: {event_name}")
-        if func not in self._events[event_name]:
-            raise ValueError(f"Function not subscribed to event: {event_name}")
-        self._events[event_name].remove(func)
+    def __init__(self, user: str, password: str = "", config: Config = Config.create()) -> None:
+        super().__init__(user, password, config)
 
-    def fire(self, event_name, *args, **kwargs):
-        if event_name not in self._events:
-            raise ValueError(f"No such event: {event_name}")
-        for subscriber in self._events[event_name]:
-            subscriber(*args, **kwargs)
+    def _set_states(self):
+        self._disconnected = Disconnected(self)
+        self._signin = SignIn(self)
+        self._logged = Logged(self)
+
+    def _set_links(self):
+        self._disconnected.add_link(ConditionalLink(self._logged, self._logged.is_signed))
+        self._disconnected.add_link(Link(self._signin))
+        self._signin.add_link(ConditionalLink(self._logged, self._logged.is_signed))
+        self._signin.add_link(RetryLink(self._signin, retries=2))
+
+    def on_signin(self) -> str:
+        raise NotImplementedError
+
+    def on_verify_from(self) -> str:
+        raise NotImplementedError
+
+    def on_verify(self) -> str:
+        raise NotImplementedError
 
 
 class PyiCloudUser:
@@ -245,7 +252,7 @@ class PyiCloudUser:
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
-    def __init__(self, apple_id: str, password: str = "", config=PyiCloudFileConfig.create()):
+    def __init__(self, apple_id: str, password: str = "", config=Config.create()):
         # Public Props
         self.params = {}
 
@@ -257,7 +264,7 @@ class PyiCloudUser:
         self._state = {}
         self._config = config
 
-        self._events = Event(["apple_id_changed", "password_changed"])
+        self._events = Events(["apple_id_changed", "password_changed"])
 
         # Update config after setting apple_id
         self.config = config
@@ -273,6 +280,12 @@ class PyiCloudUser:
         self.apple_id = apple_id
         self.password = password
         # Prepare Session
+
+        self._context = PyiAccount(self._apple_id, self._password, self._config)
+
+    async def login(self, until_complete=False):
+        """Login method."""
+        await self._context.machine.run(self._context._disconnected, until_complete=until_complete)
 
     def authenticate(self, force_refresh=False, service=None):
         """

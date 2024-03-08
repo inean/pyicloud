@@ -1,58 +1,25 @@
 import asyncio
 import inspect
-from abc import ABC, abstractmethod
+from typing import Any, Callable
 
-from ._link import ILink
-
-
-class IState(ABC):
-    @abstractmethod
-    def enter(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    async def execute(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def exit(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def add_link(self, link: ILink):
-        raise NotImplementedError
-
-    @abstractmethod
-    def remove_link(self, link: ILink):
-        raise NotImplementedError
-
-    @abstractmethod
-    def remove_all_links(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def validate_links(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def enable_links(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def disable_links(self):
-        raise NotImplementedError
+from ._interfaces import IState
 
 
 class AbstractState(IState):
-    def __init__(self, name="State", debug=False):
-        self._name = name
+    def __init__(self, name: str | None = None, debug=True):
+        self._name = name or type(self).__name__
         self._debug = debug
         self._links = []
+
+    @property
+    def name(self):
+        return self._name
 
     def enter(self):
         pass
 
     async def execute(self):
+        self.log_current_state()
         await asyncio.sleep(0)
 
     def exit(self):
@@ -86,11 +53,11 @@ class AbstractState(IState):
 
     def log_current_state(self):
         if self._debug:
-            print(f"Current state = {self._name}({type(self).__name__})")
+            print(f"Current state = {self._name}")
 
 
 class ContextState(AbstractState):
-    def __init__(self, name="State", context=None, debug=False):
+    def __init__(self, context: Any = None, name: str | None = None, debug=False):
         AbstractState.__init__(self, name, debug)
         self._context = context
 
@@ -104,8 +71,8 @@ class ContextState(AbstractState):
 
 
 class CallbackState(ContextState):
-    def __init__(self, name="State", on_execute=None, context=None, debug=False):
-        ContextState.__init__(self, name, context, debug)
+    def __init__(self, on_execute: Callable, context: Any = None, name: str | None = None, debug=False):
+        ContextState.__init__(self, context, name, debug)
         self._on_execute = on_execute
 
     async def execute(self):

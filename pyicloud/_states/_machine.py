@@ -1,3 +1,4 @@
+from ast import Is
 from asyncio import Lock, Task, create_task, sleep
 
 from ._state import IState
@@ -17,8 +18,7 @@ class Machine:
         """The current state the statemachine is in"""
         return self._state
 
-    @state.setter
-    async def state(self, state):
+    async def set_state(self, state):
         """Finalizes the previous state and then runs the new state"""
         if state is None:
             raise ValueError("state cannot be None")
@@ -45,19 +45,19 @@ class Machine:
         if self._task and not self._task.done():
             self._task.cancel()
 
-    async def run(self, state=None):
+    async def run(self, state, until_complete=False):
         """
         Turns on the main loop of the StateMachine.
         This method does not resume previous state if called after stop()
         and the client needs to set the state manually.
         """
         # Update state to be run if it's not None
-        if self.state:
-            self.state = state
+        if state:
+            await self.set_state(state)
         if self._loop is not None:
             # already running
             return
-        self._loop = create_task(self._play())
+        self._loop = create_task(self._play(until_complete))
         await self._loop
 
     def stop(self):
@@ -71,18 +71,21 @@ class Machine:
         self._loop.cancel()
         self._state = None
 
-    async def _play(self):
+    async def _play(self, until_complete=False):
         """ "It checks the status of the current state and its link to provide state sequencing"""
         while True:
             # current state is done playing
             if self._state and not self._task:
                 next_state = self._state.validate_links()
-                if next_state is not None:
+                if isinstance(next_state, IState):
+                    assert next_state
                     assert not self._lock.locked()
                     self._state.disable_links()
-                    self._state = next_state
-                    await self._state
+                    await self.set_state(next_state)
                     self._state.enable_links()
+                # If no next state, and until_complete is True, then break
+                if not next_state and until_complete:
+                    break
             await sleep(0)
 
     @property

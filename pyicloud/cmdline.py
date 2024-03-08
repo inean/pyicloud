@@ -94,6 +94,7 @@ async def main(**kwargs):
             raise click.ClickException("No username supplied")
 
         try:
+            await api.login(until_complete=True)
             api.authenticate()
 
             if api.requires_password:

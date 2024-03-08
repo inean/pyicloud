@@ -10,8 +10,18 @@ This is the main module of the library. It provides the following classes:
 
 """
 
-from ._link import ILink, Link
+from ._link import ConditionalLink, ILink, Link, RetryLink
 from ._machine import Machine
-from ._state import AbstractState, CallbackState, IState
+from ._state import AbstractState, CallbackState, ContextState, IState
 
-__all__ = ["ILink", "Link", "IState", "Machine", "AbstractState", "CallbackState"]
+__all__ = [
+    "ILink",
+    "Link",
+    "RetryLink",
+    "ConditionalLink",
+    "IState",
+    "Machine",
+    "AbstractState",
+    "CallbackState",
+    "ContextState",
+]
