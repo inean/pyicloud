@@ -22,9 +22,7 @@
       "extensions": [
         "actboy168.tasks",
         "editorconfig.editorconfig",
-        "ms-python.black-formatter",
         "ms-python.debugpy",
-        "ms-python.isort",
         "ms-python.python",
         "ms-python.vscode-pylance",
         "redhat.vscode-yaml",
@@ -32,7 +30,8 @@
         "stkb.rewrap",
         "tamasfe.even-better-toml",
         "task.vscode-task",
-        "yzhang.markdown-all-in-one"
+        "yzhang.markdown-all-in-one",
+        "ruff.ruff-vscode"
       ],
       "settings": {
         "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python"

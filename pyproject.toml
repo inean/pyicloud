@@ -1,143 +1,164 @@
 
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
 [project]
-name = "pyicloud"
-description = "PyiCloud is a module which allows pythonistas to interact with iCloud webservices."
-authors = [{ name = "Carlos Martín", email = "inean.es@gmail.com" }]
-dependencies = [
-    "click>=7.1.2",
-    "tzlocal>=4.0",
-    "certifi>=2020.6.20",
-    "pyyaml>=6.0.1",
-    "anyio>=4.3.0",
-    "asyncclick>=8.1.7.1",
-    "httpx>=0.27.0",
-]
-dynamic = ["readme", "version"]
+    name = "anyio-pyicloud"
+    authors = [
+        { name = "Carlos Martín", email = "inean.es@gmail.com" },
+        { name = "Peter Evans", email = "evans.peter@gmail.com" },
+    ]
+    description = "Anyio PyiCloud is a module that allows Python developers to interact with iCloud web services asynchronously."
 
-requires-python = ">=3.10"
-license = { text = "MIT" }
-keywords = ["icloud", "find-my-iphone"]
-maintainers = [{ name = "The PyiCloud Authors" }]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Topic :: Software Development :: Libraries",
-]
+    # Project metadata
+    readme   = "README.md"
+    license  = { text = "MIT" }
+    keywords = ["anyio", "find-my-iphone", "icloud"]
 
-[project.urls]
-Homepage = "https://github.com/inean/pyicloud"
-Changelog = "https://github.com/inean/releases"
+    # Assume python 3.10 or later, but allow for later versions.
+    requires-python = ">=3.10"
 
-[project.scripts]
-icloud = "pyicloud.cmdline:main"
+    # Project dependencies.
+    dependencies = [
+        "anyio>=4.3.0",
+        "asyncclick>=8.1.7.1",
+        "click>=7.1.2",
+        "httpx>=0.27.0",
+        "pyyaml>=6.0.1",
+    ]
+    # Dyamic metadata provuded by PDM
+    dynamic = ["version"]
+
+    maintainers = [{ name = "The PyiCloud Authors" }]
+    classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python",
+        "Topic :: Software Development :: Libraries",
+    ]
+
+    [project.urls]
+        Homepage  = "https://github.com/inean/pyicloud"
+        Changelog = "https://github.com/inean/releases"
+
+    [project.scripts]
+        icloud = "pyicloud.cmdline:main"
+
+[build-system]
+    # Build backend
+    requires      = ["pdm-backend"]
+    build-backend = "pdm.backend"
 
 [tool.pdm]
-distribution = false
+    # Whether the project is a package or not.
+    distribution = true
 
-[tool.pdm.dev-dependencies]
-test = ["pytest>=8.0.1", "tox-pdm>=0.7.2"]
-dev = [
-    "black>=23.3.0",
-    "pylint>=2.12.2",
-    "flake8-pyproject>=1.2.3",
-    "rich>=13.7.1",
-    "pre-commit>=3.6.2",
-]
+    [tool.pdm.version]
+        source         = "scm"
+        write_to       = "pyicloud/_version.py"
+        write_template = "version = '{}'"
 
-[tool.pdm.scripts]
-icloud = { call = "pyicloud.cmdline:main" }
+    [tool.pdm.dev-dependencies]
+        test = [
+            "pytest-cov>=4.1",
+            "pytest>=8.0.1",
+            "tox-pdm>=0.7.2",
+            #asd
+        ]
+        dev = [
+            "pre-commit>=3.6.2",
+            "ruff>=0.3.0",
+            #asd
+        ]
 
-[tool.black]
-line-length = 120
-target-version = ['py310', 'py311', 'py312']
-include = '(pyicloud|tests)\/.*(\.py|GET|POST)'
+    [tool.pdm.scripts]
+        # Add the `icloud` command to the package.
+        icloud = { call = "pyicloud.cmdline:main" }
 
-[tool.isort]
-line_length = 120
-profile = "black"
+[tool.ruff]
+    # Exclude common directories and files from linting and formatting.
+    exclude = [
+        ".git",
+        ".tox",
+        ".venv",
+        # asd
+    ]
+    line-length = 120
+    indent-width = 4
 
-[tool.pylint.FORMAT]
-expected-line-ending-format = 'LF'
-ignore-long-lines = '^\s*(# )?<?https?://\S+>?$'
-indent-after-paren = 4
-indent-string = '    '
-max-line-length = 120
+    [tool.ruff.format]
+        # Like Black, use double quotes for strings.
+        quote-style = "double"
 
+        # Like Black, indent with spaces, rather than tabs.
+        indent-style = "space"
 
-[tool.pylint.MASTER]
-jobs = 0
-ignore = '.git'
-persistent = 'no'
-suggestion-mode = 'yes'
+        # Like Black, respect magic trailing commas.
+        skip-magic-trailing-comma = false
 
-[tool.pylint."MESSAGES CONTROL"]
-disable = '''
-  format,
-  duplicate-code,
-  inconsistent-return-statements,
-  too-few-public-methods,
-  too-many-ancestors,
-  too-many-arguments,
-  too-many-branches,
-  too-many-instance-attributes,
-  too-many-lines,
-  too-many-locals,
-  too-many-public-methods,
-  too-many-return-statements,
-  too-many-statements,
-  too-many-boolean-expressions,
-  unnecessary-pass,
-  useless-object-inheritance,
-  wrong-import-order,
-  consider-using-f-string
-'''
-[tool.pylint."BASIC"]
-good-names = 'id,i,j,k'
+        # Like Black, automatically detect the appropriate line ending.
+        line-ending = "auto"
 
-[tool.pylint.EXCEPTIONS]
-overgeneral-exceptions = '''
-    BaseException,
-    Exception,
-    PYiCloudException
-'''
+        # Enable auto-formatting of code examples in docstrings. Markdown,
+        # reStructuredText code/literal blocks and doctests are all supported.
+        #
+        # This is currently disabled by default, but it is planned for this
+        # to be opt-out in the future.
+        docstring-code-format = true
+
+        # Set the line length limit used when formatting code snippets in
+        # docstrings.
+        #
+        # This only has an effect when the `docstring-code-format` setting is
+        # enabled.
+        docstring-code-line-length = "dynamic"
+
+    [tool.ruff.lint]
+        # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+        # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+        # McCabe complexity (`C901`) by default.
+        # Also enable `B` codes from pycodestyle.
+        select = ["B", "E4", "E7", "E9", "F"]
+        ignore = []
+
+        # Allow fix for all enabled rules (when `--fix`) is provided.
+        fixable = ["ALL"]
+
+        # Avoid trying to fix flake8-bugbear (`B`) violations.
+        unfixable = ["B"]
+
+        # Allow unused variables when underscore-prefixed.
+        dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+        # Allow import module level import not at top of file
+        [tool.ruff.lint.per-file-ignores]
+            "**/__init__.py" = ["E402"]
 
 [tool.tox]
-legacy_tox_ini = """
-[tox]
-min_version = 4.0
-isolated_build = True
-envlist =  py310, ,py311, py312, lint
+    legacy_tox_ini = """
 
+[tox]
+    # Project details
+    min_version = 4.0
+    isolated_build = True
+    envlist =  py310, ,py311, py312, lint
 
 [testenv]
 deps = pytest
 commands = pytest
 
-[testenv:lint]
-deps =
-    black
-    pylint
-commands =
-    black --check --fast .
-    pylint pyicloud tests
+    [testenv:lint]
+        deps = ruff
+        commands = ruff .
 
 [gh-actions]
-python =
+    python =
+        3.10: py310, lint
+        3.11: py311
+        3.12: py312
 
-    3.10: py310, lint
-    3.11: py311
-    3.12: py312
 """

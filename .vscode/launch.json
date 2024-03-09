@@ -1,0 +1,53 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: [Current File]",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Python: [CLI]",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pdm",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "subProcess": true,
+            "env": {
+                "PYDEVD_DISABLE_FILE_VALIDATION": "1"
+            },
+            "args": "run icloud ${input:cli_args}"
+        },
+        {
+            "name": "Python: [Unit Tests]",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "justMyCode": false,
+            "args": [
+                "-vvv",
+                "--no-cov",
+                "tests",
+                "-k=${input:tests_selection}"
+            ]
+        }
+    ],
+    "inputs": [
+        {
+            "id": "cli_args",
+            "type": "promptString",
+            "description": "Command line arguments to pass to the script",
+            "default": ""
+        },
+        {
+            "id": "tests_selection",
+            "type": "promptString",
+            "description": "Only run tests wich match this substring. Leave empty to run all tests.",
+            "default": ""
+        }
+    ]
+}
