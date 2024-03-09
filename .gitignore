@@ -20,6 +20,8 @@ develop-eggs
 lib
 lib64
 pip-wheel-metadata
+**/__pypackages__/**
+**/__pycache__/**
 
 # PDM files
 pdm.lock
