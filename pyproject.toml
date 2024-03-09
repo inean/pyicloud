@@ -1,16 +1,16 @@
 
 [project]
-    name = "anyio-pyicloud"
     authors = [
         { name = "Carlos Martín", email = "inean.es@gmail.com" },
         { name = "Peter Evans", email = "evans.peter@gmail.com" },
     ]
     description = "Anyio PyiCloud is a module that allows Python developers to interact with iCloud web services asynchronously."
+    name = "anyio-pyicloud"
 
     # Project metadata
-    readme   = "README.md"
-    license  = { text = "MIT" }
     keywords = ["anyio", "find-my-iphone", "icloud"]
+    license  = { text = "MIT" }
+    readme   = "README.md"
 
     # Assume python 3.10 or later, but allow for later versions.
     requires-python = ">=3.10"
@@ -26,7 +26,6 @@
     # Dyamic metadata provuded by PDM
     dynamic = ["version"]
 
-    maintainers = [{ name = "The PyiCloud Authors" }]
     classifiers = [
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -40,18 +39,19 @@
         "Programming Language :: Python",
         "Topic :: Software Development :: Libraries",
     ]
+    maintainers = [{ name = "The PyiCloud Authors" }]
 
     [project.urls]
-        Homepage  = "https://github.com/inean/pyicloud"
         Changelog = "https://github.com/inean/releases"
+        Homepage  = "https://github.com/inean/pyicloud"
 
     [project.scripts]
         icloud = "pyicloud.cmdline:main"
 
 [build-system]
     # Build backend
-    requires      = ["pdm-backend"]
     build-backend = "pdm.backend"
+    requires      = ["pdm-backend"]
 
 [tool.pdm]
     # Whether the project is a package or not.
@@ -59,25 +59,24 @@
 
     [tool.pdm.version]
         source         = "scm"
-        write_to       = "pyicloud/_version.py"
         write_template = "version = '{}'"
+        write_to       = "pyicloud/_version.py"
 
     [tool.pdm.dev-dependencies]
+        dev = [
+            "pre-commit>=3.6.2",
+            "ruff>=0.3.0",
+            #asd
+        ]
         test = [
             "pytest-cov>=4.1",
             "pytest>=8.0.1",
             "tox-pdm>=0.7.2",
             #asd
         ]
-        dev = [
-            "pre-commit>=3.6.2",
-            "ruff>=0.3.0",
-            #asd
-        ]
 
     [tool.pdm.scripts]
-        # Add the `icloud` command to the package.
-        icloud = { call = "pyicloud.cmdline:main" }
+        coverage = { shell = "coverage run -m pyicloud.cmdline {args} && coverage xml && coverage report" }
 
 [tool.ruff]
     # Exclude common directories and files from linting and formatting.
@@ -87,8 +86,8 @@
         ".venv",
         # asd
     ]
-    line-length = 120
     indent-width = 4
+    line-length = 120
 
     [tool.ruff.format]
         # Like Black, use double quotes for strings.
@@ -122,8 +121,8 @@
         # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
         # McCabe complexity (`C901`) by default.
         # Also enable `B` codes from pycodestyle.
-        select = ["B", "E4", "E7", "E9", "F"]
         ignore = []
+        select = ["B", "E4", "E7", "E9", "F"]
 
         # Allow fix for all enabled rules (when `--fix`) is provided.
         fixable = ["ALL"]
