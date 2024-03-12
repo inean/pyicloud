@@ -26,7 +26,7 @@ from pyicloud.services import (
     UbiquityService,
 )
 from pyicloud.states import Account as BaseAccount
-from pyicloud.states import Disconnected, Logged, SignIn, Verified, Verify, VerifyFrom, VerifyWith
+from pyicloud.states import Disconnected, Logged, SignIn
 
 from ._events import Events
 from ._states import ConditionalLink, Link, RetryLink
@@ -109,9 +109,25 @@ class PyiCloudSession(httpx.Client):
 
         return content_type
 
+    def _get_auth_headers(self, overrides=None):
+        headers = {
+            "Accept": "*/*",
+            "Content-Type": "application/json",
+            "X-Apple-OAuth-Client-Id": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+            "X-Apple-OAuth-Client-Type": "firstPartyAuth",
+            "X-Apple-OAuth-Redirect-URI": "https://www.icloud.com",
+            "X-Apple-OAuth-Require-Grant-Code": "true",
+            "X-Apple-OAuth-Response-Mode": "web_message",
+            "X-Apple-OAuth-Response-Type": "code",
+            "X-Apple-OAuth-State": self._config.config.client_id,
+            "X-Apple-Widget-Key": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+        }
+        if overrides:
+            headers.update(overrides)
+        return headers
+
     @log_request
     def request(self, method, url, logger=LOGGER, **kwargs):  # pylint: disable=arguments-differ
-
         has_retried = kwargs.pop("retried", False)
         response = super().request(method, url, **kwargs)
 
@@ -190,7 +206,6 @@ class PyiCloudSession(httpx.Client):
 
 
 class PyiAccount(BaseAccount):
-
     events = Events(
         [
             "user_changed",
@@ -198,7 +213,8 @@ class PyiAccount(BaseAccount):
         ]
     )
 
-    def __init__(self, user: str, password: str = "", config: Config = Config.create()) -> None:
+    def __init__(self, user: str, password: str = "", config: Config | None = None) -> None:
+        config = config or Config.create()
         super().__init__(user, password, config)
 
     def _set_states(self):
@@ -252,7 +268,7 @@ class PyiCloudUser:
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
-    def __init__(self, apple_id: str, password: str = "", config=Config.create()):
+    def __init__(self, apple_id: str, password: str = "", config: Config | None = None):
         # Public Props
         self.params = {}
 
@@ -262,12 +278,12 @@ class PyiCloudUser:
 
         self._ws = {}
         self._state = {}
-        self._config = config
+        self._config = None
 
         self._events = Events(["apple_id_changed", "password_changed"])
 
         # Update config after setting apple_id
-        self.config = config
+        self.config = config or Config.create()
 
         self._session = PyiCloudSession(self)
         self._session.verify = self.config.verify
@@ -343,7 +359,7 @@ class PyiCloudUser:
         self._session_data.pop("session_token", None)
 
         # Prepare Headers
-        headers = self._get_auth_headers()
+        headers = self._session._get_auth_headers()
         if self._session_data.get("scnt"):
             headers["scnt"] = self._session_data.get("scnt")
         if self._session_data.get("session_id"):
@@ -420,23 +436,6 @@ class PyiCloudUser:
             msg = "Invalid authentication token."
             raise PyiCloudFailedLoginException(msg, error) from error
 
-    def _get_auth_headers(self, overrides=None):
-        headers = {
-            "Accept": "*/*",
-            "Content-Type": "application/json",
-            "X-Apple-OAuth-Client-Id": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-            "X-Apple-OAuth-Client-Type": "firstPartyAuth",
-            "X-Apple-OAuth-Redirect-URI": "https://www.icloud.com",
-            "X-Apple-OAuth-Require-Grant-Code": "true",
-            "X-Apple-OAuth-Response-Mode": "web_message",
-            "X-Apple-OAuth-Response-Type": "code",
-            "X-Apple-OAuth-State": self.config.client_id,
-            "X-Apple-Widget-Key": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-        }
-        if overrides:
-            headers.update(overrides)
-        return headers
-
     def send_verification_code(self, device):
         """Requests that a verification code is sent to the given device."""
         data = json.dumps(device)
@@ -472,7 +471,7 @@ class PyiCloudUser:
         """Verifies a verification code received via Apple's 2FA system (HSA2)."""
         data = {"securityCode": {"code": code}}
 
-        headers = self._get_auth_headers({"Accept": "application/json"})
+        headers = self._session._get_auth_headers({"Accept": "application/json"})
 
         if self._session_data.get("scnt"):
             headers["scnt"] = self._session_data.get("scnt")
@@ -500,7 +499,7 @@ class PyiCloudUser:
 
     def trust_session(self):
         """Request session trust to avoid user log in going forward."""
-        headers = self._get_auth_headers()
+        headers = self._session._get_auth_headers()
 
         if self._session_data.get("scnt"):
             headers["scnt"] = self._session_data.get("scnt")
