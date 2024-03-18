@@ -28,11 +28,6 @@ from pyicloud.services import (
     UbiquityService,
 )
 
-
-from transitions import State as State
-from transitions import Machine as Machine
-from transitions import Transition as Transition
-
 Response = namedtuple("Response", ["result", "err"])
 
 
@@ -40,75 +35,6 @@ class iConstants:
     AUTH_ENDPOINT = "https://idmsa.apple.com/appleauth/auth"
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
-
-
-class iState(State):
-    def __init__(self, name, cls):
-        super().__init__(name)
-        # Session Object to instantiate when state is entered
-        self._cls = cls
-
-
-#     def _set_states(self):
-#         self._disconnected = Disconnected(self)
-#         self._signin = SignIn(self)
-#         self._logged = Logged(self)
-
-
-#     def _set_links(self):
-#         self._disconnected.add_link(ConditionalLink(self._logged, self._logged.is_signed))
-#         self._disconnected.add_link(Link(self._signin))
-#         self._signin.add_link(ConditionalLink(self._logged, self._logged.is_signed))
-#         self._signin.add_link(RetryLink(self._signin, retries=2))
-
-
-def is_signed(cls: Transition):
-    """Condition to check if user is signed in"""
-
-    class Wrapper(cls):
-        def __init__(self, *args, **kwargs):
-            assert "conditions" not in kwargs, "condtions will be overriden"
-            kwargs["conditions"] = self.check
-            cls.__init__(self, *args, **kwargs)
-
-        def check(self, event_data):
-            print(f"Checking if user is signed in... {event_data.machine}")
-            return True
-
-    Wrapper.__name__ = f"IsSigned{cls.__name__}"
-    return Wrapper
-
-
-@is_signed
-class iTransition(Transition):
-    pass
-
-
-class iStateMachine(Machine):
-    def __init__(self):
-        super().__init__(initial="disconnected", queued=True, auto_transitions=False, send_event=True)
-
-        # Add states
-        self.add_state(iState(name="sigin", cls=iSignIn))
-        self.add_state("logged")
-
-        # Add links (transitions)
-        self.add_link("sigin", iTransition("disconnected", "sigin"))
-        self.add_link("sigin", iTransition("sigin", "logged"))
-
-        # Set initial state
-        self.initial = "disconnected"
-
-    def add_link(self, trigger, transition: Transition = None, **kwargs):
-        if trigger not in self.events:
-            self.events[trigger] = self._create_event(trigger, self)
-            for model in self.models:
-                self._add_trigger_to_model(trigger, model)
-        if transition:
-            self.events[trigger].add_transition(transition)
-            return
-        # Use fdefault transition event
-        self.add_transition(trigger, **kwargs)
 
 
 class iBaseSession:
@@ -409,8 +335,6 @@ class PyiCloudUser:
         self._ws = {}
         self._session = {}
         self._config = None
-
-        self.machine = iStateMachine()
 
         # Update config after setting apple_id
         config = config or Config()
