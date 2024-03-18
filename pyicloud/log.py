@@ -1,6 +1,5 @@
 import inspect
 import logging
-from venv import logger
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class PyiCloudPasswordFilter(logging.Filter):
         cls._ACTIVE_FILTERS[logger][instance] = None
 
     @classmethod
-    def on_password_changed(cls, value):
+    def on_changed_password(cls, _, value):
         """Update the password for the active filters."""
         for logger in cls._ACTIVE_FILTERS:
             for instance, password_filter in cls._ACTIVE_FILTERS[logger].items():

@@ -1,27 +1,49 @@
 from __future__ import annotations
 
-import json
-import logging
 import os
 import re
-from abc import ABC, abstractmethod
-from http.cookiejar import CookieJar, LWPCookieJar
+import time
+import logging
+import yaml
+import copy
+
+from typing import Iterable
 from os import path
 from uuid import uuid1
-
-import yaml
+from abc import ABC, abstractmethod
+from jinja2 import Environment, BaseLoader
+from pymitter import EventEmitter
 from httpx import Cookies
+from http.cookiejar import CookieJar, LWPCookieJar
+
+# local deps
+from . import _dict
 
 LOGGER = logging.getLogger(__name__)
 
 
-class _Proxy(ABC):
-    def __init__(self, path: str = ""):
-        self._path = path
+class File(ABC):
+    __slots__ = "_path"
+
+    def __init__(self, matter, path: str = ""):
+        object.__setattr__(self, "_path", path)
+
+    def __getitem__(self, name):
+        return self.matter[name]
+
+    def __setitem__(self, name, value):
+        self.matter[name] = value
+
+    def __contains__(self, name):
+        return name in self.matter
 
     @property
     def path(self):
         return self._path
+
+    @path.setter
+    def path(self, value):
+        self._path = value
 
     @property
     @abstractmethod
@@ -36,15 +58,38 @@ class _Proxy(ABC):
     def save(self, to_file: str = ""):
         """Save object to file."""
 
-    def revert(self):
-        """Revert object to last saved state."""
-        if self._path:
-            self.load(self._path)
 
+class CookieFile(File):
+    # *fmt: off
+    BASE_COOKIES = {"dslang": "ES-ES", "site": "ESP"}
+    LOGIN_COOKIES = ("aasp",)
+    LOGGED_COOKIES = (
+        "acn01",
+        "X-APPLE-DS-WEB-SESSION-TOKEN",
+        "X-APPLE-UNIQUE-CLIENT-ID",
+        "X-APPLE-WEBAUTH-LOGIN",
+        "X-APPLE-WEBAUTH-USER",
+        "X-APPLE-WEBAUTH-VALIDATE",
+        *BASE_COOKIES,
+        *LOGIN_COOKIES,
+    )
 
-class _Cookies(_Proxy):
-    def __init__(self, cookies: CookieJar | dict | Cookies = {}, path: str = ""):
-        _Proxy.__init__(self, path)
+    FA1_COOKIES = (
+        "X-APPLE-WEBAUTH-HSA-LOGIN",
+        *BASE_COOKIES,
+        *LOGGED_COOKIES,
+    )
+    # *fmt: on
+    FA2_COOKIES = (
+        "X-APPLE-WEBAUTH-FMIP",
+        "X-APPLE-WEBAUTH-HSA-TRUST",
+        "X-APPLE-WEBAUTH-TOKEN",
+        *BASE_COOKIES,
+        *LOGGED_COOKIES,
+    )
+
+    def __init__(self, cookies: CookieJar | dict | Cookies = None, path: str = ""):
+        File.__init__(self, path)
         if isinstance(cookies, Cookies):
             self._cookies = cookies
             self._isowned = False
@@ -53,41 +98,62 @@ class _Cookies(_Proxy):
         self._cookies = Cookies(cookies)
         self._isowned = True
 
+    def fetch(self, cookies: Iterable, domain: str | None = None, path: str | None = None) -> dict | list:
+        """Check if a cookie exists and is valid"""
+        found, missing, current_time = {}, [], time.time()
+
+        for target in cookies:
+            for cookie in self._cookies.jar:
+                # Diwscard expired cookies
+                if cookie.expires and cookie.expires < current_time:
+                    continue
+                # Discarrd cookie if name does not match
+                if cookie.name != target:
+                    continue
+                # Discard cookie if domain does not match
+                if domain and cookie.domain != domain:
+                    continue
+                # Discard cookie if path does not match
+                if path and cookie.path != path:
+                    continue
+                found[cookie.name] = cookie.value
+                break
+            else:
+                missing.append(target)
+        # Return the found and missing cookies
+        return found, missing
+
     def __getattr__(self, name):
-        # If the cookie does not exist, delegate to the CookieJar object
         return getattr(self._cookies, name)
 
-    def __setattr__(self, name, value):
-        if name.startswith("_") or name in vars(self.__class__).keys():
-            super().__setattr__(name, value)
-            return
-        setattr(self._cookies, name, value)
-
     def load(self, from_file: str = ""):
+        """Load cookies from file."""
         from_file = from_file or self.path
-        LOGGER.debug("Using cookiejar file %s", from_file)
+        assert from_file, "No cookiejar file specified"
         try:
-            LOGGER.debug("Read cookies from %s", from_file)
+            LOGGER.debug(f"Read cookies from '{from_file}'")
             cookies = LWPCookieJar(filename=from_file)
             cookies.load(ignore_discard=True, ignore_expires=True)
             self._cookies.clear()
             for cookie in cookies:
                 self._cookies.jar.set_cookie(cookie)
         except FileNotFoundError:
-            LOGGER.info("Failed to read cookiejar %s", from_file)
+            LOGGER.info(f"Failed to read cookiejar '{from_file}'")
 
     def save(self, to_file: str = ""):
         """Save cookies to file."""
         to_file = to_file or self.path
+        assert to_file, "No cookiejar file specified"
+
         cookies = LWPCookieJar()
         for cookie in self._cookies.jar:
             cookies.set_cookie(cookie)
         try:
             # Save LWPCookieJar to file
-            LOGGER.debug("Saved cookies to %s", to_file)
             cookies.save(filename=to_file, ignore_discard=True, ignore_expires=True)
+            LOGGER.debug(f"Saved cookies to '{to_file}'")
         except FileNotFoundError:
-            LOGGER.warning("Failed to save cookiejar %s", to_file)
+            LOGGER.warning(f"Failed to save cookiejar at '{to_file}'")
 
     def link(self, value: Cookies):
         """Use an external cookie object"""
@@ -106,96 +172,45 @@ class _Cookies(_Proxy):
         return self._cookies
 
 
-class _ConfigProxy(_Proxy):
+class SessionFile(File):
+    __slots__ = ("_session",)
 
-    CONFIG_VALUES = {
-        "with_family": True,
-        "verify": True,
-        "client_id": ("auth-%s" % str(uuid1()).lower()),
-    }
-
-    def __init__(self, dict_obj, path: str = ""):
-        _Proxy.__init__(self, path)
-        self._config: dict = dict_obj
-
-    def __getattr__(self, name):
-        try:
-            return self._config[name]
-        except KeyError:
-            if name in self.CONFIG_VALUES:
-                return self.CONFIG_VALUES[name]
-        return getattr(self._config, name)
-
-    def __setattr__(self, name, value):
-        if name in ("_path", "_config"):
-            super().__setattr__(name, value)
-            return
-        if name in self.CONFIG_VALUES:
-            self._config[name] = value
-            return
-        setattr(self._config, name, value)
+    def __init__(self, session: dict, path: str = ""):
+        File.__init__(self, path)
+        self._session = session
 
     def load(self, from_file: str = ""):
         from_file = from_file or self.path
+        assert from_file, "No session file specified"
         try:
-            LOGGER.debug("Using config file %s", from_file)
+            LOGGER.debug("Read session file from '{from_file}")
             with open(from_file, encoding="utf-8") as stream:
-                return yaml.safe_load(stream)
+                session = yaml.safe_load(stream)
+                # update the session data
+                session and self._session.update(session)
+        except TypeError:
+            LOGGER.error("Session file is not a valid Yaml file")
         except yaml.YAMLError:
-            LOGGER.error("Config file is not a valid Yaml file")
+            LOGGER.error("Session file is not a valid Yaml file")
         except (OSError, FileNotFoundError):
-            LOGGER.info("Config file does not exist")
-        return {}
+            LOGGER.info(f"Config file '{from_file}' does not exist")
 
     def save(self, to_file: str = ""):
-        """Update session data."""
+        """Save session to file"""
         to_file = to_file or self.path
+        assert to_file, "No session file specified"
+
         # Save session_data to file
         with open(to_file, "w", encoding="utf-8") as outfile:
-            yaml.dump(to_file, outfile)
-            LOGGER.debug("Saved config to %s", to_file)
+            to_save = copy.copy(self._session)
+            for k in PyiCloudConfig.SKIP_KEYS:
+                _dict.deep_pop(to_save, k)
+            yaml.dump(to_save, outfile)
+            LOGGER.debug(f"Saved config to '{to_file}'")
 
     @property
     def matter(self):
-        return self._config
-
-
-class _DictProxy(_Proxy):
-    def __init__(self, dict_obj, path: str = ""):
-        _Proxy.__init__(self, path)
-        self._dict: dict = dict_obj
-
-    def __getattr__(self, name):
-        try:
-            return self._dict[name]
-        except KeyError:
-            pass
-        return getattr(self._dict, name)
-
-    def load(self, from_file: str = ""):
-        from_file = from_file or self.path
-        try:
-            LOGGER.debug("Using session file %s", from_file)
-            with open(from_file, encoding="utf-8") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            LOGGER.error("Session file is not a valid JSON file")
-        except OSError:
-            LOGGER.info("Session file does not exist")
-        return {}
-
-    def save(self, to_file: str = "", data: dict = {}):
-        """Update session data."""
-        to_file = to_file or self.path
-        # Save session_data to file
-        with open(to_file, "w", encoding="utf-8") as outfile:
-            self._dict.update(data)
-            json.dump(to_file, outfile)
-            LOGGER.debug("Saved session data to %s", to_file)
-
-    @property
-    def matter(self):
-        return self._dict
+        return self._session
 
 
 class PyiCloudConfig(ABC):
@@ -203,90 +218,146 @@ class PyiCloudConfig(ABC):
 
     PACKAGE_NAME = "pyicloud"
 
-    # *fmt: off
-    BASE_COOKIES = {"dslang": "ES-ES", "site": "ESP"}
-    LOGIN_COOKIES = (["aasp"],)
-    LOGGED_COOKIES = (
-        [
-            "acn01",
-            "X-APPLE-DS-WEB-SESSION-TOKEN",
-            "X-APPLE-UNIQUE-CLIENT-ID",
-            "X-APPLE-WEBAUTH-LOGIN",
-            "X-APPLE-WEBAUTH-USER",
-            "X-APPLE-WEBAUTH-VALIDATE",
-            *BASE_COOKIES,
-            *LOGIN_COOKIES,
-        ],
-    )
-    FA1_COOKIES = (
-        [
-            "X-APPLE-WEBAUTH-HSA-LOGIN",
-            *BASE_COOKIES,
-            *LOGGED_COOKIES,
-        ],
-    )
-    # *fmt: on
-    FA2_COOKIES = [
-        "X-APPLE-WEBAUTH-FMIP",
-        "X-APPLE-WEBAUTH-HSA-TRUST",
-        "X-APPLE-WEBAUTH-TOKEN",
-        *BASE_COOKIES,
-        *LOGGED_COOKIES,
+    CONFIG_TEMPLATE = """
+        username: &username "{{ username }}"
+        password: &password "{{ password }}"
+        auth:
+            token: null
+            accountCountryCode: null
+            xAppleTwosvTrustToken: null
+        twoFactorAuthentication: false
+        securityCode: null
+        clientSettings:
+            language: &language {{ client_settings.language }}
+            locale: &locale {{ client_settings.locale }}
+            xAppleWidgetKey: "83545bf919730e51dbfba24e7e8a78d2"
+            xAppleIDSessionId: null
+            xAppleIFDClientInfo:
+                U: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1"
+                L: *locale
+                Z: "GMT+02:00"
+                V: "1.1"
+                F: ""
+            timezone: &timezone {{ client_settings.timezone }}
+            clientBuildNumber: "2018Project35"
+            clientMasteringNumber: "2018B29"
+            scnt: null
+            defaultHeaders:
+                Referer: "https://www.icloud.com/"
+                Content-Type: "text/plain"
+                Origin: "https://www.icloud.com"
+                Host: ""
+                Accept: "*/*"
+                Connection: "keep-alive"
+                Accept-Language: *language
+                User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/604.1.25 (KHTML, like Gecko) Version/11.0 Safari/604.1.25"
+                Cookie: ""
+                X-Requested-With: "XMLHttpRequest"
+        clientId: &client_id "{{ clientId }}"
+        withFamily: true
+        verify: true
+        apps: "{{ apps }}"
+        push:
+            topics: "{{ topics }}"
+            token: null
+            ttl: 43200
+            courierUrl: ""
+            registered: []
+        account: {}
+        logins: []
+    """
+
+    SKIP_KEYS = [
+        "password",
     ]
 
-    def __init__(self, apple_id: str = ""):
-        self._apple_id: str = apple_id
-        self._password: str = ""
+    def get(self, key, sep=".", value=None):
+        try:
+            return _dict.deep_get(self._session, key, sep)
+        except KeyError:
+            return value
 
-        self._config: _ConfigProxy | None = None
-        self._session: _DictProxy | None = None
-        self._cookies: _Cookies | None = None
+    def __init__(self, username: str = "", **kwargs):
+        # Create a Jinja2 environment
+        env = Environment(loader=BaseLoader())
 
-    @classmethod
-    @abstractmethod
-    def create(cls, apple_id: str, **kwargs):
-        """Create a new configuration."""
+        # Load the JSON payload as a Jinja2 template
+        template = env.from_string(self.CONFIG_TEMPLATE)
+
+        # Render the template with the session variables
+        rendered_template = template.render(
+            {
+                "username": username,
+                "password": kwargs.get("password", ""),
+                "client_settings": {
+                    "language": kwargs.get("language", "en-us"),
+                    "locale": kwargs.get("locale", "en_US"),
+                    "timezone": kwargs.get("US/Pacific"),
+                    "timeoffset": "GMT+02:00",
+                },
+                "clientId": kwargs.get("client_id", "auth-%s" % str(uuid1()).lower()),
+                "apps": {},
+                "topics": [],
+            }
+        )
+        # Load the rendered template as a dictionary
+        self._session = SessionFile(yaml.safe_load(rendered_template))
+        self._cookies = CookieFile(CookieFile.BASE_COOKIES)
+        self._emitter = EventEmitter(wildcard=True)
+        self._esilent = False
+
+        # Wait till the username is set
+        self.ee.on("changed.username", lambda *_: self.load(update_path=True))
+
+        # Force config load if the username is set
+        self["username"] and self.ee.emit("changed.username", None, self["username"])
+
+    def __getitem__(self, name):
+        return self._session[name]
+
+    def __setitem__(self, name, value):
+        self._session[name], old_value = value, self._session[name]
+        if old_value != value and not self._esilent:
+            self.ee.emit("changed.{}".format(name), old_value, value)
+
+    def __contains__(self, name):
+        return name in self._session
+
+    def __repr__(self):
+        return f"PyiCloudConfig({self._session})"
+
+    def __str__(self):
+        return str(self._session)
 
     @abstractmethod
     def load(self):
         """Load configuration from file."""
 
     @abstractmethod
-    def revert(self):
-        """Revert configuration to last saved state."""
-
-    @abstractmethod
     def save(self):
         """Save configuration to file."""
 
-    @property
-    @abstractmethod
-    def config(self):
-        """Get configuration."""
+    def update(self, entries: dict, silent=False):
+        """Update configuration"""
+        self._esilent, esilent_state = silent, self._esilent
+        try:
+            for k, v in _dict.flatten(entries).items():
+                self[k] = v
+        finally:
+            self._esilent = esilent_state
 
     @property
-    @abstractmethod
-    def cookies(self):
-        """Get cookies."""
+    def cookies(self) -> CookieFile:
+        """Get the cookies file."""
+        return self._cookies
 
     @property
-    @abstractmethod
-    def session(self):
-        """Get session."""
-
-    @property
-    def apple_id(self):
-        """Get Apple ID."""
-        return self._apple_id
-
-    @apple_id.setter
-    def apple_id(self, value: str):
-        """Set Apple ID."""
-        self._apple_id = value
+    def ee(self):
+        """Get the event emitter."""
+        return self._emitter
 
 
 class PyiCloudFileConfig(PyiCloudConfig):
-
     @classmethod
     def _make_dir(cls, env_var_name, system_env_var_name, default_dir):
         # try to find locally first. Run recursively from current dir to rootdir
@@ -331,72 +402,37 @@ class PyiCloudFileConfig(PyiCloudConfig):
         }
         return cls._make_dir(**config_params)
 
-    @classmethod
-    def create(cls, apple_id: str = "", config_file: str = "", cookie_file: str = "", session_file: str = ""):
-        return cls(apple_id, config_file, cookie_file, session_file)
-
-    def __init__(self, apple_id: str = "", config_file: str = "", cookie_file: str = "", session_file: str = ""):
-        PyiCloudConfig.__init__(self, apple_id)
-        self.__config_file: str = config_file
-        self.__cookie_file: str = cookie_file
-        self.__session_file: str = session_file
-
-    def __repr__(self):
-        return f"PyiCloudConfig({self._config})"
-
-    def __str__(self):
-        return str(self._config)
+    def __init__(self, username: str = "", config_file: str = "", cookie_file: str = "", **kwargs):
+        self._session_path: str = config_file
+        self._cookies_path: str = cookie_file
+        PyiCloudConfig.__init__(self, username, **kwargs)
 
     @property
-    def _cookiejar_file(self):
+    def _cookies_file(self):
         """Get path for cookiejar file."""
-        if not self.apple_id:
+        if not (username := self["username"]):
             raise ValueError("apple_id is not set")
-        self.__cookie_file = self.__cookie_file or path.join(
-            self._cache_dir(), re.sub(r"\W", "", self.apple_id) + ".cookies"
-        )
-        return self.__cookie_file
+        return self._cookies_path or path.join(self._cache_dir(), re.sub(r"\W", "", username) + ".cookies")
 
     @property
     def _session_file(self) -> str:
-        """Get path for session data file."""
-        if not self.apple_id:
-            raise ValueError("apple_id is not set")
-        self.__session_file = self.__session_file or path.join(
-            self._config_dir(), re.sub(r"\W", "", self.apple_id) + ".session"
-        )
-        return self.__session_file
-
-    @property
-    def _config_file(self) -> str:
         """Get path for configuration file."""
-        if not self.__config_file:
-            self.__config_file = path.join(self._config_dir(), f"{self.PACKAGE_NAME}.yml")
-        return self.__config_file
+        if not (username := self["username"]):
+            raise ValueError("apple_id is not set")
+        return self._session_path or path.join(self._config_dir(), re.sub(r"\W", "", username) + ".session")
 
-    @property
-    def config(self) -> _ConfigProxy:
-        if self._config is None:
-            self._config = _ConfigProxy({}, path=self._config_file)
-        return self._config
+    def load(self, update_path: bool = False):
+        LOGGER.debug(f"Loading session, cookies from {self._session_file}, {self._cookies_file}")
+        self._session.load(self._session_file)
+        self._cookies.load(self._cookies_file)
+        # On successful load, update the session and cookie paths
+        if update_path:
+            self._session.path, self._cookies.path = self._session_file, self._cookies_file
 
-    @property
-    def session(self) -> _DictProxy:
-        if self._session is None:
-            self._session = _DictProxy({"client_id": self.config.client_id}, path=self._session_file)
-        return self._session
-
-    @property
-    def cookies(self) -> _Cookies:
-        if self._cookies is None:
-            self._cookies = _Cookies(path=self._cookiejar_file)
-        return self._cookies
-
-    def load(self):
-        return [v.load() or v for v in (self.config, self.session, self.cookies)]
-
-    def revert(self):
-        return [v.revert() or v for v in (self.config, self.session, self.cookies)]
-
-    def save(self):
-        return [v.save() or v for v in (self.config, self.session, self.cookies)]
+    def save(self, update_path: bool = False):
+        LOGGER.debug(f"Save session, cookies from {self._session_file}, {self._cookies_file}")
+        self._session.save(self._session_file)
+        self._cookies.save(self._cookies_file)
+        # On successful load, update the session and cookie paths
+        if update_path:
+            self._session.path, self._cookies.path = self._session_file, self._cookies_file

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from pyicloud.utils import underscore_to_camelcase
-
 
 class AccountService:
     """The 'Account' iCloud service."""
@@ -81,8 +79,17 @@ class AccountService:
 class AccountDevice(dict):
     """Account device."""
 
+    @staticmethod
+    def underscore_to_camelcase(word, initial_capital=False):
+        """Transform a word to camelCase."""
+        words = [x.capitalize() or "_" for x in word.split("_")]
+        if not initial_capital:
+            words[0] = words[0].lower()
+
+        return "".join(words)
+
     def __getattr__(self, key):
-        return self[underscore_to_camelcase(key)]
+        return self[AccountDevice.underscore_to_camelcase(key)]
 
     def __str__(self):
         return f"{{model: {self.model_display_name}, name: {self.name}}}"

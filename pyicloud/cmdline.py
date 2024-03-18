@@ -3,15 +3,14 @@
 A Command Line Wrapper to allow easy use of pyicloud for
 command line scripts, and related.
 """
+
 from __future__ import annotations
 
 import getpass
 import logging
 import pickle
 import sys
-from os import name
 
-import anyio
 import asyncclick as click
 
 from pyicloud.base import PyiCloud, PyiCloudServices
@@ -33,19 +32,14 @@ def create_pickled_data(idevice, filename):
 
 
 class _DictProxy:
-    def __init__(self, dict_obj):
-        self._dict = dict_obj
+    __slots__ = ("_dict", "_default")
+
+    def __init__(self, d, default=None):
+        object.__setattr__(self, "_dict", d)
+        object.__setattr__(self, "_default", default)
 
     def __getattr__(self, name):
-        try:
-            return self._dict[name]
-        except KeyError:
-            pass
-        return getattr(self._dict, name)
-
-    @property
-    def mirror(self):
-        return self._dict
+        return self._dict.get(name, self._default)
 
 
 # fmt: off
@@ -86,7 +80,7 @@ async def main(**kwargs):
     password = str.strip(command_line.password)
 
     failure_count = 0
-    api = PyiCloud(username, password or "")
+    api = PyiCloud(username=username, password=password)
     while True:
         # Which password we use is determined by your username, so we
         # do need to check for this first and separately.
@@ -94,7 +88,7 @@ async def main(**kwargs):
             raise click.ClickException("No username supplied")
 
         try:
-            await api.login(until_complete=True)
+            #await api.login(until_complete=True)
             api.authenticate()
 
             if api.requires_password:

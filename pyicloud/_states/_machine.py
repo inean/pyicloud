@@ -1,4 +1,3 @@
-from ast import Is
 from asyncio import Lock, Task, create_task, sleep
 
 from ._state import IState

@@ -86,9 +86,7 @@ class Account(ABC):
     _verify_with: IState
     _verified: IState
 
-    def __init__(self, user: str, password: str, config: Config) -> None:
-        self._user = user
-        self._password = password
+    def __init__(self, config: Config) -> None:
         self._config = config
         self._state = None
 

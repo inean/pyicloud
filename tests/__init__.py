@@ -7,6 +7,7 @@ import json
 import httpx
 
 from pyicloud import base
+from pyicloud.base import iConstants
 
 from .const import (
     AUTHENTICATED_USER,
@@ -71,7 +72,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
         data = json.loads(kwargs.get("data", "{}"))
 
         # Login
-        if self._owner.SETUP_ENDPOINT in url:
+        if iConstants.SETUP_ENDPOINT in url:
             if "accountLogin" in url and method == "POST":
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._error_callback(None, "Unknown reason")
@@ -99,22 +100,22 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                     return ResponseMock(LOGIN_WORKING)
                 self._error_callback(None, "Session expired")
 
-        if self._owner.AUTH_ENDPOINT in url:
+        if iConstants.AUTH_ENDPOINT in url:
             if "signin" in url and method == "POST":
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
-                    self._owner._session_data["session_token"] = REQUIRES_2FA_TOKEN
+                    self._config["auth"]["token"] = REQUIRES_2FA_TOKEN
                     return ResponseMock(AUTH_OK)
 
-                self._owner._session_data["session_token"] = VALID_TOKEN
+                self._config["auth"]["token"] = VALID_TOKEN
                 return ResponseMock(AUTH_OK)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
                     self._error_callback(None, "Incorrect code")
 
-                self._owner._session_data["session_token"] = VALID_TOKEN
+                self._config["auth"]["token"] = VALID_TOKEN
                 return ResponseMock("", status_code=204)
 
             if "trust" in url and method == "GET":
@@ -159,12 +160,12 @@ class PyiCloudMock(base.PyiCloud):
 
     def __init__(
         self,
-        apple_id,
+        username,
         password,
     ):
         """Set up pyicloud service mock."""
         base.PyiCloudSession = PyiCloudSessionMock
-        base.PyiCloud.__init__(self, apple_id, password)
+        base.PyiCloud.__init__(self, username, password)
 
 
 class PyiCloudServicesMock(base.PyiCloudServices):

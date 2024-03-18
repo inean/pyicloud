@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
-
 import httpx
+
+from functools import reduce
+from collections import namedtuple
 
 from pyicloud.config import PyiCloudFileConfig as Config
 from pyicloud.exceptions import (
@@ -25,17 +27,174 @@ from pyicloud.services import (
     RemindersService,
     UbiquityService,
 )
-from pyicloud.states import Account as BaseAccount
-from pyicloud.states import Disconnected, Logged, SignIn
-
-from ._events import Events
-from ._states import ConditionalLink, Link, RetryLink
 
 
-class PyiCloudConstants:
+from transitions import State as State
+from transitions import Machine as Machine
+from transitions import Transition as Transition
+
+Response = namedtuple("Response", ["result", "err"])
+
+
+class iConstants:
     AUTH_ENDPOINT = "https://idmsa.apple.com/appleauth/auth"
     HOME_ENDPOINT = "https://www.icloud.com"
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
+
+
+class iState(State):
+    def __init__(self, name, cls):
+        super().__init__(name)
+        # Session Object to instantiate when state is entered
+        self._cls = cls
+
+
+#     def _set_states(self):
+#         self._disconnected = Disconnected(self)
+#         self._signin = SignIn(self)
+#         self._logged = Logged(self)
+
+
+#     def _set_links(self):
+#         self._disconnected.add_link(ConditionalLink(self._logged, self._logged.is_signed))
+#         self._disconnected.add_link(Link(self._signin))
+#         self._signin.add_link(ConditionalLink(self._logged, self._logged.is_signed))
+#         self._signin.add_link(RetryLink(self._signin, retries=2))
+
+
+def is_signed(cls: Transition):
+    """Condition to check if user is signed in"""
+
+    class Wrapper(cls):
+        def __init__(self, *args, **kwargs):
+            assert "conditions" not in kwargs, "condtions will be overriden"
+            kwargs["conditions"] = self.check
+            cls.__init__(self, *args, **kwargs)
+
+        def check(self, event_data):
+            print(f"Checking if user is signed in... {event_data.machine}")
+            return True
+
+    Wrapper.__name__ = f"IsSigned{cls.__name__}"
+    return Wrapper
+
+
+@is_signed
+class iTransition(Transition):
+    pass
+
+
+class iStateMachine(Machine):
+    def __init__(self):
+        super().__init__(initial="disconnected", queued=True, auto_transitions=False, send_event=True)
+
+        # Add states
+        self.add_state(iState(name="sigin", cls=iSignIn))
+        self.add_state("logged")
+
+        # Add links (transitions)
+        self.add_link("sigin", iTransition("disconnected", "sigin"))
+        self.add_link("sigin", iTransition("sigin", "logged"))
+
+        # Set initial state
+        self.initial = "disconnected"
+
+    def add_link(self, trigger, transition: Transition = None, **kwargs):
+        if trigger not in self.events:
+            self.events[trigger] = self._create_event(trigger, self)
+            for model in self.models:
+                self._add_trigger_to_model(trigger, model)
+        if transition:
+            self.events[trigger].add_transition(transition)
+            return
+        # Use fdefault transition event
+        self.add_transition(trigger, **kwargs)
+
+
+class iBaseSession:
+    HEADER_DATA = {
+        "X-Apple-ID-Account-Country": "auth.accountCountryCode",
+        "X-Apple-ID-Session-Id": "clientSettings.xAppleIDSessionId",
+        "X-Apple-Session-Token": "auth.token",
+        "X-Apple-TwoSV-Trust-Token": "auth.xAppleTwosvTrustToken",
+        "scnt": "clientSettings.scnt",
+    }
+
+    def __init__(self, config: Config, client: httpx.Client | None = None):
+        self._config = config
+        self._httpx = client or httpx.Client(follow_redirects=True)
+
+        # Store last response
+        self._response: httpx.Response | None = None
+        self._httpx.event_hooks["request"].append(lambda value: setattr(self, "_response", value))
+
+        # set password filter
+        PyiCloudPasswordFilter.register(self, logger=get_logger("http"))
+
+    async def __aenter__(self):
+        # Load session and cookies
+        self._config.load()
+        # Set headers
+        self._httpx.headers.update(
+            {
+                "Origin": self.HOME_ENDPOINT,
+                "Referer": "%s/" % self.HOME_ENDPOINT,
+            }
+        )
+        return self._httpx
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if self._response:
+            # Update session config
+            for header, key in self.HEADER_DATA.items():
+                if header in self._response.headers:
+                    self._config.update({key: self._response.headers[header]})
+        # Store session and cookies
+        self._config.save()
+        await self._httpx.close()
+
+
+class iSignIn(iBaseSession):
+    ENDPOINT = "https://idmsa.apple.com/appleauth/auth/signin"
+
+    async def __aenter__(self):
+        retval = await super().__aenter__()
+
+        # Prepare Headers for POST Request
+        headers = {
+            "Accept": "*/*",
+            "Content-Type": "application/json",
+            "X-Apple-OAuth-Client-Id": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+            "X-Apple-OAuth-Client-Type": "firstPartyAuth",
+            "X-Apple-OAuth-Redirect-URI": self.HOME_ENDPOINT,
+            "X-Apple-OAuth-Require-Grant-Code": "true",
+            "X-Apple-OAuth-Response-Type": "code",
+            "X-Apple-OAuth-Response-Mode": "web_message",
+            "X-Apple-OAuth-State": self._config["clientId"],
+            "X-Apple-Widget-Key": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+        }
+        if scnt := self.config.get("clientSettings.scnt"):
+            headers["scnt"] = scnt
+        if ssid := self.config.get("clientSettings.xAppleIDSessionId"):
+            headers["X-Apple-ID-Session-Id"] = ssid
+        # Set headers
+        self.httpx.headers.update(headers)
+
+        # Set params
+        self.httpx.params = {"isRememberMeEnabled": "true"}
+        # Set body
+        self.httpx.json = {
+            "rememberMe": True,
+            "accountName": self._config["username"],
+            "password": self._config.get("password", ""),
+            "trustTokens": [*[self._config.get("auth.xAppleTwosvTrustToken", [])]],
+        }
+
+        return retval
+
+    async def __aexit__(self, exc_type, exc, tb):
+        # If no Status 200 OK response, Clean up cookies
+        return await super().__aexit__(exc_type, exc, tb)
 
 
 class PyiCloudSession(httpx.Client):
@@ -44,13 +203,12 @@ class PyiCloudSession(httpx.Client):
     SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
 
     HEADER_DATA = {
-        "X-Apple-ID-Account-Country": "account_country",
-        "X-Apple-ID-Session-Id": "session_id",
-        "X-Apple-Session-Token": "session_token",
-        "X-Apple-TwoSV-Trust-Token": "trust_token",
-        "scnt": "scnt",
+        "X-Apple-ID-Account-Country": "auth.accountCountryCode",
+        "X-Apple-ID-Session-Id": "clientSettings.xAppleIDSessionId",
+        "X-Apple-Session-Token": "auth.token",
+        "X-Apple-TwoSV-Trust-Token": "auth.xAppleTwosvTrustToken",
+        "scnt": "clientSettings.scnt",
     }
-
     BASE_COOKIES: list[str] = ["dslang", "site"]
     LOGIN_COOKIES: list[str] = ["aasp"]
     LOGGED_COOKIES: list[str] = [
@@ -85,7 +243,7 @@ class PyiCloudSession(httpx.Client):
 
         # init elements
         self._owner = owner
-        self._config = owner._config
+        self._config = owner.config
 
         self._auth_callback = auth_callback or self._owner.authenticate
         self._error_callback = error_callback or self._owner._raise_error
@@ -94,20 +252,17 @@ class PyiCloudSession(httpx.Client):
         PyiCloudPasswordFilter.register(self, logger=get_logger("http"))
 
     def _update_session(self, response):
-        content_type = response.headers.get("Content-Type", "").split(";")[0]
-        session_updates = {
-            value: header_value
-            for header, value in self.HEADER_DATA.items()
-            if (header_value := response.headers.get(header))
-        }
-        # Save session to file
-        self._owner._session_data.update(session_updates)
-        # Save session_data to file
-        with open(self._config._session_file, "w", encoding="utf-8") as outfile:
-            json.dump(self._owner._session_data, outfile)
-            LOGGER.debug("Saved session data to %s", self._config._session_file)
+        for header, value in self.HEADER_DATA.items():
+            if header_value := response.headers.get(header):
+                split_value = value.split(".")
+                nested, key = split_value[:-1], split_value[-1]
+                reduce(lambda v, k: v[k], nested, self._config)[key] = header_value
 
-        return content_type
+        # Save session_data to file
+        self._config.save()
+        LOGGER.debug("Saved session data to %s", self._config._session_file)
+
+        return response.headers.get("Content-Type", "").split(";")[0]
 
     def _get_auth_headers(self, overrides=None):
         headers = {
@@ -119,7 +274,7 @@ class PyiCloudSession(httpx.Client):
             "X-Apple-OAuth-Require-Grant-Code": "true",
             "X-Apple-OAuth-Response-Mode": "web_message",
             "X-Apple-OAuth-Response-Type": "code",
-            "X-Apple-OAuth-State": self._config.config.client_id,
+            "X-Apple-OAuth-State": self._config["clientId"],
             "X-Apple-Widget-Key": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
         }
         if overrides:
@@ -132,6 +287,7 @@ class PyiCloudSession(httpx.Client):
         response = super().request(method, url, **kwargs)
 
         # Save response cookies to file
+        self._config.cookies.update(response.cookies)
         self._config.cookies.save()
 
         # Update session
@@ -144,7 +300,6 @@ class PyiCloudSession(httpx.Client):
             try:
                 # pylint: disable=protected-access
                 fmip_url = self._owner["findme"]
-                print(fmip_url, url)
 
                 if not has_retried and response.status_code == 450 and fmip_url in url:
                     # Handle re-authentication for Find My iPhone
@@ -205,103 +360,193 @@ class PyiCloudSession(httpx.Client):
                 self._error_callback(code, reason)
 
 
-class PyiAccount(BaseAccount):
-    events = Events(
-        [
-            "user_changed",
-            "password_changed",
-        ]
-    )
+# class PyiAccount(BaseAccount):
+#     def __init__(self, config: Config | None = None, **kwargs) -> None:
+#         config = config or Config()
+#         super().__init__(config)
 
-    def __init__(self, user: str, password: str = "", config: Config | None = None) -> None:
-        config = config or Config.create()
-        super().__init__(user, password, config)
+#         # Update config after setting apple_id
+#         self.config = config or Config()
+#         self.config.update(kwargs)
 
-    def _set_states(self):
-        self._disconnected = Disconnected(self)
-        self._signin = SignIn(self)
-        self._logged = Logged(self)
+#     def _set_states(self):
+#         self._disconnected = Disconnected(self)
+#         self._signin = SignIn(self)
+#         self._logged = Logged(self)
 
-    def _set_links(self):
-        self._disconnected.add_link(ConditionalLink(self._logged, self._logged.is_signed))
-        self._disconnected.add_link(Link(self._signin))
-        self._signin.add_link(ConditionalLink(self._logged, self._logged.is_signed))
-        self._signin.add_link(RetryLink(self._signin, retries=2))
+#     def _set_links(self):
+#         self._disconnected.add_link(ConditionalLink(self._logged, self._logged.is_signed))
+#         self._disconnected.add_link(Link(self._signin))
+#         self._signin.add_link(ConditionalLink(self._logged, self._logged.is_signed))
+#         self._signin.add_link(RetryLink(self._signin, retries=2))
 
-    def on_signin(self) -> str:
-        raise NotImplementedError
+#     def on_signin(self) -> str:
+#         raise NotImplementedError
 
-    def on_verify_from(self) -> str:
-        raise NotImplementedError
+#     def on_verify_from(self) -> str:
+#         raise NotImplementedError
 
-    def on_verify(self) -> str:
-        raise NotImplementedError
+#     def on_verify(self) -> str:
+#         raise NotImplementedError
 
 
 class PyiCloudUser:
     """
     A base authentication class for the iCloud service. Handles the
     authentication required to access iCloud services.
-
-    Usage:
-        from pyicloud import PyiCloud
-
-        pyicloud = PyiCloud.from_config('username@apple.com')
-        services = pyicloud.services()
-
-        # Some services don't require 2FA, so we can authenticate directly
-        #
-        auth_challenge = services.iphone.authenticate()
-        while auth_challenge.err():
-            if auth_challenge.requires_2fa:
-                ...
-            if auth_challenge.requires_2sa:
-                ...
-            if auth_challenge.requires_password:
-                ...
-
-        services.iphone.location()
-
     """
 
-    AUTH_ENDPOINT = "https://idmsa.apple.com/appleauth/auth"
-    HOME_ENDPOINT = "https://www.icloud.com"
-    SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
+    STATES = [
+        "disconnected",
+        "sigin",
+        "authorized",
+    ]
 
-    def __init__(self, apple_id: str, password: str = "", config: Config | None = None):
+    def __init__(self, config: Config | None = None, **kwargs):
         # Public Props
         self.params = {}
 
-        # Private Props
-        self._apple_id = ""
-        self._password = ""
-
         self._ws = {}
-        self._state = {}
+        self._session = {}
         self._config = None
 
-        self._events = Events(["apple_id_changed", "password_changed"])
+        self.machine = iStateMachine()
 
         # Update config after setting apple_id
-        self.config = config or Config.create()
+        config = config or Config()
+        config.update(kwargs)
 
-        self._session = PyiCloudSession(self)
-        self._session.verify = self.config.verify
-        self._session.headers.update({"Origin": self.HOME_ENDPOINT, "Referer": "%s/" % self.HOME_ENDPOINT})
+        # Store config file
+        self.config = config
 
-        PyiCloudPasswordFilter.register(self)
-        self._events.subscribe("password_changed", PyiCloudPasswordFilter.on_password_changed)
-        # Write Only Props. Changes to apple_id and password will
-        # trigger session customization so, set after usinf props
-        self.apple_id = apple_id
-        self.password = password
-        # Prepare Session
+        # Update config after setting apple_id. If username
+        # and password are provided, config will be updated data from config files
+        self._client = PyiCloudSession(self)
+        self._client.verify = self.config["verify"]
+        self._client.headers.update(
+            {
+                "Origin": iConstants.HOME_ENDPOINT,
+                "Referer": f"{iConstants.HOME_ENDPOINT}/",
+            }
+        )
 
-        self._context = PyiAccount(self._apple_id, self._password, self._config)
+    def set_transitions(self):
+        self.add_transition("signin", self._disconnected, self._signin)
+        self.add_transition("verify", self._signin, self._logged)
 
-    async def login(self, until_complete=False):
-        """Login method."""
-        await self._context.machine.run(self._context._disconnected, until_complete=until_complete)
+    def _condition_is_logged(self):
+        """Returns True if logged."""
+        if not self.config["auth"]["token"]:
+            LOGGER.debug("Missing session token")
+        cookies, missing = self.config.cookies.fetch(self.config.cookies.LOGGED_COOKIES)
+
+        missing and LOGGER.debug("Missing cookies: {}".format(missing))
+        return cookies, missing
+
+    async def login(self, username, password) -> Response[dict | None, dict | None]:
+        """Fetch a valid session token."""
+
+        LOGGER.debug(f"Authenticating as {username}")
+
+        # Define login client info object
+        x_apple_ifd_client_info = {
+            "U": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1",
+            "L": self.config["clientSettings"]["locale"],
+            "Z": self.config["clientSettings"]["timeoffset"],
+            "V": "1.1",
+            "F": "",
+        }
+        # Prepare Headers
+        headers = {
+            "Content-Type": "application/json",
+            "Referer": iConstants.AUTH_ENDPOINT,
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1",
+            "Origin": "https://idmsa.apple.com",
+            "X-Apple-Widget-Key": self.config["clientSettings"]["xAppleWidgetKey"],
+            "X-Requested-With": "XMLHttpRequest",
+            "X-Apple-I-FD-Client-Info": json.dumps(x_apple_ifd_client_info),
+        }
+
+        # Prepare data object to post with login info
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                iConstants.AUTH_ENDPOINT,
+                headers=headers,
+                json={"accountName": username, "password": password, "rememberMe": True, "trustTokens": []},
+            )
+
+        # If there are any request errors
+        if not r.is_success:
+            return Response(None, {"error": "Request failed", "code": r.status_code, "response": r.text})
+
+        # Parse JSON response
+        try:
+            json_body = r.json()
+        except json.JSONDecodeError:
+            return Response(None, {"error": "Invalid JSON response", "code": r.status_code, "response": r.text})
+
+        # Extract session info from headers
+        result = {
+            "session_token": r.headers.get("x-apple-session-token"),
+            "session_id": r.headers.get("x-apple-id-session-id"),
+            "scnt": r.headers.get("scnt"),
+            "response": json_body,
+        }
+        err = None
+        if result["session_token"] is None:
+            err = {"error": "No session token", "code": r.status_code, "response": r.text}
+
+        return Response[result, err]
+
+    async def verify(self, callback: callable = None, trust_token: str = "") -> Response[dict | None, dict | None]:
+        """Fetch a valid trust token"""
+        params = {
+            "clientBuildNumber": self.config["clientSettings"]["clientBuildNumber"],
+            "clientId": self.config["clientId"],
+            "clientMasteringNumber": self.config["clientSettings"]["clientMasteringNumber"],
+        }
+        headers = {
+            "Content-Type": "text/plain",
+            "Referer": "https://www.icloud.com/",
+            "Accept": "*/*",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1",
+            "Origin": "https://www.icloud.com",
+        }
+        body = {
+            "trustToken": trust_token,
+            "extended_login": True,
+            "accountCountryCode": self.config["account_country"],
+            "dsWebAuthToken": self.config["auth"]["token"],
+        }
+        # Prepare data object to post with login info
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"{iConstants.SETUP_ENDPOINT}/accountLogin", headers=headers, params=params, json=body
+            )
+
+        # If there are any request errors
+        if not r.is_success:
+            return Response(None, {"error": "Request failed", "code": r.status_code, "response": r.text})
+
+        # Parse JSON response
+        try:
+            json_body = r.json()
+        except json.JSONDecodeError:
+            return Response(None, {"error": "Invalid JSON response", "code": r.status_code, "response": r.text})
+
+        # Extract session info from headers
+        result = {
+            "session_token": r.headers.get("x-apple-session-token"),
+            "session_id": r.headers.get("x-apple-id-session-id"),
+            "scnt": r.headers.get("scnt"),
+            "response": json_body,
+        }
+        err = None
+        if result["session_token"] is None:
+            err = {"error": "No session token", "code": r.status_code, "response": r.text}
+
+        return Response[result, err]
 
     def authenticate(self, force_refresh=False, service=None):
         """
@@ -309,43 +554,46 @@ class PyiCloudUser:
         subsequent logins will not cause additional e-mails from Apple.
         """
         LOGGER.debug("Start auth handshake")
-        if self._session_data.get("session_token") and not force_refresh:
+        if self.config["auth"]["token"] and not force_refresh:
+            LOGGER.info("Using session token")
             try:
                 self._validate()
-                self._ws = self._state["webservices"]
-                LOGGER.debug("Authentication with session token completed successfully")
+                self._ws = self._session["webservices"]
+                LOGGER.info("Authentication with session token completed successfully")
                 return
             except PyiCloudAPIResponseException:
-                LOGGER.debug("Invalid authentication token, will log in from scratch.")
-                self._session_data.pop("session_token", None)
+                LOGGER.info("Invalid authentication token, will log in from scratch.")
+                self.config["auth"]["token"] = None
 
         login_successful = False
         if service:
+            LOGGER.info(f"Authenticating as {self.apple_id} for {service}")
             try:
                 self._authenticate_setup_service(service)
                 login_successful = True
             except Exception:
-                LOGGER.debug("Could not log into service. Attempting brand new login.")
+                LOGGER.info(f"Could not log into {service}. Attempting brand new login.")
 
         if not login_successful:
+            LOGGER.info(f"Start full authenticating as {self.apple_id}")
             self._authenticate_fetch_session_token()
 
-        self._ws = self._state.get("webservices", {})
+        self._ws = self._session.get("webservices", {})
         if self._ws:
-            LOGGER.debug("Authentication completed successfully")
+            LOGGER.info("Authentication completed successfully")
 
     def _authenticate_setup_service(self, service):
         """Authenticate to a specific service using credentials."""
         data = {
             "appName": service,
             "apple_id": self.apple_id,
-            "password": self._password,
+            "password": self.password,
         }
-        app = self._state["apps"][service]
+        app = self._session["apps"][service]
         if app.get("canLaunchWithOneFactor", False):
-            LOGGER.debug("Authenticating as %s for %s", self.apple_id, service)
+            LOGGER.debug(f"Authenticating for {service} as {self.apple_id} with OneFactor")
             try:
-                self._session.post("%s/accountLogin" % self.SETUP_ENDPOINT, data=json.dumps(data))
+                self._client.post(f"{iConstants.SETUP_ENDPOINT}/accountLogin", data=json.dumps(data))
                 self._validate()
             except PyiCloudAPIResponseException as error:
                 msg = "Invalid email/password combination."
@@ -355,24 +603,23 @@ class PyiCloudUser:
     def _authenticate_fetch_session_token(self):
         LOGGER.debug("Authenticating as %s", self.apple_id)
 
-        # purge session_token from session_data if exists.
-        self._session_data.pop("session_token", None)
-
         # Prepare Headers
-        headers = self._session._get_auth_headers()
-        if self._session_data.get("scnt"):
-            headers["scnt"] = self._session_data.get("scnt")
-        if self._session_data.get("session_id"):
-            headers["X-Apple-ID-Session-Id"] = self._session_data.get("session_id")
+        headers = self._client._get_auth_headers()
+        if scnt := self.config["clientSettings"]["scnt"]:
+            headers["scnt"] = scnt
+        if ssid := self.config["clientSettings"]["xAppleIDSessionId"]:
+            headers["X-Apple-ID-Session-Id"] = ssid
 
         # Prepare content
-        data = {"accountName": self.apple_id, "password": self._password, "rememberMe": True, "trustTokens": []}
-        if self._session_data.get("trust_token"):
-            data["trustTokens"] = [self._session_data.get("trust_token")]
+        data = {"accountName": self.apple_id, "rememberMe": True, "trustTokens": []}
+        if self.password:
+            data["password"] = self.password
+        if trust_token := self.config["auth"]["xAppleTwosvTrustToken"]:
+            data["trustTokens"] = [trust_token]
 
         try:
-            self._session.post(
-                "%s/signin" % self.AUTH_ENDPOINT,
+            self._client.post(
+                f"{iConstants.AUTH_ENDPOINT}/signin",
                 params={"isRememberMeEnabled": "true"},
                 data=json.dumps(data),
                 headers=headers,
@@ -383,19 +630,19 @@ class PyiCloudUser:
             # If we are here, we are authenticated,
             # session_token will be available. Don't throw an error
             # but stop here. let the caller handle it.
-        if not self._session_data.get("session_token"):
+        if not (token := self.config["auth"]["token"]):
             self.password = ""
             return
 
-        self._authenticate_fetch_trust_token()
+        self._authenticate_fetch_trust_token(token)
 
     def _validate(self):
         """Checks if the current cookie set is still valid."""
         LOGGER.debug("Renewing session using cookies")
         try:
-            req = self._session.post("%s/validate" % self.SETUP_ENDPOINT, data="null")
+            req = self._client.post(f"{iConstants.SETUP_ENDPOINT}/validate", data="null")
             LOGGER.debug("Session token is still valid")
-            self._state = req.json()
+            self._session = req.json()
         except PyiCloudAPIResponseException as err:
             LOGGER.debug("Invalid authentication token")
             raise err
@@ -421,17 +668,17 @@ class PyiCloudUser:
         LOGGER.error(api_error)
         raise api_error
 
-    def _authenticate_fetch_trust_token(self):
+    def _authenticate_fetch_trust_token(self, session_token: str | None = None):
         """Authenticate using session token."""
         data = {
-            "accountCountryCode": self._session_data.get("account_country"),
-            "dsWebAuthToken": self._session_data.get("session_token"),
+            "accountCountryCode": self.config["auth"]["accountCountryCode"],
+            "dsWebAuthToken": session_token or self.config["auth"]["token"],
             "extended_login": True,
-            "trustToken": self._session_data.get("trust_token", ""),
+            "trustToken": self.config["auth"]["xAppleTwosvTrustToken"],
         }
         try:
-            req = self._session.post("%s/accountLogin" % self.SETUP_ENDPOINT, data=json.dumps(data))
-            self._state = req.json()
+            req = self._client.post(f"{iConstants.SETUP_ENDPOINT}/accountLogin", data=json.dumps(data))
+            self._session = req.json()
         except PyiCloudAPIResponseException as error:
             msg = "Invalid authentication token."
             raise PyiCloudFailedLoginException(msg, error) from error
@@ -439,8 +686,8 @@ class PyiCloudUser:
     def send_verification_code(self, device):
         """Requests that a verification code is sent to the given device."""
         data = json.dumps(device)
-        request = self._session.post(
-            "%s/sendVerificationCode" % self.SETUP_ENDPOINT,
+        request = self._client.post(
+            f"{iConstants.SETUP_ENDPOINT}/sendVerificationCode",
             params=self.params,
             data=data,
         )
@@ -452,8 +699,8 @@ class PyiCloudUser:
         data = json.dumps(device)
 
         try:
-            self._session.post(
-                "%s/validateVerificationCode" % self.SETUP_ENDPOINT,
+            self._client.post(
+                f"{iConstants.SETUP_ENDPOINT}/validateVerificationCode",
                 params=self.params,
                 data=data,
             )
@@ -471,17 +718,17 @@ class PyiCloudUser:
         """Verifies a verification code received via Apple's 2FA system (HSA2)."""
         data = {"securityCode": {"code": code}}
 
-        headers = self._session._get_auth_headers({"Accept": "application/json"})
+        headers = self._client._get_auth_headers({"Accept": "application/json"})
 
-        if self._session_data.get("scnt"):
-            headers["scnt"] = self._session_data.get("scnt")
+        if scnt := self.config["clientSettings"]["scnt"]:
+            headers["scnt"] = scnt
 
-        if self._session_data.get("session_id"):
-            headers["X-Apple-ID-Session-Id"] = self._session_data.get("session_id")
+        if ssid := self.config["clientSettings"]["xAppleIDSessionId"]:
+            headers["X-Apple-ID-Session-Id"] = ssid
 
         try:
-            self._session.post(
-                "%s/verify/trusteddevice/securitycode" % self.AUTH_ENDPOINT,
+            self._client.post(
+                f"{iConstants.AUTH_ENDPOINT}/verify/trusteddevice/securitycode",
                 data=json.dumps(data),
                 headers=headers,
             )
@@ -499,17 +746,17 @@ class PyiCloudUser:
 
     def trust_session(self):
         """Request session trust to avoid user log in going forward."""
-        headers = self._session._get_auth_headers()
+        headers = self._client._get_auth_headers()
 
-        if self._session_data.get("scnt"):
-            headers["scnt"] = self._session_data.get("scnt")
+        if scnt := self.config["clientSettings"]["scnt"]:
+            headers["scnt"] = scnt
 
-        if self._session_data.get("session_id"):
-            headers["X-Apple-ID-Session-Id"] = self._session_data.get("session_id")
+        if ssid := self.config["clientSettings"]["xAppleIDSessionId"]:
+            headers["X-Apple-ID-Session-Id"] = ssid
 
         try:
-            self._session.get(
-                f"{self.AUTH_ENDPOINT}/2sv/trust",
+            self._client.get(
+                f"{iConstants.AUTH_ENDPOINT}/2sv/trust",
                 headers=headers,
             )
             self._authenticate_fetch_trust_token()
@@ -531,114 +778,84 @@ class PyiCloudUser:
     @property
     def apple_id(self):
         """Apple ID getter."""
-        return self._apple_id
-
-    @apple_id.setter
-    def apple_id(self, value):
-        if not value:
-            raise PyiCloudException("Apple ID cannot be empty")
-        if self._apple_id == value:
-            return
-        if self._apple_id and self._apple_id != value:
-            raise PyiCloudException("Apple ID cannot be changed")
-
-        self._apple_id = value
-        self._events.fire("apple_id_changed", value)
-
-        # FIXME: Move to event handler
-        self._config.apple_id = value
-
-        # Fetch Auth/Session Data now that we have apple_id set
-        self._ws = {}
-        self._session_data = {}
-        try:
-            LOGGER.debug("Using session file %s", self._config._session_file)
-            with open(self._config._session_file, encoding="utf-8") as f:
-                self._session_data = json.load(f)
-        except json.JSONDecodeError:
-            LOGGER.error("Session file is not a valid JSON file")
-        except OSError:
-            LOGGER.info("Session file does not exist")
-
-        # Client ID may be stored in global config and session data. Keep it in sync.
-        if self._session_data.get("client_id"):
-            self.config.client_id = self._session_data.get("client_id")
-        self._session_data.update({"client_id": self.config.client_id})
-        # Load Cookies
-        self._config.cookies.link(self._session.cookies)
-        self._config.cookies.load()
+        return self._config["username"] if self._config else ""
 
     @property
-    def config(self):
+    def config(self) -> Config:
         """Config getter."""
-        if self._config is None:
-            raise PyiCloudException("Config is not set")
-        return self._config.config
+        return self._config
 
     @config.setter
-    def config(self, value):
-        if not value:
-            raise PyiCloudException("Config cannot be empty")
+    def config(self, value: Config):
+        assert isinstance(value, Config)
+
+        # Sanity checks
         if self._config == value:
             return
         if self._config and self._config != value:
             raise PyiCloudException("Config cannot be changed")
+        self._config, old_apple_id = value, self.apple_id
 
-        self._config = value
-        self._events.subscribe("apple_id_changed", lambda id_: setattr(self._config, "apple_id", id_))
-        if self.apple_id:
-            self._config.apple_id = self.apple_id
+        # Add a filter so password is not logged
+        PyiCloudPasswordFilter.register(self._config)
+        self._config.ee.on("changed.password", PyiCloudPasswordFilter.on_changed_password)
+
+        # Listen to username updates and reload config if necessary
+        self._config.ee.on("username.changed", lambda *_: self._config.load(update_path=True))
+        self._config.ee.emit("username.changed", old_apple_id, self.apple_id)
 
     @property
     def password(self):
         """Password getter."""
-        raise PyiCloudException("Password is write-only")
+        return self._config["password"] if self._config else ""
 
     @password.setter
     def password(self, value):
-        self._password = value
-        self._events.fire("password_changed", value)
+        self._config["password"] = value
 
     @property
     def session(self):
         """Session getter."""
         if not self._ws:
             raise AttributeError("Session is not authenticated")
-        return self._session
+        return self._client
 
     @property
     def state(self):
         """State getter."""
-        return self._state
+        return self._session
 
     @property
     def requires_password(self):
         """Returns True if password is required."""
-        return self._password == "" and not self._ws
+        return self.password == "" and not self._ws
 
     @property
     def requires_2sa(self):
         """Returns True if two-step authentication is required."""
-        return self._state.get("dsInfo", {}).get("hsaVersion", 0) >= 1 and (
-            self._state.get("hsaChallengeRequired", False) or not self.is_trusted_session
+        return self._session.get("dsInfo", {}).get("hsaVersion", 0) >= 1 and (
+            self._session.get("hsaChallengeRequired", False) or not self.is_trusted_session
         )
 
     @property
     def requires_2fa(self):
         """Returns True if two-factor authentication is required."""
-        return self._state["dsInfo"].get("hsaVersion", 0) == 2 and (
-            self._state.get("hsaChallengeRequired", False) or not self.is_trusted_session
+        return self._session["dsInfo"].get("hsaVersion", 0) == 2 and (
+            self._session.get("hsaChallengeRequired", False) or not self.is_trusted_session
         )
 
     @property
     def is_trusted_session(self):
         """Returns True if the session is trusted."""
-        return self._state.get("hsaTrustedBrowser", False)
+        return self._session.get("hsaTrustedBrowser", False)
 
     @property
     def trusted_devices(self):
         """Returns devices trusted for two-step authentication."""
-        request = self._session.get("%s/listDevices" % self.SETUP_ENDPOINT, params=self.params)
+        request = self._client.get(
+            f"{iConstants.SETUP_ENDPOINT}/listDevices",
+            params=self.params,
+        )
         return request.json().get("devices")
 
     def __str__(self):
@@ -649,7 +866,11 @@ class PyiCloudUser:
 
 
 # Alias
-PyiCloud = PyiCloudUser
+class PyiCloud(PyiCloudUser):
+    def __init__(self, username: str, password: str = "", config: Config | None = None):
+        config = config or Config()
+        config.update({"username": username, "password": password})
+        PyiCloudUser.__init__(self, config)
 
 
 class PyiCloudServices:
@@ -702,7 +923,7 @@ class PyiCloudServices:
         kwargs = {
             "session": self._endpoint.session,
             "params": self._endpoint.params,
-            "with_family": self._endpoint.config.with_family,
+            "with_family": self._endpoint.config["withFamily"],
         }
         if service not in self._endpoint:
             return self._Proxy(cls, service, self._endpoint, kwargs)
