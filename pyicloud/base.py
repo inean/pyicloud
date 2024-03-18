@@ -6,7 +6,9 @@ import json
 import httpx
 
 from functools import reduce
-from collections import namedtuple
+from abc import abstractmethod
+
+from dataclasses import dataclass, field
 
 from pyicloud.config import PyiCloudFileConfig as Config
 from pyicloud.exceptions import (
@@ -16,8 +18,8 @@ from pyicloud.exceptions import (
     PyiCloudFailedLoginException,
     PyiCloudServiceNotActivatedException,
 )
-from pyicloud.log import LOGGER, PyiCloudPasswordFilter, get_logger, log_request
-from pyicloud.services import (
+from .log import LOGGER, PyiCloudPasswordFilter, get_logger, log_request
+from .services import (
     AccountService,
     CalendarService,
     ContactsService,
@@ -27,100 +29,78 @@ from pyicloud.services import (
     RemindersService,
     UbiquityService,
 )
+from .session import iConstants, Response
 
-Response = namedtuple("Response", ["result", "err"])
-
-
-class iConstants:
-    AUTH_ENDPOINT = "https://idmsa.apple.com/appleauth/auth"
-    HOME_ENDPOINT = "https://www.icloud.com"
-    SETUP_ENDPOINT = "https://setup.icloud.com/setup/ws/1"
+import async_btree as bt
 
 
-class iBaseSession:
-    HEADER_DATA = {
-        "X-Apple-ID-Account-Country": "auth.accountCountryCode",
-        "X-Apple-ID-Session-Id": "clientSettings.xAppleIDSessionId",
-        "X-Apple-Session-Token": "auth.token",
-        "X-Apple-TwoSV-Trust-Token": "auth.xAppleTwosvTrustToken",
-        "scnt": "clientSettings.scnt",
-    }
+class iBheaveTree(bt.BTreeRunner):
+    @dataclass
+    class Action:
+        description: str
+        callback: callable
+        args: tuple = ()
+        kwargs: dict = field(default_factory=dict)
 
-    def __init__(self, config: Config, client: httpx.Client | None = None):
-        self._config = config
-        self._httpx = client or httpx.Client(follow_redirects=True)
+        def __call__(self):
+            return self.callback(*self.args, **self.kwargs)
 
-        # Store last response
-        self._response: httpx.Response | None = None
-        self._httpx.event_hooks["request"].append(lambda value: setattr(self, "_response", value))
+        def __str__(self):
+            return self.description
 
-        # set password filter
-        PyiCloudPasswordFilter.register(self, logger=get_logger("http"))
+    def __init__(self, model: any):
+        self._model = model
+        self._btree = None
+        self._leafs = {}
 
-    async def __aenter__(self):
-        # Load session and cookies
-        self._config.load()
-        # Set headers
-        self._httpx.headers.update(
-            {
-                "Origin": self.HOME_ENDPOINT,
-                "Referer": "%s/" % self.HOME_ENDPOINT,
-            }
-        )
-        return self._httpx
+    def __enter__(self):
+        self.setup_leafs()
+        self.setup_tree()
+        return super().__enter__()
 
-    async def __aexit__(self, exc_type, exc, tb):
-        if self._response:
-            # Update session config
-            for header, key in self.HEADER_DATA.items():
-                if header in self._response.headers:
-                    self._config.update({key: self._response.headers[header]})
-        # Store session and cookies
-        self._config.save()
-        await self._httpx.close()
+    def __aexit__(self, exc_type, exc, tb):
+        super().__aexit__(exc_type, exc, tb)
+        self._btree = None
+        self._leafs = {}
+
+    def _add_leaf(self, name: str, callback: Action | callable):
+        assert name not in self._leafs
+        if not isinstance(callback, self.Action):
+            callback = self.Action(repr(callback), callback)
+        self._leafs[name] = callback
+
+    def run(self):
+        assert self._btree is not None, "Tree is not setup"
+        with self as runner:
+            runner.run(self._btree)
+
+    def analyze(self, indent: int = 0, label: str | None = None) -> str:
+        if self._btree is None:
+            return f"--> {label or "root"}:"
+        bt.stringify_analyze(bt.analyze(self._btree), indent, label)
+
+    @abstractmethod
+    def setup_leafs(self):
+        assert not self._leafs, "Leafs already setup"
+
+    @abstractmethod
+    def setup_tree(self):
+        assert not self._btree, "Tree already setup"
 
 
-class iSignIn(iBaseSession):
-    ENDPOINT = "https://idmsa.apple.com/appleauth/auth/signin"
+class iSetupTree(iBheaveTree):
+    def setup_leafs(self):
+        raise NotImplementedError
 
-    async def __aenter__(self):
-        retval = await super().__aenter__()
 
-        # Prepare Headers for POST Request
-        headers = {
-            "Accept": "*/*",
-            "Content-Type": "application/json",
-            "X-Apple-OAuth-Client-Id": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-            "X-Apple-OAuth-Client-Type": "firstPartyAuth",
-            "X-Apple-OAuth-Redirect-URI": self.HOME_ENDPOINT,
-            "X-Apple-OAuth-Require-Grant-Code": "true",
-            "X-Apple-OAuth-Response-Type": "code",
-            "X-Apple-OAuth-Response-Mode": "web_message",
-            "X-Apple-OAuth-State": self._config["clientId"],
-            "X-Apple-Widget-Key": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-        }
-        if scnt := self.config.get("clientSettings.scnt"):
-            headers["scnt"] = scnt
-        if ssid := self.config.get("clientSettings.xAppleIDSessionId"):
-            headers["X-Apple-ID-Session-Id"] = ssid
-        # Set headers
-        self.httpx.headers.update(headers)
+class iRenewTree(iBheaveTree):
+    def setup_leafs(self):
+        raise NotImplementedError
 
-        # Set params
-        self.httpx.params = {"isRememberMeEnabled": "true"}
-        # Set body
-        self.httpx.json = {
-            "rememberMe": True,
-            "accountName": self._config["username"],
-            "password": self._config.get("password", ""),
-            "trustTokens": [*[self._config.get("auth.xAppleTwosvTrustToken", [])]],
-        }
 
-        return retval
-
-    async def __aexit__(self, exc_type, exc, tb):
-        # If no Status 200 OK response, Clean up cookies
-        return await super().__aexit__(exc_type, exc, tb)
+class iActionTree(iBheaveTree):
+    def setup_leafs(self):
+        raise NotImplementedError
 
 
 class PyiCloudSession(httpx.Client):
@@ -353,10 +333,6 @@ class PyiCloudUser:
                 "Referer": f"{iConstants.HOME_ENDPOINT}/",
             }
         )
-
-    def set_transitions(self):
-        self.add_transition("signin", self._disconnected, self._signin)
-        self.add_transition("verify", self._signin, self._logged)
 
     def _condition_is_logged(self):
         """Returns True if logged."""
