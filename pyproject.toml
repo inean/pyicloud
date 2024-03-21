@@ -13,18 +13,19 @@
     readme   = "README.md"
 
     # Assume python 3.10 or later, but allow for later versions.
-    requires-python = ">=3.10"
+    requires-python = ">=3.11"
 
     # Project dependencies.
     dependencies = [
         "anyio>=4.3.0",
-        "asyncclick>=8.1.7.1",
-        "click>=7.1.2",
-        "httpx>=0.27.0",
-        "pyyaml>=6.0.1",
-        "pymitter>=0.5.0",
-        "jinja2>=3.1.3",
         "async-btree @ git+https://github.com/inean/async-btree.git",
+        "asyncclick>=8.1.7",
+        "httpx>=0.27.0",
+        "jinja2>=3.1.3",
+        "pymitter>=0.5.0",
+        "pyyaml>=6.0.1",
+        "tzlocal>=5.2",
+        "pydantic>=2.6.4",
     ]
     # Dyamic metadata provuded by PDM
     dynamic = ["version"]
@@ -36,7 +37,6 @@
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python",
@@ -147,7 +147,7 @@
     # Project details
     min_version = 4.0
     isolated_build = True
-    envlist =  py310, ,py311, py312, lint
+    envlist =  py311, py312, lint
 
 [testenv]
 deps = pytest
@@ -159,8 +159,7 @@ commands = pytest
 
 [gh-actions]
     python =
-        3.10: py310, lint
-        3.11: py311
+        3.11: py311, lint
         3.12: py312
 
 """

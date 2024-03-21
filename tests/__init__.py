@@ -67,8 +67,8 @@ class PyiCloudSessionMock(base.PyiCloudSession):
 
     def request(self, method, url, **kwargs):
         """Make the request."""
-        params = kwargs.get("params")
-        headers = kwargs.get("headers")
+        params = kwargs.get("params") or {}
+        headers = kwargs.get("headers") or {}  # httpx set headers to None if not present
         data = json.loads(kwargs.get("data", "{}"))
 
         # Login
@@ -105,17 +105,17 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
-                    self._config["auth"]["token"] = REQUIRES_2FA_TOKEN
+                    self._config["tokens.session"] = REQUIRES_2FA_TOKEN
                     return ResponseMock(AUTH_OK)
 
-                self._config["auth"]["token"] = VALID_TOKEN
+                self._config["tokens.session"] = VALID_TOKEN
                 return ResponseMock(AUTH_OK)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
                     self._error_callback(None, "Incorrect code")
 
-                self._config["auth"]["token"] = VALID_TOKEN
+                self._config["tokens.session"] = VALID_TOKEN
                 return ResponseMock("", status_code=204)
 
             if "trust" in url and method == "GET":

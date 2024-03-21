@@ -6,6 +6,7 @@ import time
 import logging
 import yaml
 import copy
+import json
 
 from typing import Iterable
 from os import path
@@ -18,6 +19,22 @@ from http.cookiejar import CookieJar, LWPCookieJar
 
 # local deps
 from . import _dict
+
+import inspect
+from functools import wraps
+
+from .models import ConfigModel
+
+
+def print_call_info(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        frame = inspect.currentframe().f_back
+        print(f"Called from {frame.f_code.co_filename} at line {frame.f_lineno} with {args} {kwargs}")
+        return func(*args, **kwargs)
+
+    return wrapper
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -179,12 +196,25 @@ class SessionFile(File):
         File.__init__(self, path)
         self._session = session
 
-    def load(self, from_file: str = ""):
-        from_file = from_file or self.path
-        assert from_file, "No session file specified"
+    def __getitem__(self, name):
+        return _dict.deep_getitem(self.matter, name)
+
+    def __setitem__(self, name, value):
+        _dict.deep_setitem(self.matter, name, value)
+
+    def __contains__(self, name):
+        try:
+            _ = self[name]
+        except KeyError:
+            return False
+        return True
+
+    def load(self, source: str = ""):
+        source = source or self.path
+        assert source, "No session file specified"
         try:
             LOGGER.debug("Read session file from '{from_file}")
-            with open(from_file, encoding="utf-8") as stream:
+            with open(source, encoding="utf-8") as stream:
                 session = yaml.safe_load(stream)
                 # update the session data
                 session and self._session.update(session)
@@ -193,24 +223,72 @@ class SessionFile(File):
         except yaml.YAMLError:
             LOGGER.error("Session file is not a valid Yaml file")
         except (OSError, FileNotFoundError):
-            LOGGER.info(f"Config file '{from_file}' does not exist")
+            LOGGER.info(f"Config file '{source}' does not exist")
 
-    def save(self, to_file: str = ""):
+    def save(self, destination: str = ""):
         """Save session to file"""
-        to_file = to_file or self.path
-        assert to_file, "No session file specified"
+        destination = destination or self.path
+        assert destination, "No session file specified"
 
         # Save session_data to file
-        with open(to_file, "w", encoding="utf-8") as outfile:
+        with open(destination, "w", encoding="utf-8") as stream:
             to_save = copy.copy(self._session)
             for k in PyiCloudConfig.SKIP_KEYS:
-                _dict.deep_pop(to_save, k)
-            yaml.dump(to_save, outfile)
-            LOGGER.debug(f"Saved config to '{to_file}'")
+                _dict.deep_popitem(to_save, k)
+            yaml.dump(to_save, stream)
+            LOGGER.debug(f"Saved config to '{destination}'")
 
     @property
     def matter(self):
         return self._session
+
+
+class ConfigModelFile(File):
+    __slots__ = ("_model",)
+
+    def __init__(self, model: ConfigModel, path: str = ""):
+        File.__init__(self, path)
+        self._model = model
+
+    def load(self, source: str):
+        source = source or self.path
+        assert source, "No session file specified"
+        try:
+            LOGGER.debug(f"Read session file from '{source}")
+            with open(source, encoding="utf-8") as stream:
+                bytes = stream.read()
+                # Model is set to validate=always so it will raise an error if the data is invalid
+                model = self._model.model_copy(update=json.loads(bytes) if len(bytes) > 0 else None)
+                # update the session data
+                self._model = model
+        except TypeError:
+            LOGGER.error("Session file is not a valid Yaml file")
+        except yaml.YAMLError:
+            LOGGER.error("Session file is not a valid Yaml file")
+        except (OSError, FileNotFoundError):
+            LOGGER.info(f"Config file '{source}' does not exist")
+
+    def save(self, destination: str = "", exclude: dict | None = None):
+        """Save session to file"""
+        destination = destination or self.path
+        assert destination, "No session file specified"
+
+        # Save session_data to file
+        with open(destination, "w", encoding="utf-8") as stream:
+            LOGGER.debug(f"Saved config to '{destination}'")
+            stream.write(
+                self._model.model_dump_json(
+                    exclude_defaults=True,
+                    exclude_none=True,
+                    exclude_unset=True,
+                    exclude=exclude,
+                    indent=2,
+                )
+            )
+
+    @property
+    def matter(self):
+        return self._model
 
 
 class PyiCloudConfig(ABC):
@@ -219,61 +297,29 @@ class PyiCloudConfig(ABC):
     PACKAGE_NAME = "pyicloud"
 
     CONFIG_TEMPLATE = """
-        username: &username "{{ username }}"
-        password: &password "{{ password }}"
-        auth:
-            token: null
-            accountCountryCode: null
-            xAppleTwosvTrustToken: null
-        twoFactorAuthentication: false
-        securityCode: null
-        clientSettings:
+        account:
+            username: &username "{{ account.username }}"
+            password: &password "{{ account.password }}"
+            country_code: "{{ account.country_code }}"
+            session_id: "{{ account.session_id }}"
+            with_family: true
+        tokens:
+            session: {{ auth.session }}
+            trust: {{ auth.trust }}
+        client_settings:
             language: &language {{ client_settings.language }}
             locale: &locale {{ client_settings.locale }}
-            xAppleWidgetKey: "83545bf919730e51dbfba24e7e8a78d2"
-            xAppleIDSessionId: null
-            xAppleIFDClientInfo:
-                U: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1"
-                L: *locale
-                Z: "GMT+02:00"
-                V: "1.1"
-                F: ""
             timezone: &timezone {{ client_settings.timezone }}
-            clientBuildNumber: "2018Project35"
-            clientMasteringNumber: "2018B29"
+            time_offset: &time_offset {{ client_settings.time_offset }}
+            client_id: &client_id "{{ client_settings.client_id }}"
             scnt: null
-            defaultHeaders:
-                Referer: "https://www.icloud.com/"
-                Content-Type: "text/plain"
-                Origin: "https://www.icloud.com"
-                Host: ""
-                Accept: "*/*"
-                Connection: "keep-alive"
-                Accept-Language: *language
-                User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/604.1.25 (KHTML, like Gecko) Version/11.0 Safari/604.1.25"
-                Cookie: ""
-                X-Requested-With: "XMLHttpRequest"
-        clientId: &client_id "{{ clientId }}"
-        withFamily: true
-        verify: true
-        apps: "{{ apps }}"
-        push:
-            topics: "{{ topics }}"
-            token: null
-            ttl: 43200
-            courierUrl: ""
-            registered: []
-        account: {}
-        logins: []
     """
 
-    SKIP_KEYS = [
-        "password",
-    ]
+    SKIP_KEYS = []
 
     def get(self, key, sep=".", value=None):
         try:
-            return _dict.deep_get(self._session, key, sep)
+            return _dict.deep_getitem(self._session, key, sep)
         except KeyError:
             return value
 
@@ -287,17 +333,23 @@ class PyiCloudConfig(ABC):
         # Render the template with the session variables
         rendered_template = template.render(
             {
-                "username": username,
-                "password": kwargs.get("password", ""),
+                "account": {
+                    "username": username,
+                    "password": kwargs.get("password", ""),
+                    "country_code": kwargs.get("account_country_code", None),
+                    "session_id": kwargs.get("session_id", None),
+                },
+                "auth": {
+                    "session": kwargs.get("session_token", None),
+                    "trust": kwargs.get("trust_token", None),
+                },
                 "client_settings": {
+                    "client_id": kwargs.get("client_id", "auth-%s" % str(uuid1()).lower()),
                     "language": kwargs.get("language", "en-us"),
                     "locale": kwargs.get("locale", "en_US"),
                     "timezone": kwargs.get("US/Pacific"),
-                    "timeoffset": "GMT+02:00",
+                    "time_offset": "GMT+02:00",
                 },
-                "clientId": kwargs.get("client_id", "auth-%s" % str(uuid1()).lower()),
-                "apps": {},
-                "topics": [],
             }
         )
         # Load the rendered template as a dictionary
@@ -305,20 +357,29 @@ class PyiCloudConfig(ABC):
         self._cookies = CookieFile(CookieFile.BASE_COOKIES)
         self._emitter = EventEmitter(wildcard=True)
         self._esilent = False
+        self._account = ConfigModelFile(ConfigModel())
 
         # Wait till the username is set
-        self.ee.on("changed.username", lambda *_: self.load(update_path=True))
+        self.ee.on("changed.account.username", lambda *_: self.load(update_path=True))
 
         # Force config load if the username is set
-        self["username"] and self.ee.emit("changed.username", None, self["username"])
+        self["account.username"] and self.ee.emit("changed.account.username", None, self["account.username"])
 
     def __getitem__(self, name):
         return self._session[name]
 
     def __setitem__(self, name, value):
-        self._session[name], old_value = value, self._session[name]
-        if old_value != value and not self._esilent:
-            self.ee.emit("changed.{}".format(name), old_value, value)
+        try:
+            old_value = self._session[name]
+            value_changed = old_value != value
+        except KeyError:
+            old_value = None
+            value_changed = True
+
+        self._session[name] = value
+        self._account[name] = value
+        if value_changed and not self._esilent:
+            self.ee.emit(f"changed.{name}", old_value, value)
 
     def __contains__(self, name):
         return name in self._session
@@ -405,26 +466,35 @@ class PyiCloudFileConfig(PyiCloudConfig):
     def __init__(self, username: str = "", config_file: str = "", cookie_file: str = "", **kwargs):
         self._session_path: str = config_file
         self._cookies_path: str = cookie_file
+        self._account_path: str = ""
         PyiCloudConfig.__init__(self, username, **kwargs)
 
     @property
     def _cookies_file(self):
         """Get path for cookiejar file."""
-        if not (username := self["username"]):
+        if not (username := self["account.username"]):
             raise ValueError("apple_id is not set")
         return self._cookies_path or path.join(self._cache_dir(), re.sub(r"\W", "", username) + ".cookies")
 
     @property
     def _session_file(self) -> str:
         """Get path for configuration file."""
-        if not (username := self["username"]):
+        if not (username := self["account.username"]):
             raise ValueError("apple_id is not set")
-        return self._session_path or path.join(self._config_dir(), re.sub(r"\W", "", username) + ".session")
+        return self._account_path or path.join(self._config_dir(), re.sub(r"\W", "", username) + ".session")
+
+    @property
+    def _account_file(self) -> str:
+        """Get path for configuration file."""
+        if not (username := self["account.username"]):
+            raise ValueError("apple_id is not set")
+        return self._account_path or path.join(self._config_dir(), re.sub(r"\W", "", username) + ".json")
 
     def load(self, update_path: bool = False):
         LOGGER.debug(f"Loading session, cookies from {self._session_file}, {self._cookies_file}")
         self._session.load(self._session_file)
         self._cookies.load(self._cookies_file)
+        self._account.load(self._account_file)
         # On successful load, update the session and cookie paths
         if update_path:
             self._session.path, self._cookies.path = self._session_file, self._cookies_file
@@ -433,6 +503,7 @@ class PyiCloudFileConfig(PyiCloudConfig):
         LOGGER.debug(f"Save session, cookies from {self._session_file}, {self._cookies_file}")
         self._session.save(self._session_file)
         self._cookies.save(self._cookies_file)
+        self._account.save(self._account_file)
         # On successful load, update the session and cookie paths
         if update_path:
             self._session.path, self._cookies.path = self._session_file, self._cookies_file
