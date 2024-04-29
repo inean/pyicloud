@@ -1,4 +1,18 @@
-"""Dictiory related operations"""
+"""Dictionary related operations"""
+
+from __future__ import annotations
+
+from typing import Any, Protocol, TypeVar
+
+
+class DictProtocol(Protocol):
+    def __getitem__(self, name: str) -> Any: ...
+    def __setitem__(self, name: str, value: Any): ...
+    def __delitem__(self, name: str): ...
+    def __contains__(self, name: str) -> bool: ...
+
+
+T = TypeVar("T", bound=DictProtocol)
 
 
 def flatten(d, parent_key="", sep="."):
@@ -12,20 +26,18 @@ def flatten(d, parent_key="", sep="."):
     return dict(items)
 
 
-def unflatten(key, value, sep="."):
+def unflatten(key: str, value, sep="."):
     if sep not in key:
         return {key: value}
     key, child_key = key.split(sep, 1)
     return {key: unflatten(child_key, value, sep)}
 
 
-def deep_getitem(d, key, sep="."):
+def deep_getitem(d: DictProtocol, key: str, sep="."):
     if sep in key:
         key, child_key = key.split(sep, 1)
         if key not in d:
             raise KeyError(f"{key}")
-        if not isinstance(d[key], dict):
-            raise ValueError(f"Expected dict got {type(d[key])}")
         return deep_getitem(d[key], child_key, sep)
 
     if key not in d:
@@ -33,7 +45,7 @@ def deep_getitem(d, key, sep="."):
     return d[key]
 
 
-def deep_setitem(d, key, value, sep="."):
+def deep_setitem(d: dict, key: str, value, sep="."):
     if sep in key:
         key, child_key = key.split(sep, 1)
         if key not in d:
@@ -51,7 +63,7 @@ def deep_setitem(d, key, value, sep="."):
     return old_value, value
 
 
-def deep_popitem(d, key, sep="."):
+def deep_popitem(d: dict, key: str, sep="."):
     if sep in key:
         key, child_key = key.split(sep, 1)
         if key not in d:
@@ -63,3 +75,12 @@ def deep_popitem(d, key, sep="."):
         d.pop(key)
     except KeyError:
         pass
+
+
+def deep_update(dict_base: dict, other_dict: dict):
+    for k, v in other_dict.items():
+        if k in dict_base and isinstance(dict_base[k], dict) and isinstance(v, dict):
+            deep_update(dict_base[k], v)
+        else:
+            dict_base[k] = v
+    return dict_base

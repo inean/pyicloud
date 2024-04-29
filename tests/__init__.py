@@ -7,7 +7,9 @@ import json
 import httpx
 
 from pyicloud import base
-from pyicloud.base import iConstants
+from pyicloud.base import PyiCloud
+from pyicloud.constants import Endpoints
+from pyicloud.services import PyiCloudServices
 
 from .const import (
     AUTHENTICATED_USER,
@@ -69,10 +71,16 @@ class PyiCloudSessionMock(base.PyiCloudSession):
         """Make the request."""
         params = kwargs.get("params") or {}
         headers = kwargs.get("headers") or {}  # httpx set headers to None if not present
+        if "json" in kwargs and kwargs["data"] is None:
+            # try to convert to json, if fails, it's already json
+            try:
+                kwargs["data"] = json.dumps(kwargs["json"])
+            except json.JSONDecodeError:
+                kwargs["data"] = kwargs["json"]
         data = json.loads(kwargs.get("data", "{}"))
 
         # Login
-        if iConstants.SETUP_ENDPOINT in url:
+        if Endpoints.INIT in url:
             if "accountLogin" in url and method == "POST":
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._error_callback(None, "Unknown reason")
@@ -89,7 +97,7 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                 return ResponseMock(VERIFICATION_CODE_KO)
 
             if "validateVerificationCode" in url and method == "POST":
-                TRUSTED_DEVICE_1.update({"verificationCode": "0", "trustBrowser": True})
+                TRUSTED_DEVICE_1.update({"verificationCode": "0", "trustBrowser": True})  # type: ignore
                 if data == TRUSTED_DEVICE_1:
                     self._owner.user["apple_id"] = AUTHENTICATED_USER
                     return ResponseMock(VERIFICATION_CODE_OK)
@@ -100,22 +108,22 @@ class PyiCloudSessionMock(base.PyiCloudSession):
                     return ResponseMock(LOGIN_WORKING)
                 self._error_callback(None, "Session expired")
 
-        if iConstants.AUTH_ENDPOINT in url:
+        if Endpoints.AUTH in url:
             if "signin" in url and method == "POST":
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
-                    self._config["tokens.session"] = REQUIRES_2FA_TOKEN
+                    self._config.token.session = REQUIRES_2FA_TOKEN
                     return ResponseMock(AUTH_OK)
 
-                self._config["tokens.session"] = VALID_TOKEN
+                self._config.token.session = VALID_TOKEN
                 return ResponseMock(AUTH_OK)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
                     self._error_callback(None, "Incorrect code")
 
-                self._config["tokens.session"] = VALID_TOKEN
+                self._config.token.session = VALID_TOKEN
                 return ResponseMock("", status_code=204)
 
             if "trust" in url and method == "GET":
@@ -155,25 +163,18 @@ class PyiCloudSessionMock(base.PyiCloudSession):
         return None
 
 
-class PyiCloudMock(base.PyiCloud):
+class PyiCloudMock(PyiCloud):
     """Mocked PyiCloudService."""
 
-    def __init__(
-        self,
-        username,
-        password,
-    ):
+    def __init__(self, username: str, password: str | None = None):
         """Set up pyicloud service mock."""
         base.PyiCloudSession = PyiCloudSessionMock
-        base.PyiCloud.__init__(self, username, password)
+        PyiCloud.__init__(self, username, password)
 
 
-class PyiCloudServicesMock(base.PyiCloudServices):
+class PyiCloudServicesMock(PyiCloudServices):
     """Mocked PyiCloudService."""
 
-    def __init__(
-        self,
-        endpoint,
-    ):
+    def __init__(self, endpoint):
         """Set up pyicloud service mock."""
-        base.PyiCloudServices.__init__(self, endpoint)
+        PyiCloudServices.__init__(self, endpoint)

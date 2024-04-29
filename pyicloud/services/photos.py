@@ -1,9 +1,10 @@
 """Photo service."""
-import json
+
 import base64
+import json
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
-from datetime import datetime, timezone
 from pyicloud.exceptions import PyiCloudServiceNotActivatedException
 
 
@@ -125,29 +126,20 @@ class PhotosService:
         self.session = session
         self.params = dict(params)
         self._service_root = service_root
-        self.service_endpoint = (
-            "%s/database/1/com.apple.photos.cloud/production/private"
-            % self._service_root
-        )
+        self.service_endpoint = "%s/database/1/com.apple.photos.cloud/production/private" % self._service_root
 
         self._albums = None
 
         self.params.update({"remapEnums": True, "getCurrentSyncToken": True})
 
         url = f"{self.service_endpoint}/records/query?{urlencode(self.params)}"
-        json_data = (
-            '{"query":{"recordType":"CheckIndexingState"},'
-            '"zoneID":{"zoneName":"PrimarySync"}}'
-        )
-        request = self.session.post(
-            url, data=json_data, headers={"Content-type": "text/plain"}
-        )
+        json_data = '{"query":{"recordType":"CheckIndexingState"},' '"zoneID":{"zoneName":"PrimarySync"}}'
+        request = self.session.post(url, data=json_data, headers={"Content-type": "text/plain"})
         response = request.json()
         indexing_state = response["records"][0]["fields"]["state"]["value"]
         if indexing_state != "FINISHED":
             raise PyiCloudServiceNotActivatedException(
-                "iCloud Photo Library not finished indexing. "
-                "Please try again in a few minutes."
+                "iCloud Photo Library not finished indexing. " "Please try again in a few minutes."
             )
 
         # TODO: Does syncToken ever change?  # pylint: disable=fixme
@@ -162,31 +154,22 @@ class PhotosService:
     def albums(self):
         """Returns photo albums."""
         if not self._albums:
-            self._albums = {
-                name: PhotoAlbum(self, name, **props)
-                for (name, props) in self.SMART_FOLDERS.items()
-            }
+            self._albums = {name: PhotoAlbum(self, name, **props) for (name, props) in self.SMART_FOLDERS.items()}
 
             for folder in self._fetch_folders():
-
                 # Skiping albums having null name, that can happen sometime
                 if "albumNameEnc" not in folder["fields"]:
                     continue
 
                 # TODO: Handle subfolders  # pylint: disable=fixme
                 if folder["recordName"] == "----Root-Folder----" or (
-                    folder["fields"].get("isDeleted")
-                    and folder["fields"]["isDeleted"]["value"]
+                    folder["fields"].get("isDeleted") and folder["fields"]["isDeleted"]["value"]
                 ):
                     continue
 
                 folder_id = folder["recordName"]
-                folder_obj_type = (
-                    "CPLContainerRelationNotDeletedByAssetDate:%s" % folder_id
-                )
-                folder_name = base64.b64decode(
-                    folder["fields"]["albumNameEnc"]["value"]
-                ).decode("utf-8")
+                folder_obj_type = "CPLContainerRelationNotDeletedByAssetDate:%s" % folder_id
+                folder_name = base64.b64decode(folder["fields"]["albumNameEnc"]["value"]).decode("utf-8")
                 query_filter = [
                     {
                         "fieldName": "parentId",
@@ -209,14 +192,9 @@ class PhotosService:
 
     def _fetch_folders(self):
         url = f"{self.service_endpoint}/records/query?{urlencode(self.params)}"
-        json_data = (
-            '{"query":{"recordType":"CPLAlbumByPositionLive"},'
-            '"zoneID":{"zoneName":"PrimarySync"}}'
-        )
+        json_data = '{"query":{"recordType":"CPLAlbumByPositionLive"},' '"zoneID":{"zoneName":"PrimarySync"}}'
 
-        request = self.session.post(
-            url, data=json_data, headers={"Content-type": "text/plain"}
-        )
+        request = self.session.post(url, data=json_data, headers={"Content-type": "text/plain"})
         response = request.json()
 
         return response["records"]
@@ -292,9 +270,7 @@ class PhotoAlbum:
             )
             response = request.json()
 
-            self._len = response["batch"][0]["records"][0]["fields"]["itemCount"][
-                "value"
-            ]
+            self._len = response["batch"][0]["records"][0]["fields"]["itemCount"]["value"]
 
         return self._len
 
@@ -307,16 +283,10 @@ class PhotoAlbum:
             offset = 0
 
         while True:
-            url = ("%s/records/query?" % self.service.service_endpoint) + urlencode(
-                self.service.params
-            )
+            url = ("%s/records/query?" % self.service.service_endpoint) + urlencode(self.service.params)
             request = self.service.session.post(
                 url,
-                data=json.dumps(
-                    self._list_query_gen(
-                        offset, self.list_type, self.direction, self.query_filter
-                    )
-                ),
+                data=json.dumps(self._list_query_gen(offset, self.list_type, self.direction, self.query_filter)),
                 headers={"Content-type": "text/plain"},
             )
             response = request.json()
@@ -339,9 +309,7 @@ class PhotoAlbum:
 
                 for master_record in master_records:
                     record_name = master_record["recordName"]
-                    yield PhotoAsset(
-                        self.service, master_record, asset_records[record_name]
-                    )
+                    yield PhotoAsset(self.service, master_record, asset_records[record_name])
             else:
                 break
 
@@ -507,9 +475,7 @@ class PhotoAsset:
     @property
     def filename(self):
         """Gets the photo file name."""
-        return base64.b64decode(
-            self._master_record["fields"]["filenameEnc"]["value"]
-        ).decode("utf-8")
+        return base64.b64decode(self._master_record["fields"]["filenameEnc"]["value"]).decode("utf-8")
 
     @property
     def size(self):
@@ -525,18 +491,18 @@ class PhotoAsset:
     def asset_date(self):
         """Gets the photo asset date."""
         try:
-            return datetime.utcfromtimestamp(
-                self._asset_record["fields"]["assetDate"]["value"] / 1000.0
-            ).replace(tzinfo=timezone.utc)
+            return datetime.utcfromtimestamp(self._asset_record["fields"]["assetDate"]["value"] / 1000.0).replace(
+                tzinfo=timezone.utc
+            )
         except KeyError:
             return datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
 
     @property
     def added_date(self):
         """Gets the photo added date."""
-        return datetime.utcfromtimestamp(
-            self._asset_record["fields"]["addedDate"]["value"] / 1000.0
-        ).replace(tzinfo=timezone.utc)
+        return datetime.utcfromtimestamp(self._asset_record["fields"]["addedDate"]["value"] / 1000.0).replace(
+            tzinfo=timezone.utc
+        )
 
     @property
     def dimensions(self):
@@ -596,16 +562,11 @@ class PhotoAsset:
         if version not in self.versions:
             return None
 
-        return self._service.session.get(
-            self.versions[version]["url"], stream=True, **kwargs
-        )
+        return self._service.session.get(self.versions[version]["url"], stream=True, **kwargs)
 
     def delete(self):
         """Deletes the photo."""
-        json_data = (
-            '{"query":{"recordType":"CheckIndexingState"},'
-            '"zoneID":{"zoneName":"PrimarySync"}}'
-        )
+        json_data = '{"query":{"recordType":"CheckIndexingState"},' '"zoneID":{"zoneName":"PrimarySync"}}'
 
         json_data = (
             '{"operations":[{'
@@ -630,9 +591,7 @@ class PhotoAsset:
         params = urlencode(self._service.params)
         url = f"{endpoint}/records/modify?{params}"
 
-        return self._service.session.post(
-            url, data=json_data, headers={"Content-type": "text/plain"}
-        )
+        return self._service.session.post(url, data=json_data, headers={"Content-type": "text/plain"})
 
     def __repr__(self):
         return f"<{type(self).__name__}: id={self.id}>"

@@ -1,7 +1,5 @@
 """Drive service."""
 
-import http
-import io
 import json
 import logging
 import mimetypes

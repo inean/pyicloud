@@ -1,10 +1,11 @@
 """Test constants."""
-from .const_account_family import PRIMARY_EMAIL, APPLE_ID_EMAIL, ICLOUD_ID_EMAIL
+
+from .const_account_family import APPLE_ID_EMAIL, ICLOUD_ID_EMAIL, PRIMARY_EMAIL
 
 # Base
 AUTHENTICATED_USER = PRIMARY_EMAIL
 REQUIRES_2FA_TOKEN = "requires_2fa_token"
-REQUIRES_2FA_USER = "requires_2fa_user"
+REQUIRES_2FA_USER = "requires_2fa_user@example.com"
 VALID_USERS = [AUTHENTICATED_USER, REQUIRES_2FA_USER, APPLE_ID_EMAIL, ICLOUD_ID_EMAIL]
 VALID_PASSWORD = "valid_password"
 VALID_COOKIE = "valid_cookie"

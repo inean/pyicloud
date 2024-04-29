@@ -1,0 +1,107 @@
+# fmt: off
+
+class Endpoints:
+    HOME = "https://www.icloud.com"
+    AUTH = "https://idmsa.apple.com/appleauth/auth"
+    INIT = "https://setup.icloud.com/setup/ws/1"
+
+class AppleHeaders:
+    # Account Headers
+    COUNTRY_CODE             = "x-apple-id-account-country"
+    SESSION_ID               = "x-apple-id-session-id"
+    # Session Headers
+    SESSION_TOKEN            = "x-apple-session-token"
+    WIDGET_KEY               = "x-apple-widget-key"
+    TRUST_TOKEN              = "x-apple-twosv-trust-token"
+    SCNT                     = "scnt"
+
+    # Oauth Headers
+    OAUTH_CLIENT_ID          = "x-apple-oauth-client-id"
+    OAUTH_CLIENT_TYPE        = "x-apple-oauth-client-type"
+    OAUTH_REDIRECT_URI       = "x-apple-oauth-redirect-uri"
+    OAUTH_REQUIRE_GRANT_CODE = "x-apple-oauth-require-grant-code"
+    OAUTH_RESPONSE_TYPE      = "x-apple-oauth-response-type"
+    OAUTH_RESPONSE_MODE      = "x-apple-oauth-response-mode"
+    OAUTH_STATE              = "x-apple-oauth-state"
+
+class AppleCookies:
+    # User Cookies
+    DSLANG            = "dslang"
+    SITE              = "site"
+
+    # Session Cookies
+    AASP              = "aasp"
+    ACN01             = "acn01"
+    WEB_SESSION_TOKEN = "X-APPLE-DS-WEB-SESSION-TOKEN"
+    CLIENT_ID         = "X-APPLE-UNIQUE-CLIENT-ID"
+    WEBAUTH_LOGIN     = "X-APPLE-WEBAUTH-LOGIN"
+    WEBAUTH_USER      = "X-APPLE-WEBAUTH-USER"
+    WEBAUTH_VALIDATE  = "X-APPLE-WEBAUTH-VALIDATE"
+    WEBAUTH_HSA_LOGIN = "X-APPLE-WEBAUTH-HSA-LOGIN"
+    WEBAUTH_FMIP      = "X-APPLE-WEBAUTH-FMIP"
+    WEBAUTH_HSA_TRUST = "X-APPLE-WEBAUTH-HSA-TRUST"
+    WEBAUTH_TOKEN     = "X-APPLE-WEBAUTH-TOKEN"
+
+ISO_639_1_CODES = [
+    'AA', 'AB', 'AE', 'AF', 'AK', 'AM', 'AN', 'AR', 'AS', 'AV', 'AY', 'AZ', 'BA', 'BE',
+    'BG', 'BH', 'BI', 'BM', 'BN', 'BO', 'BR', 'BS', 'CA', 'CE', 'CH', 'CO', 'CR', 'CS',
+    'CU', 'CV', 'CY', 'DA', 'DE', 'DV', 'DZ', 'EE', 'EL', 'EN', 'EO', 'ES', 'ET', 'EU',
+    'FA', 'FF', 'FI', 'FJ', 'FO', 'FR', 'FY', 'GA', 'GD', 'GL', 'GN', 'GU', 'GV', 'HA',
+    'HE', 'HI', 'HO', 'HR', 'HT', 'HU', 'HY', 'HZ', 'IA', 'ID', 'IE', 'IG', 'II', 'IK',
+    'IO', 'IS', 'IT', 'IU', 'JA', 'JV', 'KA', 'KG', 'KI', 'KJ', 'KK', 'KL', 'KM', 'KN',
+    'KO', 'KR', 'KS', 'KU', 'KV', 'KW', 'KY', 'LA', 'LB', 'LG', 'LI', 'LN', 'LO', 'LT',
+    'LU', 'LV', 'MG', 'MH', 'MI', 'MK', 'ML', 'MN', 'MR', 'MS', 'MT', 'MY', 'NA', 'NB',
+    'ND', 'NE', 'NG', 'NL', 'NN', 'NO', 'NR', 'NV', 'NY', 'OC', 'OJ', 'OM', 'OR', 'OS',
+    'PA', 'PI', 'PL', 'PS', 'PT', 'QU', 'RM', 'RN', 'RO', 'RU', 'RW', 'SA', 'SC', 'SD',
+    'SE', 'SG', 'SI', 'SK', 'SL', 'SM', 'SN', 'SO', 'SQ', 'SR', 'SS', 'ST', 'SU', 'SV',
+    'SW', 'TA', 'TE', 'TG', 'TH', 'TI', 'TK', 'TL', 'TN', 'TO', 'TR', 'TS', 'TT', 'TW',
+    'TY', 'UG', 'UK', 'UR', 'UZ', 'VE', 'VI', 'VO', 'WA', 'WO', 'XH', 'YI', 'YO', 'ZA',
+    'ZH', 'ZU'
+]
+
+ISO_3166_1_CODES =[
+    'AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AW',
+    'AX', 'AZ', 'BA', 'BB', 'BD', 'BE', 'BF', 'BG', 'BH', 'BI', 'BJ', 'BL', 'BM', 'BN',
+    'BO', 'BQ', 'BR', 'BS', 'BT', 'BV', 'BW', 'BY', 'BZ', 'CA', 'CC', 'CD', 'CF', 'CG',
+    'CH', 'CI', 'CK', 'CL', 'CM', 'CN', 'CO', 'CR', 'CU', 'CV', 'CW', 'CX', 'CY', 'CZ',
+    'DE', 'DJ', 'DK', 'DM', 'DO', 'DZ', 'EC', 'EE', 'EG', 'EH', 'ER', 'ES', 'ET', 'FI',
+    'FJ', 'FK', 'FM', 'FO', 'FR', 'GA', 'GB', 'GD', 'GE', 'GF', 'GG', 'GH', 'GI', 'GL',
+    'GM', 'GN', 'GP', 'GQ', 'GR', 'GS', 'GT', 'GU', 'GW', 'GY', 'HK', 'HM', 'HN', 'HR',
+    'HT', 'HU', 'ID', 'IE', 'IL', 'IM', 'IN', 'IO', 'IQ', 'IR', 'IS', 'IT', 'JE', 'JM',
+    'JO', 'JP', 'KE', 'KG', 'KH', 'KI', 'KM', 'KN', 'KP', 'KR', 'KW', 'KY', 'KZ', 'LA',
+    'LB', 'LC', 'LI', 'LK', 'LR', 'LS', 'LT', 'LU', 'LV', 'LY', 'MA', 'MC', 'MD', 'ME',
+    'MF', 'MG', 'MH', 'MK', 'ML', 'MM', 'MN', 'MO', 'MP', 'MQ', 'MR', 'MS', 'MT', 'MU',
+    'MV', 'MW', 'MX', 'MY', 'MZ', 'NA', 'NC', 'NE', 'NF', 'NG', 'NI', 'NL', 'NO', 'NP',
+    'NR', 'NU', 'NZ', 'OM', 'PA', 'PE', 'PF', 'PG', 'PH', 'PK', 'PL', 'PM', 'PN', 'PR',
+    'PS', 'PT', 'PW', 'PY', 'QA', 'RE', 'RO', 'RS', 'RU', 'RW', 'SA', 'SB', 'SC', 'SD',
+    'SE', 'SG', 'SH', 'SI', 'SJ', 'SK', 'SL', 'SM', 'SN', 'SO', 'SR', 'SS', 'ST', 'SV',
+    'SX', 'SY', 'SZ', 'TC', 'TD', 'TF', 'TG', 'TH', 'TJ', 'TK', 'TL', 'TM', 'TN', 'TO',
+    'TR', 'TT', 'TV', 'TW', 'TZ', 'UA', 'UG', 'UM', 'US', 'UY', 'UZ', 'VA', 'VC', 'VE',
+    'VG', 'VI', 'VN', 'VU', 'WF', 'WS', 'YE', 'YT', 'ZA', 'ZM', 'ZW'
+]
+
+ISO_3166_1_CODES_3 = [
+    'ABW', 'AFG', 'AGO', 'AIA', 'ALA', 'ALB', 'AND', 'ARE', 'ARG', 'ARM', 'ASM', 'ATA',
+    'ATF', 'ATG', 'AUS', 'AUT', 'AZE', 'BDI', 'BEL', 'BEN', 'BES', 'BFA', 'BGD', 'BGR',
+    'BHR', 'BHS', 'BIH', 'BLM', 'BLR', 'BLZ', 'BMU', 'BOL', 'BRA', 'BRB', 'BRN', 'BTN',
+    'BVT', 'BWA', 'CAF', 'CAN', 'CCK', 'CHE', 'CHL', 'CHN', 'CIV', 'CMR', 'COD', 'COG',
+    'COK', 'COL', 'COM', 'CPV', 'CRI', 'CUB', 'CUW', 'CXR', 'CYM', 'CYP', 'CZE', 'DEU',
+    'DJI', 'DMA', 'DNK', 'DOM', 'DZA', 'ECU', 'EGY', 'ERI', 'ESH', 'ESP', 'EST', 'ETH',
+    'FIN', 'FJI', 'FLK', 'FRA', 'FRO', 'FSM', 'GAB', 'GBR', 'GEO', 'GGY', 'GHA', 'GIB',
+    'GIN', 'GLP', 'GMB', 'GNB', 'GNQ', 'GRC', 'GRD', 'GRL', 'GTM', 'GUF', 'GUM', 'GUY',
+    'HKG', 'HMD', 'HND', 'HRV', 'HTI', 'HUN', 'IDN', 'IMN', 'IND', 'IOT', 'IRL', 'IRN',
+    'IRQ', 'ISL', 'ISR', 'ITA', 'JAM', 'JEY', 'JOR', 'JPN', 'KAZ', 'KEN', 'KGZ', 'KHM',
+    'KIR', 'KNA', 'KOR', 'KWT', 'LAO', 'LBN', 'LBR', 'LBY', 'LCA', 'LIE', 'LKA', 'LSO',
+    'LTU', 'LUX', 'LVA', 'MAC', 'MAF', 'MAR', 'MCO', 'MDA', 'MDG', 'MDV', 'MEX', 'MHL',
+    'MKD', 'MLI', 'MLT', 'MMR', 'MNE', 'MNG', 'MNP', 'MOZ', 'MRT', 'MSR', 'MTQ', 'MUS',
+    'MWI', 'MYS', 'MYT', 'NAM', 'NCL', 'NER', 'NFK', 'NGA', 'NIC', 'NIU', 'NLD', 'NOR',
+    'NPL', 'NRU', 'NZL', 'OMN', 'PAK', 'PAN', 'PCN', 'PER', 'PHL', 'PLW', 'PNG', 'POL',
+    'PRI', 'PRK', 'PRT', 'PRY', 'PSE', 'PYF', 'QAT', 'REU', 'ROU', 'RUS', 'RWA', 'SAU',
+    'SDN', 'SEN', 'SGP', 'SGS', 'SHN', 'SJM', 'SLB', 'SLE', 'SLV', 'SMR', 'SOM', 'SPM',
+    'SRB', 'SSD', 'STP', 'SUR', 'SVK', 'SVN', 'SWE', 'SWZ', 'SXM', 'SYC', 'SYR', 'TCA',
+    'TCD', 'TGO', 'THA', 'TJK', 'TKL', 'TKM', 'TLS', 'TON', 'TTO', 'TUN', 'TUR', 'TUV',
+    'TWN', 'TZA', 'UGA', 'UKR', 'UMI', 'URY', 'USA', 'UZB', 'VAT', 'VCT', 'VEN', 'VGB',
+    'VIR', 'VNM', 'VUT', 'WLF', 'WSM', 'YEM', 'ZAF', 'ZMB', 'ZWE'
+]
+
+# fmt: on

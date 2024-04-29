@@ -60,11 +60,11 @@ class TestCmdline(IsolatedAsyncioTestCase):
         runner = CliRunner()
 
         result = await runner.invoke(self.main, ["--username", "invalid_user"])
-        assert "Bad username or password for invalid_user" in str(result.exception)
+        assert "Value error, username must be a valid email" in str(result.exception)
 
         # We should not use getpass for this one, but we reset the password at login fail
         result = await runner.invoke(self.main, ["--username", "invalid_user", "--password", "invalid_pass"])
-        assert "Bad username or password for invalid_user" in str(result.exception)
+        assert "Value error, username must be a valid email" in str(result.exception)
 
     @pytest.mark.anyio
     @patch("pyicloud.cmdline.input")

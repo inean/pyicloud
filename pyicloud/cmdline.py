@@ -13,8 +13,8 @@ import sys
 
 import asyncclick as click
 
-from pyicloud.base import PyiCloud, PyiCloudServices
-from pyicloud.exceptions import PyiCloudFailedLoginException
+from pyicloud import PyiCloud, PyiCloudServices
+from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
 
@@ -80,7 +80,11 @@ async def main(**kwargs):
     password = str.strip(command_line.password)
 
     failure_count = 0
-    api = PyiCloud(username=username, password=password)
+    try:
+        api = PyiCloud(username=username, password=password)
+    except PyiCloudValidationError as err:
+        response = [error.get('msg') for error in err.errors() if error.get('msg')]
+        raise ValueError('\n'.join(response)) from err
     while True:
         # Which password we use is determined by your username, so we
         # do need to check for this first and separately.

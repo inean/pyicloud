@@ -5,7 +5,8 @@ import logging
 # Set up logging for this module
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-from .base import PyiCloud, PyiCloudServices
+from .base import PyiCloud
+from .services import PyiCloudServices
 
 __all__ = ["PyiCloud", "PyiCloudServices"]
 

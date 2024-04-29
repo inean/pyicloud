@@ -112,11 +112,13 @@ class AppleDevice:
         self.manager.refresh_client()
         return self.content["location"]
 
-    def status(self, additional=[]):  # pylint: disable=dangerous-default-value
+    def status(self, additional=None):  # pylint: disable=dangerous-default-value
         """Returns status information for device.
 
         This returns only a subset of possible properties.
         """
+        if additional is None:
+            additional = []
         self.manager.refresh_client()
         fields = ["batteryLevel", "deviceDisplayName", "deviceStatus", "name"]
         fields += additional
