@@ -1,0 +1,16 @@
+"""Library base file."""
+
+from __future__ import annotations
+
+from .base import BehaveTree, ModelTree
+
+
+class SetupModelTree(ModelTree):
+    async def _session_is_logged_in(self): ...
+    async def _session_is_2fa_pending(self): ...
+    async def _session_is_expired(self): ...
+    async def _session_renew(self): ...
+
+
+class iSessionTree(BehaveTree[SetupModelTree]):
+    def _setup(self): ...

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Type, cast, override
+from typing import Literal, Sequence, Type, cast, override
 
 from pyicloud.constants import AppleHeaders as Headers
 from pyicloud.constants import Endpoints
@@ -14,12 +14,6 @@ from pyicloud.models.types import (
     SessionIdType,
     SessionTokenType,
     TrustTokenType,
-    XAppleDsWebSessionTokenType,
-    XAppleUniqueClientIdType,
-    XAppleWebauthHsaLoginType,
-    XAppleWebauthLoginType,
-    XAppleWebauthUserType,
-    XAppleWebauthValidateType,
 )
 from pyicloud.sessions.base import BaseResponse, BaseSession, HeadersModel, ResponseConfig, SettingsModel
 from pyicloud.sessions.httpx import allow_verbs, iAsyncClient, serialize
@@ -34,14 +28,18 @@ class LoginHeaders(HeadersModel):
 
 
 class LoginCookies(InitCookiesModel):
+    acn01: Acn01Type | None = None
+    # On login error, the acn01 cookie is not returned
     aasp: AaspType
-    acn01: Acn01Type
-    client_id: XAppleUniqueClientIdType
-    webauth_login: XAppleWebauthLoginType
-    webauth_user: XAppleWebauthUserType
-    webauth_validate: XAppleWebauthValidateType
-    webauth_hsa_login: XAppleWebauthHsaLoginType
-    session_token: XAppleDsWebSessionTokenType
+
+
+#    client_id: XAppleUniqueClientIdType
+#    webauth_login: XAppleWebauthLoginType
+#    webauth_user: XAppleWebauthUserType
+#    webauth_validate: XAppleWebauthValidateType
+#    webauth_hsa_login: XAppleWebauthHsaLoginType
+
+#    session_token: XAppleDsWebSessionTokenType
 
 
 class LoginSettings(SettingsModel):
@@ -88,8 +86,16 @@ class iLogin(BaseSession[LoginResponse]):
         return LoginResponse
 
     @override
-    def update_headers(self, headers):
-        super().update_headers(headers)
+    def update_headers(
+        self,
+        headers,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
+    ):
+        super().update_headers(headers, exclude=[Headers.COUNTRY_CODE])
 
         new_headers = {
             "content-type": "application/json",

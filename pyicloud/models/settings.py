@@ -4,7 +4,7 @@ import datetime
 import re
 import uuid
 import zoneinfo
-from typing import Any, ClassVar, Protocol, Self, Type, TypedDict
+from typing import Any, ClassVar, Protocol, Self, Sequence, Type, TypedDict
 
 import tzlocal
 from pydantic import (
@@ -161,7 +161,12 @@ class Settings(NestedModel, BaseSettings):
         return id(self)
 
     def model_dump_headers(
-        self, *, include=None, exclude=None, exclude_unset=True, exclude_defaults=False
+        self,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
     ) -> dict[str, Any]:
         return Meta.model_dump_meta(
             self,
@@ -172,7 +177,13 @@ class Settings(NestedModel, BaseSettings):
             exclude_defaults=exclude_defaults,
         )
 
-    def model_update(self, response: ResponseModel, *, include=None, exclude=None):
+    def model_update(
+        self,
+        response: ResponseModel,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+    ):
         """Create a response from a httpx response."""
         settings = Meta.model_dump_meta(
             response,

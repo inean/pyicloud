@@ -3,7 +3,7 @@ from __future__ import annotations  # noqa: I001
 import locale
 import re
 import bisect
-from typing import Any, cast, Protocol, Sequence, override
+from typing import Any, cast, Protocol, Sequence, override, get_origin
 
 from pydantic import (
     BaseModel,
@@ -82,13 +82,13 @@ class CookiesModel(LeafModel, AbstractCookiesJar):
 class InitCookiesModel(InitAbstractModel, CookiesModel):
     @classmethod
     def dslang_default(cls):
-        locale_code = locale.getlocale()[0] or "EN-US"
+        locale_code = locale.getlocale()[0] or "US-EN"
         return MorselModel(name="dslang", value=locale_code.upper())
 
     @classmethod
     def site_default(cls):
         locale_code = locale.getlocale()[0] or "EN-US"
-        alpha3166_1 = re.split("-|_", locale_code)[1].upper()
+        alpha3166_1 = re.split("-|_", locale_code)[0].upper()
         alpha3166_3 = bisect.bisect_left(ISO_3166_1_CODES_3, alpha3166_1)
         return MorselModel(name="site", value=ISO_3166_1_CODES_3[alpha3166_3])
 
@@ -123,7 +123,17 @@ class ResponseModel(Protocol):
 class Cookies(RootModel[dict[str, MorselModel]], AbstractCookiesJar):
     model_config = ConfigDict(frozen=True)
 
-    root: dict[str, MorselModel]
+    root: dict[str, MorselModel] = {}
+
+    @model_validator(mode="before")
+    def init_model(cls, value: dict[str, MorselModel]) -> dict[str, MorselModel]:
+        info = cls.model_fields["root"]
+        if info.annotation and isinstance(value, get_origin(info.annotation)):
+            return value
+        # We are breaking the rules here, becouse pydantic will interpret that returned
+        # value was set by user and not by default, but default loginc seems to not work
+        # with RootModels
+        return info.get_default(call_default_factory=True)
 
     def __iter__(self):
         return iter(self.root)

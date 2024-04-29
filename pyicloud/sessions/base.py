@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Any, Generic, Self, Type, TypedDict, TypeVar, cast
+from typing import Any, Generic, Self, Sequence, Type, TypedDict, TypeVar, cast
 
 import httpx
 from pydantic import BaseModel, Field, model_validator
@@ -175,7 +175,15 @@ class BaseSession(Generic[T], ABC):
     def response_cls(self) -> Type[T]:
         """Endpoint to use for the session."""
 
-    def update_headers(self, headers: httpx.Headers) -> None:
+    def update_headers(
+        self,
+        headers: httpx.Headers,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
+    ) -> None:
         """Update headers for the request."""
         # Set headers
         headers.update(
@@ -185,7 +193,14 @@ class BaseSession(Generic[T], ABC):
                 "Referer": f"{Endpoints.HOME}/",
             }
         )
-        headers.update(self._settings.model_dump_headers())
+        headers.update(
+            self._settings.model_dump_headers(
+                include=include,
+                exclude=exclude,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+            )
+        )
 
     def update_cookies(self, cookies: httpx.Cookies) -> None:
         """Update cookies for the request."""
