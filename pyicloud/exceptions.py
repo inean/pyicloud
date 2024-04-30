@@ -29,11 +29,9 @@ class PyiCloudServiceNotActivatedException(PyiCloudAPIResponseException):
     """iCloud service not activated exception."""
 
 
-
 # Login
 class PyiCloudFailedLoginException(PyiCloudException):
     """iCloud failed login exception."""
-
 
 
 class PyiCloud2SARequiredException(PyiCloudException):
@@ -46,7 +44,6 @@ class PyiCloud2SARequiredException(PyiCloudException):
 
 class PyiCloudNoStoredPasswordAvailableException(PyiCloudException):
     """iCloud no stored password exception."""
-
 
 
 # Webservice specific

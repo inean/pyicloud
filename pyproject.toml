@@ -73,10 +73,14 @@
     [tool.pdm.dev-dependencies]
         dev = [
             "pre-commit>=3.6.2",
+            #asd
+        ]
+        lint = [
             "ruff>=0.3.0",
             #asd
         ]
         test = [
+            "coverage[toml]>=5.5,<6.4",
             "hypothesis>=6.100.0",
             "pytest-cov>=4.1",
             "pytest-httpx>=0.3.0",
@@ -86,7 +90,10 @@
         ]
 
     [tool.pdm.scripts]
-        coverage = { shell = "coverage run -m pyicloud.cmdline {args} && coverage xml && coverage report" }
+        coverage = { shell = "coverage run -m pytest -v {args} && coverage xml && coverage report" }
+        format   = { shell = "ruff format ." }
+        lint     = { shell = "ruff check ." }
+        tests    = { shell = "pytest -v tests/" }
 
 [tool.ruff]
     # Exclude common directories and files from linting and formatting.
@@ -177,15 +184,34 @@
     # Project details
     min_version = 4.0
     isolated_build = True
-    envlist =  py311, py312, lint, mypy
+    envlist =
+        py3{11,12},
+        lint,
+        mypy,
+
 
 [testenv]
-deps = pytest
-commands = pytest
+    groups = test
+    commands =
+        tox --version
+        tests {posargs}
+
+[testenv:py3{11,12}-rich]
+    labels = rich
+    groups =
+        {[testenv]groups}
+        rich
+
+[testenv:py3{11,12}-all]
+    labels = all
+    groups =
+        {[testenv]groups}
+        all
 
 [testenv:lint]
-    deps = ruff
-    commands = ruff .
+    groups = lint
+    skip_install = true
+    commands = lint
 
 [testenv:mypy]
     deps = mypy
@@ -193,7 +219,7 @@ commands = pytest
 
 [gh-actions]
     python =
-        3.11: py311, lint, mypy
-        3.12: py312, mypy
+        3.11: py311, py311-rich, py311-all, mypy
+        3.12: py312, py312-all, py312-all, lint, mypy
 
 """
