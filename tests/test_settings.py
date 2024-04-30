@@ -19,7 +19,7 @@ from hypothesis.strategies import (
 from psygnal import SignalGroup
 from pydantic import SecretStr, ValidationError
 
-from pyicloud.constants import ISO_3166_1_CODES_3
+from pyicloud.constants import ISO_3166_1_CODES, ISO_3166_1_CODES_3
 from pyicloud.models.settings import Account, ClientSettings, Settings
 from pyicloud.models.types import LeafModel
 
@@ -117,6 +117,16 @@ def test_account_json():
 
 # CLIENT SETTINGS TESTS
 #
+@pytest.fixture(params=["en_US", "fr_FR", "de_DE", "es_CO", "it_IT"])
+def dslang(monkeypatch, request):
+    monkeypatch.setattr("locale.getlocale", lambda: (request.param, "UTF-8"))
+    locale_code = locale.getlocale()[0] or "en_US"
+    return f"{locale_code[3:]}-{locale_code[:2].upper()}"
+
+
+@pytest.fixture
+def site(dslang):
+    return ISO_3166_1_CODES_3[ISO_3166_1_CODES.index(dslang[:2])]
 
 
 def test_client_defaults():
@@ -133,16 +143,14 @@ def test_client_settings_timezone_default():
     assert client_settings.timezone_default() == expected_timezone
 
 
-def test_client_settings_dslang_default():
+def test_client_settings_dslang_default(dslang):
     client_settings = ClientSettings()
-    locale_code = locale.getlocale()[0] or "US-EN"
-    expected_dslang = locale_code.upper()
-    assert client_settings.dslang_default() == expected_dslang
+    assert client_settings.dslang_default() == dslang
 
 
-def test_client_settings_site_default():
+def test_client_settings_site_default(site):
     client_settings = ClientSettings()
-    assert client_settings.site_default() == "USA"
+    assert client_settings.site_default() == site
 
 
 def test_client_settings_invalid_tz():

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import bisect
+import locale
 import re
-from abc import ABC, abstractmethod
 from functools import lru_cache
 from typing import (
     Annotated,
@@ -173,7 +174,7 @@ XAppleWebauthHsaTrustType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookie
 XAppleWebauthTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_TOKEN)]
 
 
-class LeafModel(EventedModel, ABC):
+class LeafModel(EventedModel):
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
 
@@ -242,21 +243,22 @@ class NestedModel(LeafModel):
         deep_setattr(self, name, value, self.__class__.separator)
 
 
-class InitAbstractModel(LeafModel, ABC):
+class InitAbstractModel(LeafModel):
     model_config = ConfigDict(extra="forbid")
 
     dslang: DslangType = Field(default=...)
     site: SiteType = Field(default=...)
 
     @classmethod
-    @abstractmethod
-    def dslang_default(cls) -> DslangType: ...
+    def dslang_default(cls):
+        locale_code = locale.getlocale()[0] or "en_US"
+        return f"{locale_code[3:]}-{locale_code[:2].upper()}"
 
     @field_validator("dslang")
     @classmethod
     def dslang_validate(cls, v: MorselModel | str) -> DslangType:
         dslang = v if isinstance(v, str) else v.value
-        country, language = re.split("-|_", dslang.upper())
+        country, language = dslang.split("-")
         if country not in ISO_3166_1_CODES:
             raise ValueError(f"Invalid country, {country}, expected ISO 3166-1 2 letter code")
         if language not in ISO_639_1_CODES:
@@ -264,8 +266,10 @@ class InitAbstractModel(LeafModel, ABC):
         return v
 
     @classmethod
-    @abstractmethod
-    def site_default(cls) -> SiteType: ...
+    def site_default(cls):
+        locale_code = locale.getlocale()[0] or "en_US"
+        alpha3166_3 = bisect.bisect_left(ISO_3166_1_CODES, locale_code[3:])
+        return ISO_3166_1_CODES_3[alpha3166_3]
 
     @field_validator("site")
     def validate_site_validate(cls, v: MorselModel | str) -> SiteType:

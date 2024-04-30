@@ -1,8 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
-import locale
-import re
-import bisect
+
 from typing import Any, cast, Protocol, Sequence, override, get_origin
 
 from pydantic import (
@@ -12,7 +10,7 @@ from pydantic import (
     model_validator,
     model_serializer,
 )
-from pyicloud.constants import ISO_3166_1_CODES_3
+
 from pyicloud.models.morsel import MorselModel, JarTypes
 
 from pyicloud.models.types import (
@@ -82,15 +80,13 @@ class CookiesModel(LeafModel, AbstractCookiesJar):
 class InitCookiesModel(InitAbstractModel, CookiesModel):
     @classmethod
     def dslang_default(cls):
-        locale_code = locale.getlocale()[0] or "US-EN"
-        return MorselModel(name="dslang", value=locale_code.upper())
+        value = InitAbstractModel.dslang_default()
+        return MorselModel(name="dslang", value=value)
 
     @classmethod
     def site_default(cls):
-        locale_code = locale.getlocale()[0] or "EN-US"
-        alpha3166_1 = re.split("-|_", locale_code)[0].upper()
-        alpha3166_3 = bisect.bisect_left(ISO_3166_1_CODES_3, alpha3166_1)
-        return MorselModel(name="site", value=ISO_3166_1_CODES_3[alpha3166_3])
+        value = InitAbstractModel.site_default()
+        return MorselModel(name="site", value=value)
 
 
 # class SigInCookiesModel(LoginCookiesModel):

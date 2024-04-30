@@ -85,14 +85,6 @@ class ClientSettings(InitAbstractModel):
     def timezone_default(cls):
         return tzlocal.get_localzone_name()
 
-    @classmethod
-    def dslang_default(cls):
-        return "US-EN"
-
-    @classmethod
-    def site_default(cls):
-        return "USA"
-
     @field_validator("timezone")
     def validate_timezone(cls, v: str) -> str:
         try:
