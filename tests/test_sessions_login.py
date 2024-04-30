@@ -6,6 +6,7 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
+from pyicloud.constants import AppleCookies as Jar
 from pyicloud.constants import AppleHeaders as Headers
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
@@ -14,6 +15,8 @@ from pyicloud.sessions.httpx import iAsyncClient
 from pyicloud.sessions.login import iLogin
 from tests.const import (
     AUTHENTICATED_USER,
+    INVALID_PASSWORD,
+    REQUEST_ID,
     REQUIRES_2FA_TOKEN,
     REQUIRES_2FA_USER,
     VALID_PASSWORD,
@@ -22,11 +25,14 @@ from tests.const import (
 )
 
 from .const_cookies import (
+    LOGIN_AASP,
     LOGIN_REQUEST_COOKIES,
     LOGIN_RESPONSE_COOKIES,
 )
 from .const_login import (
+    AUTH_KO_BAD_PASSWORD,
     AUTH_OK,
+    LOGIN_WORKING,
 )
 
 
@@ -94,32 +100,31 @@ async def test_login_request(
 
 
 async def sigin_response_callback(request: httpx.Request):
-    headers = {}
-    content = AUTH_OK
+    headers = {Headers.REQUEST_ID: REQUEST_ID}
     status_code = 500  # Interal error
-
-    cookies = LOGIN_RESPONSE_COOKIES
 
     # Success path
     data = json.loads(request.content)
-    if data.get("accountName") in VALID_USERS:
+    if data.get("accountName") in VALID_USERS and data.get("password") == VALID_PASSWORD:
         status_code = 200
         headers.update({Headers.SESSION_TOKEN: VALID_TOKEN, Headers.COUNTRY_CODE: "FRA"})
-    # 2FA path
-    if data.get("accountName") == REQUIRES_2FA_USER:
-        status_code = 204
-        headers.update({Headers.SESSION_TOKEN: REQUIRES_2FA_TOKEN, Headers.COUNTRY_CODE: "FRA"})
+        cookies = LOGIN_RESPONSE_COOKIES
+        content = LOGIN_WORKING
+        # 2FA path
+        if data.get("accountName") == REQUIRES_2FA_USER:
+            status_code = 204
+            headers.update({Headers.SESSION_TOKEN: REQUIRES_2FA_TOKEN})
+            content = AUTH_OK
     # Error Path
-    if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
-        status_code = 400
-        headers.pop(Headers.SESSION_TOKEN, None)
-        content = {}
-        cookies = []
+    else:
+        status_code = 401
+        content = AUTH_KO_BAD_PASSWORD
+        cookies = LOGIN_REQUEST_COOKIES + [LOGIN_AASP]
 
     # If status_code is 500, test will fail
     assert status_code != 500
     headers = [(key, value) for key, value in headers.items()] + cookies
-    return httpx.Response(headers=headers, status_code=200, json=content)
+    return httpx.Response(headers=headers, status_code=status_code, json=content)
 
 
 @pytest.fixture
@@ -163,6 +168,7 @@ async def test_login_success(
 
         # HTTPX Response Headers
         assert {
+            Headers.REQUEST_ID: REQUEST_ID,
             Headers.COUNTRY_CODE: "FRA",
             Headers.SESSION_TOKEN: VALID_TOKEN,
         }.items() <= response.headers.items()
@@ -193,7 +199,69 @@ async def test_login_success(
 #     pass
 
 
-# def test_login_invalid_password(httpx_mock):
+@pytest.fixture
+def authenticated_user_bad_password_settings():
+    return Settings.model_validate(
+        {
+            "account": {
+                "username": AUTHENTICATED_USER,
+                "password": INVALID_PASSWORD,
+            },
+        },
+    )
+
+
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_login_bad_credentials(
+    anyio_backend,
+    login_cookies,
+    authenticated_user_bad_password_settings,
+    httpx_login_mock: HTTPXMock,
+):
+    cookies, settings = login_cookies, authenticated_user_bad_password_settings
+
+    ilogin = iLogin(settings=settings, cookies=cookies)
+    async with ilogin as session:
+        # We monkeypatch httpxclient to accept a json_data property. If predsent and not None,
+        # it will be used as the json request body. If a json attribute is present, it will be used
+        # instead of the json_data property
+
+        session_mock = Mock()
+        settings.token.events.session.connect(session_mock)
+
+        # Fetch httpx pure response. This is the response object returned by the httpx client.
+        response = await session.post(iLogin.ENDPOINT)
+
+        # Thre's a hook to httpx response to read response contents and store internally. But,
+        # parsing response is only performance when response proerty on iLogin is called
+        assert settings.token.session is None
+        session_mock.assert_not_called()
+
+        # HTTPX Response Status Code
+        assert response.status_code == 401
+
+        # HTTPX Response Headers
+        assert {
+            Headers.REQUEST_ID: REQUEST_ID,
+        }.items() <= response.headers.items()
+
+        # HTTPX Response Cookies Cookie
+        assert {
+            Jar.DSLANG: "US-EN",
+            Jar.SITE: "USA",
+            Jar.AASP: "login_aasp",
+        }.items() <= response.cookies.items()
+
+    assert bool(ilogin.response) is False
+    assert ilogin.response.headers.country_code is None
+    assert ilogin.response.headers.session_token is None
+
+    # Settings is updated with the new session token when the context manager is exited
+    assert len(ilogin.response.errors) == 1
+    assert ilogin.response.errors[0].code == -20101
+
+
+#
 #     pass
 
 

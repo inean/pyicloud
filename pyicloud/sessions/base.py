@@ -2,72 +2,22 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Any, Generic, Self, Sequence, Type, TypedDict, TypeVar, cast
+from typing import Any, Generic, Self, Sequence, Type, TypedDict, TypeVar
 
 import httpx
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from typing_extensions import ClassVar
 
 from pyicloud.constants import Endpoints
 from pyicloud.log import PyiCloudPasswordFilter, logger_get
 from pyicloud.models.cookies import Cookies, CookiesModel
-from pyicloud.models.settings import (
-    CountryCodeType,
-    ScntType,
-    SessionIdType,
-    SessionTokenType,
-    Settings,
-    TrustTokenType,
-)
-from pyicloud.models.types import (
-    Meta,
-)
-
-
-class ErrorModel(BaseModel):
-    code: int
-    message: str
-
-
-class SettingsModel(BaseModel, ABC):
-    """Update the settings with the result data."""
-
-
-class HeadersModel(BaseModel, ABC):
-    """Result response."""
-
-    # Add Headers as metadata so we can map them to the response
-    country_code: CountryCodeType
-    trust_token: TrustTokenType | None = None
-    session_token: SessionTokenType | None = None
-    session_id: SessionIdType | None = None
-    scnt: ScntType | None = None
-
-    # Catch all for json response
-    response: dict[str, Any] | str | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def check_headers(cls, headers: httpx.Headers) -> Any:
-        data: dict[str, str | bytes | list] = {}
-
-        # Parse httpx.Headers. Try to math available headers to the ones in fields and return data
-        for field, info in cls.model_fields.items():
-            if not (metadata := info.metadata):
-                try:
-                    metadata = cast(Any, info.annotation).__args__[0].__metadata__
-                except AttributeError:
-                    metadata = []
-            # Get header metadata entry from field info. If exists, check if it is in data and update data with alias and value
-            if meta := next((x for x in metadata if isinstance(x, Meta)), None):
-                if meta.header in headers:
-                    values = [value for header, value in headers.multi_items() if meta.header == header]
-                    data[field] = values[0] if len(values) == 1 else values
-        return data
-
+from pyicloud.models.errors import Error, ServiceErrorsModel
+from pyicloud.models.headers import HeadersModel
+from pyicloud.models.settings import Settings
 
 H = TypeVar("H", bound=HeadersModel)
 C = TypeVar("C", bound=CookiesModel)
+E = TypeVar("E", bound=Error)
 
 
 class ResponseConfig(TypedDict, total=False):
@@ -75,7 +25,7 @@ class ResponseConfig(TypedDict, total=False):
     cookies: type[CookiesModel]
 
 
-class BaseResponse(BaseModel, Generic[H, C]):
+class BaseResponse(BaseModel, Generic[H, C, E]):
     """Response data."""
 
     _config: ClassVar[ResponseConfig] = ResponseConfig(
@@ -87,7 +37,7 @@ class BaseResponse(BaseModel, Generic[H, C]):
     cookies: C
 
     status_code: int
-    errors: list[ErrorModel] = Field([], alias="serviceErrors")
+    errors: list[E] = Field(default=[])
 
     # Common Headers that must be stored as config
     @classmethod
@@ -111,8 +61,8 @@ class BaseResponse(BaseModel, Generic[H, C]):
 
         if response.is_error:
             if response.headers["content-type"].startswith("application/json"):
-                error = ErrorModel.model_validate_json(response.content)
-                data.setdefault("errors", []).append(error)
+                error = ServiceErrorsModel.model_validate_json(response.content)
+                data.setdefault("errors", error.service_errors)
 
         data.setdefault("status_code", response.status_code)
         data.setdefault("headers", cls._config["headers"].model_validate(response.headers))  # type: ignore
@@ -156,13 +106,9 @@ class BaseSession(Generic[T], ABC):
         PyiCloudPasswordFilter.register(self, logger=logger_get("http"))
 
     async def __aenter__(self):
-        # Set Cookies, if any
-        self.update_headers(self._httpx.headers)
-        self.update_cookies(self._httpx.cookies)
         return self._httpx
 
     async def __aexit__(self, exc_type, exc, tb):
-        self.update_session()
         await self._httpx.aclose()
 
     @cached_property
@@ -202,11 +148,31 @@ class BaseSession(Generic[T], ABC):
             )
         )
 
-    def update_cookies(self, cookies: httpx.Cookies) -> None:
+    def update_cookies(
+        self,
+        cookies: httpx.Cookies,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
+    ) -> None:
         """Update cookies for the request."""
-        cookies.update(self._cookies.model_dump())
+        cookies.update(
+            self._cookies.model_dump(
+                include=include,
+                exclude=exclude,
+                exclude_unset=exclude_unset,
+                exclude_defaults=exclude_defaults,
+            )
+        )
 
-    def update_session(self) -> None:
+    def update_session(
+        self,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+    ) -> None:
         """Save the session data."""
         if bool(self._response):
             self._cookies.model_update(self.response)

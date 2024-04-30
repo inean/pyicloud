@@ -16,6 +16,15 @@ WIDGET_KEY = "widget_key" + PERSON_ID
 
 # Data
 AUTH_OK = {"authType": "hsa2"}
+AUTH_KO_BAD_PASSWORD = {
+    "serviceErrors": [
+        {
+            "code": "-20101",
+            "message": "Your Apple ID or password was incorrect.",
+            "suppressDismissal": False,
+        }
+    ]
+}
 
 LOGIN_WORKING = {
     "dsInfo": {

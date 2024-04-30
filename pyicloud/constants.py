@@ -10,11 +10,12 @@ class AppleHeaders:
     COUNTRY_CODE             = "x-apple-id-account-country"
     SESSION_ID               = "x-apple-id-session-id"
     # Session Headers
+    REQUEST_ID               = "x-apple-i-request-id"
     SESSION_TOKEN            = "x-apple-session-token"
     WIDGET_KEY               = "x-apple-widget-key"
     TRUST_TOKEN              = "x-apple-twosv-trust-token"
+    TRUST_TOKEN_ELIGIBLE     = "x-apple-twosv-trust-eligible"
     SCNT                     = "scnt"
-
     # Oauth Headers
     OAUTH_CLIENT_ID          = "x-apple-oauth-client-id"
     OAUTH_CLIENT_TYPE        = "x-apple-oauth-client-type"

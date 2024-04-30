@@ -28,6 +28,7 @@ from pydantic import (
 from pydantic.dataclasses import dataclass
 from pydantic.fields import FieldInfo
 from pydantic.functional_validators import ModelWrapValidatorHandler
+from pydantic.types import UUID1
 
 from pyicloud.constants import (
     ISO_639_1_CODES,
@@ -124,12 +125,15 @@ class Meta:
         return data
 
 
+# Header Types:
+RequestIdType: TypeAlias = Annotated[UUID1, Meta(header=Headers.REQUEST_ID)]
+TrustTokenEligibleType: TypeAlias = Annotated[bool, Meta(header=Headers.TRUST_TOKEN_ELIGIBLE)]
+
 # Header and config types always use standard Python types. Cookies, on the other hand,
 # expect a Morsel due to its richer content.
 #
 # Config Types:
 TimeZoneType: TypeAlias = Annotated[str, Meta(config="client_settings.timezone")]
-ClientIdType: TypeAlias = Annotated[str, Meta(config="client_settings.client_id")]
 
 # Headers - Config types:
 CountryCodeType: TypeAlias = Annotated[
@@ -137,6 +141,7 @@ CountryCodeType: TypeAlias = Annotated[
     Meta(header=Headers.COUNTRY_CODE, config="account.country_code"),
     StringConstraints(min_length=3, max_length=3),
 ]
+ClientIdType: TypeAlias = Annotated[str, Meta(header=Headers.OAUTH_STATE, config="client_settings.client_id")]
 SessionIdType: TypeAlias = Annotated[str, Meta(header=Headers.SESSION_ID, config="account.session_id")]
 SessionTokenType: TypeAlias = Annotated[str, Meta(header=Headers.SESSION_TOKEN, config="token.session")]
 TrustTokenType: TypeAlias = Annotated[str, Meta(header=Headers.TRUST_TOKEN, config="token.trust")]

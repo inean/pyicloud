@@ -4,6 +4,7 @@ import datetime
 import re
 import uuid
 import zoneinfo
+from abc import ABC
 from typing import Any, ClassVar, Protocol, Self, Sequence, Type, TypedDict
 
 import tzlocal
@@ -196,3 +197,7 @@ class Settings(NestedModel, BaseSettings):
         # Update settings with values from response
         for config_key, value in settings.items():
             self[config_key] = value
+
+
+class SettingsModel(BaseModel, ABC):
+    """Update the settings with the result data."""

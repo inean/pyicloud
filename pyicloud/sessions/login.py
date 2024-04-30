@@ -5,6 +5,8 @@ from typing import Literal, Sequence, Type, cast, override
 from pyicloud.constants import AppleHeaders as Headers
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import InitCookiesModel
+from pyicloud.models.headers import HeadersModel
+from pyicloud.models.settings import SettingsModel
 from pyicloud.models.types import (
     AaspType,
     Acn01Type,
@@ -13,23 +15,24 @@ from pyicloud.models.types import (
     ScntType,
     SessionIdType,
     SessionTokenType,
+    TrustTokenEligibleType,
     TrustTokenType,
 )
-from pyicloud.sessions.base import BaseResponse, BaseSession, HeadersModel, ResponseConfig, SettingsModel
+from pyicloud.sessions.base import BaseResponse, BaseSession, ResponseConfig
 from pyicloud.sessions.httpx import allow_verbs, iAsyncClient, serialize
 
 
 class LoginHeaders(HeadersModel):
-    country_code: CountryCodeType = Field(default=...)
+    country_code: CountryCodeType | None = None
     trust_token: TrustTokenType | None = None
+    turst_token_eligible: TrustTokenEligibleType | None = None
     session_token: SessionTokenType | None = None
     session_id: SessionIdType | None = None
     scnt: ScntType | None = None
 
 
 class LoginCookies(InitCookiesModel):
-    acn01: Acn01Type | None = None
-    # On login error, the acn01 cookie is not returned
+    acn01: Acn01Type | None = None  # On login error, the acn01 cookie is not returned
     aasp: AaspType
 
 
@@ -64,7 +67,10 @@ class iLogin(BaseSession[LoginResponse]):
     ENDPOINT = "https://idmsa.apple.com/appleauth/auth/signin"
 
     async def __aenter__(self):
-        await super().__aenter__()
+        # Set Headers
+        self.update_headers(self._httpx.headers)
+        # Set Cookies
+        self.update_cookies(self._httpx.cookies)
         # Set params
         self._httpx.params = {"isRememberMeEnabled": "true"}
         # Prepare Body
@@ -77,9 +83,14 @@ class iLogin(BaseSession[LoginResponse]):
             json_data["password"] = self._settings.account.password.get_secret_value()
         if self._settings.token.trust:
             json_data["trustTokens"] = [self._settings.token.trust]
-
         cast(iAsyncClient, self._httpx).json_data = json_data
-        return self._httpx
+
+        # Return the httpx client
+        return await super().__aenter__()
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await super().__aexit__(exc_type, exc, tb)
+        self.update_session()
 
     @property
     def response_cls(self) -> Type[LoginResponse]:
@@ -95,7 +106,14 @@ class iLogin(BaseSession[LoginResponse]):
         exclude_unset=True,
         exclude_defaults=False,
     ):
-        super().update_headers(headers, exclude=[Headers.COUNTRY_CODE])
+        # Don't set country code header for outbound request
+        super().update_headers(
+            headers,
+            include=include,
+            exclude=exclude or [Headers.COUNTRY_CODE],
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+        )
 
         new_headers = {
             "content-type": "application/json",
