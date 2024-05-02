@@ -56,3 +56,10 @@ class Deprecated(type):
             if callable(attr_value):
                 setattr(cls, attr_name, deprecated(attr_value))
         super().__init__(name, bases, attrs)
+
+
+R = TypeVar("R")
+
+
+def classproperty(func: Callable[..., R]) -> R:
+    return classmethod(property(func))  # type: ignore

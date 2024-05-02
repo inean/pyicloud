@@ -88,7 +88,7 @@ def test_account_invalid_email_raises_error(email):
 @given(secret=text(min_size=1, max_size=20), email=emails())
 def test_account_dump_secret(secret, email):
     account = Account(username=email, password=secret)
-    assert account.password and account.password.get_secret_value() == secret
+    assert account.password and cast(SecretStr, account.password).get_secret_value() == secret
 
 
 @given(secret=text(min_size=1, max_size=20), email=emails())
@@ -96,10 +96,10 @@ def test_account_model(secret, email):
     username = "test@example.com"
     password = "PassWord123!"
     country_code = "USA"
-    account = Account(username=username, password=password, country_code=country_code)  # type: ignore
+    account = Account(username=username, password=password, country_code=country_code)
 
     assert account.username == username
-    assert account.password and account.password.get_secret_value() == password
+    assert account.password and cast(SecretStr, account.password).get_secret_value() == password
     assert account.country_code == country_code
 
     account.username = email
@@ -217,6 +217,9 @@ def test_settings_construction(username):
 def test_settings_event_system(username, new_username):
     assume(username != new_username)
     settings = SettingsTest.create(username=username)
+    assert settings.account.password is None
+    settings.account.password = "password"
+    assert cast(SecretStr, settings.account.password).get_secret_value() == "password"
 
     assert isinstance(settings.account.events, SignalGroup)
     assert isinstance(settings.token.events, SignalGroup)

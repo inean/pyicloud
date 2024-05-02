@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, Sequence, Type, cast, override
+from typing import Literal, Type, cast
 
 from pyicloud.constants import AppleHeaders as Headers
-from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import InitCookiesModel
 from pyicloud.models.headers import HeadersModel
 from pyicloud.models.settings import SettingsModel
@@ -18,7 +17,7 @@ from pyicloud.models.types import (
     TrustTokenEligibleType,
     TrustTokenType,
 )
-from pyicloud.sessions.base import BaseResponse, BaseSession, ResponseConfig
+from pyicloud.sessions.base import BaseResponse, OAuthSession, ResponseConfig
 from pyicloud.sessions.httpx import allow_verbs, iAsyncClient, serialize
 
 
@@ -63,7 +62,7 @@ class LoginResponse(BaseResponse):
 
 @serialize
 @allow_verbs("post")
-class iLogin(BaseSession[LoginResponse]):
+class iLogin(OAuthSession[LoginResponse]):
     ENDPOINT = "https://idmsa.apple.com/appleauth/auth/signin"
 
     async def __aenter__(self):
@@ -95,40 +94,6 @@ class iLogin(BaseSession[LoginResponse]):
     @property
     def response_cls(self) -> Type[LoginResponse]:
         return LoginResponse
-
-    @override
-    def update_headers(
-        self,
-        headers,
-        *,
-        include: Sequence[str] | None = None,
-        exclude: Sequence[str] | None = None,
-        exclude_unset=True,
-        exclude_defaults=False,
-    ):
-        # Don't set country code header for outbound request
-        super().update_headers(
-            headers,
-            include=include,
-            exclude=exclude or [Headers.COUNTRY_CODE],
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-        )
-
-        new_headers = {
-            "content-type": "application/json",
-            Headers.OAUTH_CLIENT_ID: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-            Headers.OAUTH_CLIENT_TYPE: "firstPartyAuth",
-            Headers.OAUTH_REDIRECT_URI: Endpoints.HOME,
-            Headers.OAUTH_REQUIRE_GRANT_CODE: "true",
-            Headers.OAUTH_RESPONSE_TYPE: "code",
-            Headers.OAUTH_RESPONSE_MODE: "web_message",
-            Headers.OAUTH_STATE: self._settings["client_settings.client_id"],
-            Headers.WIDGET_KEY: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-        }
-
-        for key, value in new_headers.items():
-            headers.setdefault(key.lower(), value)
 
 
 class iRefreshLogin(iLogin):

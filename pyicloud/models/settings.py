@@ -5,7 +5,7 @@ import re
 import uuid
 import zoneinfo
 from abc import ABC
-from typing import Any, ClassVar, Protocol, Self, Sequence, Type, TypedDict
+from typing import Any, ClassVar, Generic, Protocol, Self, Sequence, Type, TypedDict, TypeVar, cast
 
 import tzlocal
 from pydantic import (
@@ -32,11 +32,12 @@ from pyicloud.models.types import (
     TimeZoneType,
     TrustTokenType,
 )
+from pyicloud.utils.decorators import classproperty
 
 
 class Account(LeafModel, validate_assignment=True):
     username: str
-    password: SecretStr | None = None
+    password: SecretStr | str | None = Field(default=None)
     country_code: CountryCodeType = Field(default=...)
     session_id: SessionIdType | None = None
     with_family: bool = True
@@ -60,9 +61,15 @@ class Account(LeafModel, validate_assignment=True):
                 raise ValueError(f"Invalid site {country}, expected ISO 3166-1 3 letter code")
         return v
 
-    @field_serializer("password", when_used="always")
-    def dump_secret(self, v: SecretStr):
-        return v.get_secret_value()
+    @field_validator("password")
+    def password_must_be_secret(cls, v: SecretStr | str | None) -> SecretStr | None:
+        if isinstance(v, str):
+            return SecretStr(v)
+        return v
+
+    @field_serializer("password", when_used="json")
+    def dump_secret(self, v: SecretStr | None) -> str | None:
+        return v.get_secret_value() if v else None
 
 
 class Token(LeafModel):
@@ -106,49 +113,64 @@ class ClientSettings(InitAbstractModel):
 
 
 class ResponseModel(Protocol):
-    cookies: BaseModel
     headers: BaseModel
+    cookies: BaseModel
 
 
-class SettingsConfig(TypedDict, total=False):
-    account: Type[Account]
-    token: Type[Token]
-    client_settings: Type[ClientSettings]
+A = TypeVar("A", bound=Account)
+T = TypeVar("T", bound=Token)
+C = TypeVar("C", bound=ClientSettings)
 
 
-class Settings(NestedModel, BaseSettings):
+class SettingsDict(TypedDict, Generic[A, T, C], total=False):
+    account: type[A]
+    token: type[T]
+    client_settings: type[C]
+
+
+class BaseSettings(NestedModel, BaseSettings, Generic[A, T, C]):
     model_config = SettingsConfigDict(
         validate_default=False,
         env_prefix="PYICLOUD",
     )
 
-    _config: ClassVar[SettingsConfig] = SettingsConfig(
-        account=Account,
-        token=Token,
-        client_settings=ClientSettings,
-    )
-    account: Account
-    token: Token = Token()
-    client_settings: ClientSettings = ClientSettings()
+    account: A
+    token: T = Field(default={})
+    client_settings: C = Field(default={})
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
         # Update config with default values for bae class
-        new_config = SettingsConfig(
+        new_config = SettingsDict(
             account=Account,
             token=Token,
             client_settings=ClientSettings,
         )
-        new_config.update(cls._config)
-        cls._config = new_config
+        new_config.update(cls.config_settings)
+        cls.config_settings = new_config
+
+        # Update model fields with annotations from config
+        for f_name, f_value in cls.config_settings.items():
+            if info := cls.model_fields.get(f_name):
+                if callable(f_value):
+                    # If default value is the same that the annotation, update it.
+                    # We can use None becouse pydantic use PydanticUndefined
+                    if hasattr(f_value, "model_validate") and isinstance(info.default, dict):
+                        info.default = cast(Any, f_value).model_validate(info.default)
+                # update the annotation with the new value
+                info.annotation = f_value
 
     @classmethod
-    def create(cls, username: str | None = None) -> Self:
-        return cls(
-            account=cls._config["account"](username=username) if username else cls._config["account"].model_construct(),  # type: ignore
-            token=cls._config["token"](),  # type: ignore
-            client_settings=cls._config["client_settings"](),  # type: ignore
-        )
+    def create(cls, username: str | None = None, password: str | None = None) -> Self:
+        if username is not None:
+            return cls(
+                account=cls.Account(
+                    username=username,
+                    password=SecretStr(password) if password is not None else None,
+                )
+            )
+        assert password is None, "Can't set password without username."
+        return cls(account=cls.Account.model_construct())
 
     def __hash__(self) -> int:
         return id(self)
@@ -189,6 +211,24 @@ class Settings(NestedModel, BaseSettings):
         # Update settings with values from response
         for config_key, value in settings.items():
             self[config_key] = value
+
+    config_settings: ClassVar[SettingsDict] = SettingsDict()
+
+    @classproperty
+    def Account(cls) -> type[Account]:
+        return cls.config_settings.get("account", Account)
+
+    @classproperty
+    def Token(cls) -> type[Token]:
+        return cls.config_settings.get("token", Token)
+
+    @classproperty
+    def ClientSettings(cls) -> Type[ClientSettings]:
+        return cls.config_settings.get("client_settings", ClientSettings)
+
+
+class Settings(BaseSettings[Account, Token, ClientSettings]):
+    """Update the settings with the result data."""
 
 
 class SettingsModel(BaseModel, ABC):

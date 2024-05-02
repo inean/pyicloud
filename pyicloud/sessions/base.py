@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Any, Generic, Self, Sequence, Type, TypedDict, TypeVar
+from typing import Any, Generic, Self, Sequence, Type, TypedDict, TypeVar, override
 
 import httpx
 from pydantic import BaseModel, Field
 from typing_extensions import ClassVar
 
+from pyicloud.constants import AppleHeaders as Headers
 from pyicloud.constants import Endpoints
 from pyicloud.log import PyiCloudPasswordFilter, logger_get
 from pyicloud.models.cookies import Cookies, CookiesModel
@@ -177,3 +178,39 @@ class BaseSession(Generic[T], ABC):
         if bool(self._response):
             self._cookies.model_update(self.response)
             self._settings.model_update(self.response)
+
+
+class OAuthSession(BaseSession[T], ABC):
+    @override
+    def update_headers(
+        self,
+        headers,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
+    ):
+        # Don't set country code header for outbound request
+        super().update_headers(
+            headers,
+            include=include,
+            exclude=exclude or [Headers.COUNTRY_CODE],
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+        )
+
+        new_headers = {
+            "content-type": "application/json",
+            Headers.OAUTH_CLIENT_ID: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+            Headers.OAUTH_CLIENT_TYPE: "firstPartyAuth",
+            Headers.OAUTH_REDIRECT_URI: Endpoints.HOME,
+            Headers.OAUTH_REQUIRE_GRANT_CODE: "true",
+            Headers.OAUTH_RESPONSE_TYPE: "code",
+            Headers.OAUTH_RESPONSE_MODE: "web_message",
+            Headers.OAUTH_STATE: self._settings["client_settings.client_id"],
+            Headers.WIDGET_KEY: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+        }
+
+        for key, value in new_headers.items():
+            headers.setdefault(key.lower(), value)
