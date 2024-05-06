@@ -1,6 +1,6 @@
 import logging
 from typing import Any
-from weakref import ref
+from weakref import ReferenceType, ref
 
 from pyicloud.utils.decorators import deprecated
 
@@ -54,7 +54,7 @@ class PyiCloudPasswordFilter(logging.Filter):
     @classmethod
     def unregister(cls, instance: object):
         """Remove the object from the active filters."""
-        weak_ref = ref(instance)
+        weak_ref = instance if isinstance(instance, ReferenceType) else ref(instance)
         for logger in cls._ACTIVE_FILTERS:
             if weak_ref in cls._ACTIVE_FILTERS[logger]:
                 if password_filter := cls._ACTIVE_FILTERS[logger].pop(weak_ref):
