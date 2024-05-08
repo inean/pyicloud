@@ -1,6 +1,6 @@
 import functools
 import warnings
-from typing import Callable, ParamSpec, Type, TypeVar, overload
+from typing import Callable, ParamSpec, Type, TypeVar, cast, overload
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -12,7 +12,7 @@ def deprecated(entity: Type[C]) -> Type[C]: ...
 
 
 @overload
-def deprecated(entity: Callable[P, R]) -> Callable[P, R]: ...
+def deprecated(entity: Callable[P, R], *, message: str | None = None) -> Callable[P, R]: ...
 
 
 def deprecated(
@@ -23,7 +23,7 @@ def deprecated(
     """Decorator to mark functions or classes as deprecated."""
 
     if entity is None:
-        return functools.partial(deprecated, message=message)  # type: ignore
+        return cast(Callable[P, R], functools.partial(deprecated, message=message))
 
     if isinstance(entity, type):
         # If the obj is a class, decorate its __init__ method

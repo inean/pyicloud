@@ -32,11 +32,11 @@ class MorselModel(BaseModel):
 
     key: str = Field(..., alias="name")
     value: str = Field(...)
-    expires: str | None = None
+    expires: int | None = None
     path: str | None = None
     comment: str | None = None
     domain: str | None = None
-    max_age: str | None = Field(default=None, serialization_alias="max-age")
+    max_age: float | None = Field(default=None, serialization_alias="max-age")
     secure: bool | None = None
     httponly: bool | None = None
     domain_dot_: bool | None = None

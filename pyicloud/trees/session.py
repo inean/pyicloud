@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import BehaveTree, ModelTree
+from . import BehaveTree, ModelTree
 
 
 class SetupModelTree(ModelTree):

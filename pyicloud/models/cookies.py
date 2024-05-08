@@ -14,9 +14,9 @@ from pydantic import (
 from pyicloud.models.morsel import MorselModel, JarTypes
 
 from pyicloud.models.types import (
-    LeafModel,
     InitAbstractModel,
     Meta,
+    LeafModel,
 )
 
 
@@ -41,7 +41,8 @@ class AbstractCookiesJar:
 
         assert isinstance(data, dict), f"Invalid data type: {type(data)}"
         for key, value in data.items():
-            cookie = cast(MorselModel, value)
+            cookie = MorselModel.model_validate(value) if isinstance(value, dict) else value
+            assert isinstance(cookie, MorselModel), f"Invalid value type: {type(value)}"
             if key != cookie.key:
                 raise ValueError(f"Invalid cookie key: {cookie.key}, expected: {key}")
         return data

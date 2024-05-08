@@ -76,7 +76,7 @@ def allow_verbs(*accepted_verbs: str):
             original_init(self, *args, **kwargs)  # type: ignore
             self._httpx = cast(httpx.AsyncClient, HttpxClientWrapper(self._httpx))
 
-        cls.__init__ = new_init
+        cls.__init__ = new_init  # type: ignore
         return cls
 
     return decorator
@@ -109,6 +109,10 @@ def serialize(
     settings_write: bool = True,
     cookies_read: bool = True,
     cookies_write: bool = True,
+    dump_settings_options: dict[str, Any] | None = None,
+    validate_settings_options: dict[str, Any] | None = None,
+    dump_cookies_options: dict[str, Any] | None = None,
+    validate_cookies_options: dict[str, Any] | None = None,
 ) -> Type[T]: ...
 
 
@@ -119,6 +123,11 @@ def serialize(
     settings_write: bool = True,
     cookies_read: bool = True,
     cookies_write: bool = True,
+    dump_settings_options: dict[str, Any] | None = None,
+    validate_settings_options: dict[str, Any] | None = None,
+    dump_cookies_options: dict[str, Any] | None = None,
+    validate_cookies_options: dict[str, Any] | None = None,
+    **kwargs,
 ) -> Type[T] | Callable[[Type[T]], Type[T]]:
     """Load and store session and cookies when entering and exiting the context manager."""
 
@@ -132,6 +141,10 @@ def serialize(
                 settings_write=settings_write,
                 cookies_read=cookies_read,
                 cookies_write=cookies_write,
+                dump_settings_options=dump_settings_options,
+                validate_settings_options=validate_settings_options,
+                dump_cookies_options=dump_cookies_options,
+                validate_cookies_options=validate_cookies_options,
             )
 
         return decorator
@@ -143,25 +156,63 @@ def serialize(
     class Wrapper(cls):
         """New wrapper that will extend the wrapper `cls` to make it look like `wrapped`"""
 
-        _serialize_settings: Serialize = Serialize(settings_read, settings_write)
-        _serialize_cookies: Serialize = Serialize(cookies_read, cookies_write)
+        def __init__(self, *args, **kwargs):
+            self._serialize_settings = Serialize(
+                kwargs.get("settings_read", settings_read),
+                kwargs.get("settings_write", settings_write),
+            )
+            self._serialize_cookies = Serialize(
+                kwargs.get("cookies_read", cookies_read),
+                kwargs.get("cookies_write", cookies_write),
+            )
+
+            # Serailization options for settings
+            self._dump_settings_options = kwargs.get(
+                "dump_settings_options",
+                dump_settings_options,
+            ) or {
+                "by_alias": True,
+                "exclude_none": True,
+                "indent": 2,
+            }
+            self._validate_settings_options = kwargs.get("validate_settings_options", validate_settings_options) or {}
+
+            # Serailization options for cookies
+            self._dump_cookies_options = kwargs.get(
+                "dump_cookies_options",
+                dump_cookies_options,
+            ) or {
+                "by_alias": True,
+                "exclude_defaults": True,
+                "exclude_none": True,
+                "exclude_unset": True,
+                "indent": 2,
+            }
+            self._validate_cookies_options = kwargs.get("validate_cookies_options", validate_cookies_options) or {}
+            # Call the original __init__ method
+            super().__init__(*args, **kwargs)
 
         async def __aenter__(self: T):
             # Load session and cookies
-            if Wrapper._serialize_settings.read:
-                SettingsFile(self._settings).loads()
-            if Wrapper._serialize_cookies.read:
-                CookiesJar(self._cookies).loads(username=self._settings.account.username)
+            wrapper = cast(Wrapper, self)
+            if wrapper._serialize_settings.read:
+                SettingsFile(self._settings).loads(**(wrapper._validate_settings_options))
+            if wrapper._serialize_cookies.read:
+                if username := self._settings.account.username:
+                    CookiesJar(self._cookies).loads(username=username, **wrapper._validate_cookies_options)
             return await super().__aenter__()
 
         async def __aexit__(self, exc_type, exc, tb):
             # Call the original __aexit__ method
             result = await super().__aexit__(exc_type, exc, tb)
             # Write session and cookies
-            if Wrapper._serialize_cookies.write:
-                CookiesJar(self._cookies).saves(username=self._settings.account.username)
-            if Wrapper._serialize_settings.write:
-                SettingsFile(self._settings).saves()
+            wrapper = cast(Wrapper, self)
+            if wrapper._serialize_settings.write:
+                SettingsFile(self._settings).saves(**wrapper._dump_settings_options)
+            if wrapper._serialize_cookies.write:
+                username = self._settings.account.username
+                assert username
+                CookiesJar(self._cookies).saves(username=username, **wrapper._dump_cookies_options)
             return result
 
     # Assign the attributes

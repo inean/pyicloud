@@ -73,10 +73,24 @@ class BaseResponse(BaseModel, Generic[H, C, E]):
         return cls(**data)
 
 
-T = TypeVar("T", bound="BaseResponse")
+class BaseRequest(BaseModel, ABC):
+    _cookies: Cookies
+    _settings: Settings
+    _request: httpx.Request | None
+
+    @classmethod
+    def model_dump_request(cls, session: "BaseSession") -> httpx.Request:
+        """Dump the request data."""
+        return httpx.Request(url=session.ENDPOINT, method="POST")
 
 
-class BaseSession(Generic[T], ABC):
+T = TypeVar("T", bound="BaseRequest")
+K = TypeVar("K", bound="BaseResponse")
+
+
+class BaseSession(Generic[T, K], ABC):
+    ENDPOINT: str
+
     _cookies: Cookies
     _settings: Settings
     _httpx: httpx.AsyncClient
@@ -86,12 +100,15 @@ class BaseSession(Generic[T], ABC):
         self,
         settings: Settings,
         cookies: Cookies,
+        *,
         client: httpx.AsyncClient | None = None,
+        **kwargs,
     ):
         client = client or httpx.AsyncClient(follow_redirects=True)
 
         self._cookies = cookies
         self._settings = settings
+
         self._httpx = client
         self._response = None
 
@@ -113,13 +130,22 @@ class BaseSession(Generic[T], ABC):
         await self._httpx.aclose()
 
     @cached_property
-    def response(self) -> T:
+    def response(self) -> K:
         assert self._response, "No response available"
         return self.response_cls.model_validate_response(self._response)
 
+    @cached_property
+    def request(self) -> T:
+        return self.request_cls.model_validate(self)
+
     @property
     @abstractmethod
-    def response_cls(self) -> Type[T]:
+    def request_cls(self) -> Type[T]:
+        """Endpoint to use for the session."""
+
+    @property
+    @abstractmethod
+    def response_cls(self) -> Type[K]:
         """Endpoint to use for the session."""
 
     def update_headers(
@@ -180,7 +206,7 @@ class BaseSession(Generic[T], ABC):
             self._settings.model_update(self.response)
 
 
-class OAuthSession(BaseSession[T], ABC):
+class OAuthSession(BaseSession[T, K], ABC):
     @override
     def update_headers(
         self,

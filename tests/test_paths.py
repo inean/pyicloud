@@ -210,6 +210,4 @@ def test_config_path_fspath(contents_dict, config_file):
     path = Path(os.fspath(settings))
     assert path.name == settings._file
     assert settings._file == config_file
-    assert path == Path.home().joinpath(
-        settings.cls_config["file_sub_dir"], settings.cls_config["pkg_dir"], settings._file or ""
-    )
+    assert path == Path(__file__).parent.parent.joinpath(settings.cls_config["file_sub_dir"], settings._file or "")

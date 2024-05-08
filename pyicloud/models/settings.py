@@ -10,13 +10,14 @@ from typing import Any, ClassVar, Generic, Protocol, Self, Sequence, Type, Typed
 import tzlocal
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     SecretStr,
-    computed_field,
     field_serializer,
     field_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings as PydanticSettings
+from pydantic_settings import SettingsConfigDict
 
 from pyicloud.constants import ISO_3166_1_CODES_3
 from pyicloud.models.types import (
@@ -36,6 +37,8 @@ from pyicloud.utils.decorators import classproperty
 
 
 class Account(LeafModel, validate_assignment=True):
+    model_config = ConfigDict(populate_by_name=True)
+
     username: str
     password: SecretStr | str | None = Field(default=None)
     country_code: CountryCodeType = Field(default=...)
@@ -73,6 +76,8 @@ class Account(LeafModel, validate_assignment=True):
 
 
 class Token(LeafModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     session: SessionTokenType = Field(
         default=None,
         serialization_alias="sessionToken",
@@ -84,6 +89,8 @@ class Token(LeafModel):
 
 
 class ClientSettings(InitAbstractModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     timezone: TimeZoneType = Field(default=...)
     client_id: ClientIdType = Field(default_factory=lambda: f"auth-{str(uuid.uuid4()).lower()}")
     scnt: ScntType | None = None
@@ -100,7 +107,7 @@ class ClientSettings(InitAbstractModel):
             raise ValueError(f"Invalid timezone {v}") from err
         return v
 
-    @computed_field(alias="timeOffset")
+    @property
     def time_offset(self) -> str:  # type: ignore
         zone = zoneinfo.ZoneInfo(self.timezone)
         # compute the time offset
@@ -128,7 +135,7 @@ class SettingsDict(TypedDict, Generic[A, T, C], total=False):
     client_settings: type[C]
 
 
-class BaseSettings(NestedModel, BaseSettings, Generic[A, T, C]):
+class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
     model_config = SettingsConfigDict(
         validate_default=False,
         env_prefix="PYICLOUD",
@@ -229,6 +236,10 @@ class BaseSettings(NestedModel, BaseSettings, Generic[A, T, C]):
 
 class Settings(BaseSettings[Account, Token, ClientSettings]):
     """Update the settings with the result data."""
+
+    def model_dump_json(self, **kwargs) -> str:
+        kwargs.setdefault("by_alias", True)
+        return super().model_dump_json(**kwargs)
 
 
 class SettingsModel(BaseModel, ABC):

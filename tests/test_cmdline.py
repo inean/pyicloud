@@ -87,8 +87,12 @@ class TestCmdline(IsolatedAsyncioTestCase):
         assert result.exit_code == 0
 
     @pytest.mark.anyio
-    async def test_device_outputfile(self):  # pylint: disable=unused-argument
+    @patch("pyicloud.paths.AbstractPath.loads")
+    async def test_device_outputfile(self, mock_loads):  # pylint: disable=unused-argument
         """Test the outputfile command."""
+
+        # Just ignore result of SettingsFile().loads()
+        mock_loads.side_effect = lambda: None
         runner = CliRunner()
 
         result = await runner.invoke(

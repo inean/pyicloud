@@ -23,13 +23,14 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    field_serializer,
     field_validator,
     model_validator,
 )
 from pydantic.dataclasses import dataclass
 from pydantic.fields import FieldInfo
 from pydantic.functional_validators import ModelWrapValidatorHandler
-from pydantic.types import UUID1
+from pydantic.types import UUID1, SecretStr
 
 from pyicloud.constants import (
     ISO_639_1_CODES,
@@ -84,18 +85,25 @@ class Meta:
         data = data or {}
         if hasattr(obj, "model_fields"):
             for name, info in cast(Mapping[str, FieldInfo], obj.model_fields).items():
-                child = getattr(obj, name)
-                if hasattr(child, "model_fields"):
-                    data = Meta.model_dump_meta(
-                        child,
-                        by_meta=by_meta,
-                        include=include,
-                        exclude=exclude,
-                        exclude_unset=exclude_unset,
-                        exclude_defaults=exclude_defaults,
-                        exclude_none=exclude_none,
-                        data=data,
-                    )
+                # Extract metadata. Pydantic doesn't like unions outside of Annotated
+                if not (metadata := info.metadata):
+                    try:
+                        metadata = cast(Any, info.annotation).__args__[0].__metadata__
+                    except AttributeError:
+                        metadata = []
+                if (meta := next((x for x in metadata if isinstance(x, Meta)), None)) is None:
+                    child = getattr(obj, name)
+                    if hasattr(child, "model_fields"):
+                        data = Meta.model_dump_meta(
+                            child,
+                            by_meta=by_meta,
+                            include=include,
+                            exclude=exclude,
+                            exclude_unset=exclude_unset,
+                            exclude_defaults=exclude_defaults,
+                            exclude_none=exclude_none,
+                            data=data,
+                        )
                     continue
                 # Chekc if field satisfieds inclusion requirements
                 default = info.get_default(call_default_factory=True)
@@ -108,21 +116,17 @@ class Meta:
                         continue
                     if exclude_unset and isunset:
                         continue
-                # Extract metadata. Pydantic doesn't like unions outside of Annotated
-                if not (metadata := info.metadata):
-                    try:
-                        metadata = cast(Any, info.annotation).__args__[0].__metadata__
-                    except AttributeError:
-                        metadata = []
-                if meta := next((x for x in metadata if isinstance(x, Meta)), None):
-                    if target := getattr(meta, by_meta):
-                        if include and not (target in include or name in include):
-                            continue
-                        if exclude and (target in exclude or name in exclude):
-                            continue
-                        assert target not in data, f"Duplicate key {target} from {obj} found in data"
-                        # Set data in flattered space
-                        data[target] = current.get_secret_value() if hasattr(current, "get_secret_value") else current
+
+                assert meta
+                if target := getattr(meta, by_meta):
+                    if include and not (target in include or name in include):
+                        continue
+                    if exclude and (target in exclude or name in exclude):
+                        continue
+                    assert target not in data, f"Duplicate key {target} from {obj} found in data"
+                    # Set data in flattered space
+                    data[target] = current.get_secret_value() if hasattr(current, "get_secret_value") else current
+
         return data
 
 
@@ -135,7 +139,8 @@ TrustTokenEligibleType: TypeAlias = Annotated[bool, Meta(header=Headers.TRUST_TO
 #
 # Config Types:
 TimeZoneType: TypeAlias = Annotated[str, Meta(config="client_settings.timezone")]
-
+UsernameType: TypeAlias = Annotated[str, Meta(config="account.username")]
+PasswordType: TypeAlias = Annotated[SecretStr, Meta(config="account.password")]
 # Headers - Config types:
 CountryCodeType: TypeAlias = Annotated[
     str,
@@ -152,12 +157,12 @@ ScntType: TypeAlias = Annotated[str, Meta(header=Headers.SCNT, config="client_se
 # Cookies - Config types:
 DslangType: TypeAlias = Annotated[
     str | MorselModel,
-    Meta(cookie=Cookies.DSLANG, config="session.dslang"),
+    Meta(cookie=Cookies.DSLANG, config="client_settings.dslang"),
     StringConstraints(min_length=5, max_length=5),
 ]
 SiteType: TypeAlias = Annotated[
     str | MorselModel,
-    Meta(cookie=Cookies.SITE, config="session.site"),
+    Meta(cookie=Cookies.SITE, config="client_settings.site"),
     StringConstraints(min_length=3, max_length=3),
 ]
 # Cookie types:
@@ -272,8 +277,12 @@ class InitAbstractModel(LeafModel):
         return ISO_3166_1_CODES_3[alpha3166_3]
 
     @field_validator("site")
-    def validate_site_validate(cls, v: MorselModel | str) -> SiteType:
+    def site_validate(cls, v: MorselModel | str) -> SiteType:
         site = v.upper() if isinstance(v, str) else v.value.upper()
         if site not in ISO_3166_1_CODES_3:
             raise ValueError(f"Invalid site {site}, expected ISO 3166-1 3 letter code")
         return v
+
+    @field_serializer("dslang", "site", when_used="json-unless-none")
+    def dump_morsel_values_only(self, v: MorselModel | str) -> str:
+        return v.value if isinstance(v, MorselModel) else v

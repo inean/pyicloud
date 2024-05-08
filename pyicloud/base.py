@@ -9,8 +9,8 @@ import httpx
 from pyicloud.constants import Endpoints
 from pyicloud.exceptions import (
     PyiCloud2SARequiredException,
-    PyiCloudAPIResponseException,
-    PyiCloudException,
+    PyiCloudAPIResponseError,
+    PyiCloudError,
     PyiCloudFailedLoginException,
     PyiCloudServiceNotActivatedException,
 )
@@ -126,7 +126,7 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
                     try:
                         # If 450, authentication requires a full sign in to the account
                         self._auth_callback(True, "find")
-                    except PyiCloudAPIResponseException:
+                    except PyiCloudAPIResponseError:
                         LOGGER.debug("Re-authentication failed")
                     kwargs["retried"] = True
                     return self.request(method, url, **kwargs)
@@ -138,7 +138,7 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
             and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500])
             and (not has_retried and response.status_code in [421, 450, 500])
         ):
-            api_error = PyiCloudAPIResponseException(response.reason_phrase, response.status_code, retry=True)
+            api_error = PyiCloudAPIResponseError(response.reason_phrase, response.status_code, retry=True)
             logger.debug(api_error)
             kwargs["retried"] = True
             return self.request(method, url, **kwargs)
@@ -276,7 +276,7 @@ class PyiCloudUser(metaclass=Deprecated):
                 self._ws = self._session["webservices"]
                 LOGGER.info("Authentication with session token completed successfully")
                 return
-            except PyiCloudAPIResponseException:
+            except PyiCloudAPIResponseError:
                 LOGGER.info("Invalid authentication token, will log in from scratch.")
                 self.config.token.session = None
 
@@ -310,7 +310,7 @@ class PyiCloudUser(metaclass=Deprecated):
             try:
                 self._client.post(f"{Endpoints.INIT}/accountLogin", json=data)
                 self._validate()
-            except PyiCloudAPIResponseException as error:
+            except PyiCloudAPIResponseError as error:
                 msg = "Invalid email/password combination."
                 self.password = ""
                 raise PyiCloudFailedLoginException(msg, error) from error
@@ -339,7 +339,7 @@ class PyiCloudUser(metaclass=Deprecated):
                 json=data,
                 headers=headers,
             )
-        except PyiCloudAPIResponseException as error:
+        except PyiCloudAPIResponseError as error:
             msg = "Invalid email/password combination."
             raise PyiCloudFailedLoginException(msg, error) from error
             # If we are here, we are authenticated,
@@ -359,7 +359,7 @@ class PyiCloudUser(metaclass=Deprecated):
             LOGGER.debug("Session token is still valid")
             self._session = req.json()
             self.config.account.model_validate(self._session)
-        except PyiCloudAPIResponseException as err:
+        except PyiCloudAPIResponseError as err:
             LOGGER.debug("Invalid authentication token")
             raise err
 
@@ -380,7 +380,7 @@ class PyiCloudUser(metaclass=Deprecated):
         if code in [421, 450, 500]:
             reason = "Authentication required for Account."
 
-        api_error = PyiCloudAPIResponseException(reason, code)
+        api_error = PyiCloudAPIResponseError(reason, code)
         LOGGER.error(api_error)
         raise api_error
 
@@ -395,7 +395,7 @@ class PyiCloudUser(metaclass=Deprecated):
         try:
             req = self._client.post(f"{Endpoints.INIT}/accountLogin", json=data)
             self._session = req.json()
-        except PyiCloudAPIResponseException as error:
+        except PyiCloudAPIResponseError as error:
             msg = "Invalid authentication token."
             raise PyiCloudFailedLoginException(msg, error) from error
 
@@ -420,7 +420,7 @@ class PyiCloudUser(metaclass=Deprecated):
                 params=self._params,
                 json=data,
             )
-        except PyiCloudAPIResponseException as error:
+        except PyiCloudAPIResponseError as error:
             if error.code == -21669:
                 # Wrong verification code
                 return False
@@ -448,7 +448,7 @@ class PyiCloudUser(metaclass=Deprecated):
                 json=data,
                 headers=headers,
             )
-        except PyiCloudAPIResponseException as error:
+        except PyiCloudAPIResponseError as error:
             if error.code == -21669:
                 # Wrong verification code
                 LOGGER.error("Code verification failed.")
@@ -477,7 +477,7 @@ class PyiCloudUser(metaclass=Deprecated):
             )
             self._authenticate_fetch_trust_token()
             return True
-        except PyiCloudAPIResponseException:
+        except PyiCloudAPIResponseError:
             LOGGER.error("Session trust failed.")
             return False
 
@@ -510,7 +510,7 @@ class PyiCloudUser(metaclass=Deprecated):
         if self._config == value:
             return
         if self._config and self._config != value:
-            raise PyiCloudException("Config cannot be changed")
+            raise PyiCloudError("Config cannot be changed")
         self._config = value
 
         # Add a filter so password is not logged

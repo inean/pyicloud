@@ -7,7 +7,7 @@ from os import PathLike, fspath
 from pathlib import Path
 from typing import ClassVar, Literal, OrderedDict, TypedDict, cast, override
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from pyicloud.log import logger_get
 from pyicloud.models.cookies import Cookies
@@ -108,8 +108,9 @@ class AbstractPath[T: BaseModel | dict | str](PathLike):
                     # If file is relative, search for it
                     candidate = path / subd / name
                     while True:
-                        if candidate.is_file() or not top_down:
-                            return_file = candidate
+                        if return_file is None:
+                            if (candidate.is_file() or not top_down) or (subdir and candidate.parent.is_dir()):
+                                return_file = candidate
                         if not top_down or candidate.parent == (root / subd):
                             break
                         candidate = Path(str(candidate)[: -len(str(subd / candidate.name))]).parent / subd / name
@@ -159,7 +160,15 @@ class AbstractPath[T: BaseModel | dict | str](PathLike):
             if issubclass(type_, dict):
                 deep_update(cast(dict, self._contents), json.load(f))
             elif issubclass(type_, BaseModel):
-                cast(BaseModel, self._contents).model_validate_json(f.read(), **kwargs)
+                try:
+                    smodel = cast(BaseModel, self._contents)
+                    result = smodel.model_validate_json(f.read(), **kwargs)
+                    # Only update well known attributes
+                    smodel.__dict__.update(result.__dict__)
+                    smodel.__pydantic_fields_set__.update(result.__pydantic_fields_set__)
+
+                except ValidationError as err:
+                    logger_get("paths").warning(f"Error loading file '{path}': {err}")
             elif issubclass(type_, str):
                 self._contents = f.read()  # type: ignore
             else:

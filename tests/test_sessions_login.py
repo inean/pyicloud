@@ -61,7 +61,7 @@ async def test_login_request(
 ):
     cookies, settings = login_cookies, authenticated_user_settings
 
-    async with iLogin(settings=settings, cookies=cookies) as session:
+    async with iLogin(settings=settings, cookies=cookies, settings_read=False) as session:
         # BaseSession Headers
         assert {
             "accept": "application/json",
@@ -146,7 +146,7 @@ async def test_login_success(
 ):
     cookies, settings = login_cookies, authenticated_user_settings
 
-    ilogin = iLogin(settings=settings, cookies=cookies)
+    ilogin = iLogin(settings=settings, cookies=cookies, settings_read=False)
     async with ilogin as session:
         # We monkeypatch httpxclient to accept a json_data property. If predsent and not None,
         # it will be used as the json request body. If a json attribute is present, it will be used
@@ -174,7 +174,12 @@ async def test_login_success(
         }.items() <= response.headers.items()
 
         # HTTPX Response Cookies Cookie
-        assert {}.items() <= response.cookies.items()
+        assert {
+            Jar.DSLANG: "US-EN",
+            Jar.SITE: "USA",
+            Jar.AASP: "login_aasp",
+            Jar.ACN01: "acn01_value",
+        }.items() <= dict(response.cookies).items()
 
     assert bool(ilogin.response) is True
     assert ilogin.response.headers.country_code == "FRA"
@@ -220,7 +225,7 @@ async def test_login_bad_credentials(
 ):
     cookies, settings = login_cookies, authenticated_user_bad_password_settings
 
-    ilogin = iLogin(settings=settings, cookies=cookies)
+    ilogin = iLogin(settings=settings, cookies=cookies, settings_read=False)
     async with ilogin as session:
         # We monkeypatch httpxclient to accept a json_data property. If predsent and not None,
         # it will be used as the json request body. If a json attribute is present, it will be used

@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-import contextvars
+import asyncio
 import getpass
-from typing import cast
+import re
+from typing import Any, cast
 
-import anyio
-import anyio.to_thread
 import async_btree as bt
 import httpx
 
+from pyicloud.exceptions import PyiCloudUserCancelledError
 from pyicloud.log import LOGGER, AsyncLogClient
 from pyicloud.sessions.base import BaseResponse
-from pyicloud.sessions.httpx import iAsyncClient
 from pyicloud.sessions.login import iLogin, iRefreshLogin
+from pyicloud.sessions.verify_code import VerifyHSA2Code
+from pyicloud.trees import BehaveTree, ModelTree, TreeAction
 from pyicloud.utils.decorators import deprecated
-
-from .base import BehaveTree, ModelTree
 
 
 class SetupModelTree(ModelTree):
@@ -56,17 +55,6 @@ class SetupModelTree(ModelTree):
     #   })();
 
     @deprecated
-    async def _session_is_2fa_pending(self):
-        """Return False if a trust token is not present or is not valid anymore."""
-        if not self.settings.token.trust:
-            LOGGER.debug("No trust token found")
-            return True
-        if "X-APPLE-WEBAUTH-HSA-LOGIN" in self.cookies:
-            LOGGER.debug("Found X-APPLE-WEBAUTH-HSA-LOGIN cookie")
-            return True
-        return True
-
-    @deprecated
     async def _session_is_expired(self):
         """Test that we have required session data to operate services without the need to re-authenticate."""
         if not await self._session_is_logged_in():
@@ -86,77 +74,164 @@ class SetupModelTree(ModelTree):
                 return True
         return False
 
-    @deprecated
-    async def _session_renew(self):
-        """Renew session data."""
-        print("Renew session")
-
-    async def login(self, username: str = "", password: str = "", refresh=False) -> BaseResponse:
-        """Fetch a valid session token."""
-        factory = iRefreshLogin if refresh else iLogin
-        session = factory(self.settings, self.cookies, client=AsyncLogClient())
-
-        # Context manager will load and save config and cookies for us
-        async with session as login:
-            LOGGER.debug(f"Fresh Login as '{username or self.settings['account.username']}'")
-            # Prepare data object to post with login info
-            _ = username and cast(iAsyncClient, login).json_data.update({"username": username})
-            _ = password and cast(iAsyncClient, login).json_data.update({"password": password})
-            # post
-            await login.post(session.ENDPOINT, json=cast(iAsyncClient, login).json_data)
-            # If Sucess, Response will eval to True.
-            return session.response
-
     async def is_password_needed(self) -> bool:
         """Check if password is required."""
         # If no password provided. ask for it
         LOGGER.debug(f"Password is needed?: password: '{self.password}'")
         return self.password is None or self.password == ""
 
-    async def on_signin(self, response: BaseResponse | None = None):
+    @ModelTree.with_context
+    async def reset_password_if_needed(self, response: BaseResponse | None = None):
+        """
+        Check porrevious response and reset password if needed. If no previous
+        response or response was unsessecfull, return False
+        """
+        # If a previous attempt failed, show error...
+        if response is not None:
+            LOGGER.debug(f"Sign in result:'{bool(response)}'")
+            if bool(response) is False:
+                LOGGER.error(f"{response.errors[0].code} ({response.errors[0].message})")
+                self.password = None
+            return bool(response)
+        return False
+
+    @ModelTree.with_context
+    async def ask_password_if_needed(self):
+        # and ask for a new password
+        try:
+            while not self.password:
+                self.password = await asyncio.to_thread(getpass.getpass, "Enter a valid password: ")
+                LOGGER.debug(f"Set password to '{self.password}'")
+            return True
+        except asyncio.exceptions.CancelledError as err:
+            LOGGER.debug("Password entry operation stopped by user")
+            raise PyiCloudUserCancelledError("Password entry operation stopped by user") from err
+
+    @ModelTree.set_context(name="response")
+    async def login(self, refresh=False) -> BaseResponse:
+        """Fetch a valid session token."""
+
+        factory = iRefreshLogin if refresh else iLogin
+        session = factory(self.settings, self.cookies, client=AsyncLogClient())
+
+        # Context manager will load and save config and cookies for us
+        async with session as login:
+            LOGGER.debug(f"Login as '{self.settings.account.username}'")
+            await login.post(session.ENDPOINT)
+        # If Sucess, Response will eval to True.
+        return session.response
+
+    async def is_logged_in(self) -> bool:
+        """Test that we have required session data to operate services without the need to re-authenticate."""
+        if not self.cookies:
+            LOGGER.debug("No cookies found")
+            return False
+        if not self.settings.token.session:
+            LOGGER.debug("No session token found")
+            return False
+        return True
+
+    @ModelTree.with_context
+    async def is_2fa_pending(self, response: BaseResponse | None = None) -> int:
+        """Return False if a trust token is not present or is not valid anymore."""
+        if not self.settings.token.trust:
+            LOGGER.debug("No trust token found")
+            return True
+        if "X-APPLE-WEBAUTH-HSA-LOGIN" in self.cookies:
+            LOGGER.debug("Found X-APPLE-WEBAUTH-HSA-LOGIN cookie")
+            return True
+        return True
+
+    @ModelTree.with_context
+    async def reset_security_code(self, response: BaseResponse | None):
         """Sign in."""
         # If a previous attempt failed, show error...
-        LOGGER.debug(f"Sign in result:'{bool(response)}'")
-        if response and bool(response) is False:
-            print(f"{response.errors[0].code} ({response.errors[0].message})")
+        if response is not None:
+            LOGGER.debug(f"Sign in result:'{bool(response)}'")
+            if bool(response) is False:
+                LOGGER.error(f"{response.errors[0].code} ({response.errors[0].message})")
+                self.password = None
+        return bool(response)
+
+    @ModelTree.set_context(name="security_code")
+    async def ask_security_code(self):
         # and ask for a new password
-        password = self.settings["account.password"]
-        while not password:
-            password = await anyio.to_thread.run_sync(getpass.getpass, "Enter a valid password: ")
-            self.settings["account.password"] = password
-        LOGGER.debug(f"Set password to '{self.settings['account.password']}'")
+        while True:
+            code = await asyncio.to_thread(getpass.getpass, "Enter security_code: ")
+            code = re.sub(r"[-_\s]", "", code)
+            if re.fullmatch(r"\d{6}", code):
+                LOGGER.debug(f"Set security_code to: '{self.password}'")
+                return code
+
+    @ModelTree.with_context
+    @ModelTree.set_context(name="response")
+    async def verify_code(self, verify_code: int) -> BaseResponse:
+        """Fetch a valid session token."""
+
+        session = VerifyHSA2Code(self.settings, self.cookies, security_code=verify_code, client=AsyncLogClient())
+
+        # Context manager will load and save config and cookies for us
+        async with session as complete:
+            LOGGER.debug(f"Verify HSA2 code '{session.request.security_code}'")
+            await complete.post(session.ENDPOINT)
+        # If Sucess, Response will eval to True.
+        return session.response
 
 
 class SetupTree(BehaveTree[SetupModelTree]):
-    response_var = contextvars.ContextVar("response")
+    def _on_error(self, err: Exception) -> tuple[TreeAction, Exception | Any | None]:
+        if isinstance(err, PyiCloudUserCancelledError):
+            return TreeAction.EXIT, str(err)
+        return super()._on_error(err)
 
-    def _setup(self):
-        self.response_var.set(None)
-
-        return bt.retry(
-            bt.sequence(
-                children=[
-                    bt.retry(
-                        bt.fallback(
+    def _setup(self) -> bt.AsyncInnerFunction:
+        verify_password_subtree = bt.sequence(
+            children=[
+                bt.fallback(
+                    children=[
+                        # Check if password is defined. If not, ask for it
+                        bt.inverter(self._model.is_password_needed),
+                        # If response is False, there is an error. Show it and ask new password
+                        bt.sequence(
                             children=[
-                                # Check if password is defined. If not, ask for it
-                                bt.condition(target=bt.inverter(self._model.is_password_needed)),
-                                # If response is False, there is an error. Show it and ask new password
-                                bt.always_success(bt.condition(target=self.push("response")(self._model.on_signin))),
-                            ]
+                                self._model.reset_password_if_needed,
+                                self._model.ask_password_if_needed,
+                            ],
+                            succes_threshold=1,
                         ),
-                        max_retry=2,
-                    ),
-                    # Try to login
-                    bt.fallback(
-                        children=[
-                            # Check response status. 401 means password is invalid and bool(response) is False
-                            bt.condition(target=self.pull("response")(self._model.login), refresh=False),
-                            # Reset password and retry sequence again
-                            bt.always_failure(lambda: setattr(self._model, "password", None)),
-                        ]
-                    ),
-                ]
-            ),
-            max_retry=2,
+                    ]
+                ),
+                # Try to login
+                bt.condition(target=self._model.login, refresh=False),
+            ]
+        )
+
+        verify_code_subtree = bt.sequence(
+            children=[
+                self._model.is_logged_in,
+                # Check response to see if 2FA is needed A non 0 code is interpreted as False
+                bt.fallback(
+                    children=[
+                        bt.inverter(self._model.is_2fa_pending),
+                        bt.sequence(
+                            children=[
+                                self._model.reset_security_code,
+                                self._model.ask_security_code,
+                            ],
+                            # If reset_security_code is False, ask for a new code
+                            succes_threshold=1,
+                        ),
+                    ]
+                ),
+                # If 2FA is needed, verify code
+                self._model.verify_code,
+            ]
+        )
+
+        return bt.sequence(
+            children=[
+                bt.retry(verify_password_subtree, max_retry=3),
+                # If Response is true, we sigin was successfull, but a 2FA may be needed
+                bt.retry(verify_code_subtree, max_retry=3),
+            ]
         )

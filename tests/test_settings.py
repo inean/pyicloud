@@ -181,8 +181,7 @@ def test_client_dump_json():
         f'{{"dslang":"{ClientSettings.dslang_default()}",'
         f'"site":"{ClientSettings.site_default()}",'
         f'"timezone":"{tzlocal.get_localzone_name()}",'
-        f'"client_id":"{client_settings.client_id}",'
-        f'"timeOffset":"{get_gmt_offset(tzlocal.get_localzone_name())}"}}'
+        f'"client_id":"{client_settings.client_id}"}}'
     )
     assert client_settings.model_dump_json(by_alias=True, exclude_none=True) == expected_json
 

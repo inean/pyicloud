@@ -1,4 +1,5 @@
 import re
+from unittest.mock import patch
 
 import pytest
 
@@ -19,10 +20,12 @@ def config_file(tmp_path, username):
 @pytest.fixture
 def service(username, config_file, monkeypatch):
     """Set up tests."""
-    monkeypatch.setenv("TEST_CONFIG_FILE", str(config_file))
-    api = PyiCloudMock(username, VALID_PASSWORD)
-    api.authenticate()
-    return PyiCloudServicesMock(api)
+    with patch("pyicloud.paths.AbstractPath.loads") as monkey_loads:
+        monkey_loads.return_value = None
+        monkeypatch.setenv("TEST_CONFIG_FILE", str(config_file))
+        api = PyiCloudMock(username, VALID_PASSWORD)
+        api.authenticate()
+        yield PyiCloudServicesMock(api)
 
 
 def test_devices(service):

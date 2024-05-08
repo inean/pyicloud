@@ -3,14 +3,19 @@
 from pydantic import ValidationError
 
 
-class PyiCloudException(Exception):
+class PyiCloudError(Exception):
     """Generic iCloud exception."""
 
 
 PyiCloudValidationError = ValidationError
 
 
-class PyiCloudAPIResponseException(PyiCloudException):
+class PyiCloudUserCancelledError(PyiCloudError):
+    def __init__(self, message: str = "User cancelled the operation"):
+        super().__init__(message)
+
+
+class PyiCloudAPIResponseError(PyiCloudError):
     """iCloud response exception."""
 
     def __init__(self, reason, code=None, retry=False):
@@ -25,16 +30,16 @@ class PyiCloudAPIResponseException(PyiCloudException):
         super().__init__(message)
 
 
-class PyiCloudServiceNotActivatedException(PyiCloudAPIResponseException):
+class PyiCloudServiceNotActivatedException(PyiCloudAPIResponseError):
     """iCloud service not activated exception."""
 
 
 # Login
-class PyiCloudFailedLoginException(PyiCloudException):
+class PyiCloudFailedLoginException(PyiCloudError):
     """iCloud failed login exception."""
 
 
-class PyiCloud2SARequiredException(PyiCloudException):
+class PyiCloud2SARequiredException(PyiCloudError):
     """iCloud 2SA required exception."""
 
     def __init__(self, apple_id):
@@ -42,10 +47,10 @@ class PyiCloud2SARequiredException(PyiCloudException):
         super().__init__(message)
 
 
-class PyiCloudNoStoredPasswordAvailableException(PyiCloudException):
+class PyiCloudNoStoredPasswordAvailableException(PyiCloudError):
     """iCloud no stored password exception."""
 
 
 # Webservice specific
-class PyiCloudNoDevicesException(PyiCloudException):
+class PyiCloudNoDevicesException(PyiCloudError):
     """iCloud no device exception."""

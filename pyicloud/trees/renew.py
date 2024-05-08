@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import async_btree as bt
 
-from .base import BehaveTree, ModelTree
+from . import BehaveTree, ModelTree
 
 
 class RenewModelTree(ModelTree):

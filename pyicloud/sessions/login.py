@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Type, cast
+from typing import Any, Literal, Type, cast
 
 from pyicloud.constants import AppleHeaders as Headers
 from pyicloud.models.cookies import InitCookiesModel
@@ -10,14 +10,18 @@ from pyicloud.models.types import (
     AaspType,
     Acn01Type,
     CountryCodeType,
+    DslangType,
     Field,
+    PasswordType,
     ScntType,
     SessionIdType,
     SessionTokenType,
+    SiteType,
     TrustTokenEligibleType,
     TrustTokenType,
+    UsernameType,
 )
-from pyicloud.sessions.base import BaseResponse, OAuthSession, ResponseConfig
+from pyicloud.sessions.base import BaseRequest, BaseResponse, OAuthSession, ResponseConfig
 from pyicloud.sessions.httpx import allow_verbs, iAsyncClient, serialize
 
 
@@ -60,9 +64,21 @@ class LoginResponse(BaseResponse):
         return True if self.status_code == 409 else super().__bool__()
 
 
+class LoginRequest(BaseRequest):
+    # Cookie Fields
+    dslang: DslangType
+    site: SiteType
+
+    # Body Fields
+    rememberMe: bool = True
+    accountName: UsernameType
+    password: PasswordType
+    trustTokens: list[TrustTokenType] = Field(default=[])
+
+
 @serialize
 @allow_verbs("post")
-class iLogin(OAuthSession[LoginResponse]):
+class iLogin(OAuthSession[LoginRequest, LoginResponse]):
     ENDPOINT = "https://idmsa.apple.com/appleauth/auth/signin"
 
     async def __aenter__(self):
@@ -79,7 +95,7 @@ class iLogin(OAuthSession[LoginResponse]):
             "trustTokens": [],
         }
         if self._settings.account.password:
-            json_data["password"] = self._settings.account.password.get_secret_value()
+            json_data["password"] = cast(Any, self._settings.account.password).get_secret_value()
         if self._settings.token.trust:
             json_data["trustTokens"] = [self._settings.token.trust]
         cast(iAsyncClient, self._httpx).json_data = json_data
@@ -88,12 +104,16 @@ class iLogin(OAuthSession[LoginResponse]):
         return await super().__aenter__()
 
     async def __aexit__(self, exc_type, exc, tb):
-        await super().__aexit__(exc_type, exc, tb)
         self.update_session()
+        await super().__aexit__(exc_type, exc, tb)
 
     @property
     def response_cls(self) -> Type[LoginResponse]:
         return LoginResponse
+
+    @property
+    def request_cls(self) -> Type[LoginRequest]:
+        return LoginRequest
 
 
 class iRefreshLogin(iLogin):
