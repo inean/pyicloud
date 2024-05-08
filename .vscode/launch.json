@@ -19,6 +19,7 @@
             "args": [
                 "-vvv",
                 "--no-cov",
+                "-W error::UserWarning",
                 "${file}",
             ]
         },

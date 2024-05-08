@@ -1,7 +1,7 @@
 from __future__ import annotations  # noqa: I001
 
 
-from typing import Any, cast, Protocol, Sequence, override, get_origin
+from typing import Any, cast, Protocol, Sequence, override
 
 from pydantic import (
     BaseModel,
@@ -20,7 +20,7 @@ from pyicloud.models.types import (
 )
 
 
-class AbstractCookiesJar:
+class ABCCookies:
     @model_validator(mode="before")
     @classmethod
     def model_validate_jartypes(cls, data: JarTypes) -> dict[str, Any]:
@@ -48,14 +48,14 @@ class AbstractCookiesJar:
         return data
 
     @model_serializer(mode="wrap")
-    def model_dump_as_dict(self, handler, info) -> dict[str, str]:
+    def model_dump_as_dict(self, handler, info) -> dict[str, Any]:
         data = handler(self)
         if info.mode == "python":
-            data = {cookie["key"]: cookie["value"] for cookie in data.values()}
+            data = {cookie["name"]: cookie["value"] for cookie in data.values()}
         return data
 
 
-class CookiesModel(LeafModel, AbstractCookiesJar):
+class CookiesModel(LeafModel, ABCCookies):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="before")
@@ -78,16 +78,7 @@ class CookiesModel(LeafModel, AbstractCookiesJar):
         return data
 
 
-class InitCookiesModel(InitAbstractModel, CookiesModel):
-    @classmethod
-    def dslang_default(cls):
-        value = InitAbstractModel.dslang_default()
-        return MorselModel(name="dslang", value=value)
-
-    @classmethod
-    def site_default(cls):
-        value = InitAbstractModel.site_default()
-        return MorselModel(name="site", value=value)
+class InitCookiesModel(InitAbstractModel, CookiesModel): ...
 
 
 # class SigInCookiesModel(LoginCookiesModel):
@@ -117,20 +108,8 @@ class ResponseModel(Protocol):
     headers: BaseModel
 
 
-class Cookies(RootModel[dict[str, MorselModel]], AbstractCookiesJar):
-    model_config = ConfigDict(frozen=True)
-
-    root: dict[str, MorselModel] = {}
-
-    @model_validator(mode="before")
-    def init_model(cls, value: dict[str, MorselModel]) -> dict[str, MorselModel]:
-        info = cls.model_fields["root"]
-        if info.annotation and isinstance(value, get_origin(info.annotation)):
-            return value
-        # We are breaking the rules here, becouse pydantic will interpret that returned
-        # value was set by user and not by default, but default loginc seems to not work
-        # with RootModels
-        return info.get_default(call_default_factory=True)
+class Cookies(RootModel, ABCCookies):
+    root: dict[str, Any]
 
     def __iter__(self):
         return iter(self.root)
@@ -138,8 +117,15 @@ class Cookies(RootModel[dict[str, MorselModel]], AbstractCookiesJar):
     def __getitem__(self, name: str) -> dict:
         return self.root[name].model_dump()
 
-    def __setitem__(self, name: str, value: dict):
-        self.root[name] = MorselModel.model_validate(value)
+    def __setitem__(self, name: str, value: dict | MorselModel | str):
+        cookie = value
+        if isinstance(value, str):
+            cookie = MorselModel(name=name, value=value)
+        if isinstance(value, dict):
+            cookie = MorselModel.model_validate(value)
+        assert isinstance(cookie, MorselModel), f"Invalid value type: {type(value)}"
+        assert name == cookie.key, f"Invalid cookie key: {cookie.key}, expected: {name}"
+        self.root[cookie.key] = cookie
 
     def __contains__(self, name: str):
         try:
@@ -163,4 +149,5 @@ class Cookies(RootModel[dict[str, MorselModel]], AbstractCookiesJar):
         )
         # Update settings with values from response
         for config_key, value in cookies.items():
-            self[config_key] = value
+            assert isinstance(value, MorselModel), f"Invalid value type: {config_key}, {type(value)}"
+            self.root[config_key] = value

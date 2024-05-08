@@ -10,6 +10,7 @@ import tzlocal
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis.strategies import (
     builds,
+    characters,
     emails,
     from_regex,
     integers,
@@ -78,7 +79,7 @@ def test_account_username_must_be_email(email):
     assert account.username == email
 
 
-@given(email=text(min_size=1, max_size=20))
+@given(email=text(min_size=1, max_size=20, alphabet=characters(blacklist_characters="@")))
 def test_account_invalid_email_raises_error(email):
     with pytest.raises(ValidationError):
         _ = Account(username=email, password="password")  # type: ignore
