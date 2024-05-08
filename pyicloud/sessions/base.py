@@ -187,6 +187,7 @@ class BaseSession(Generic[T, K], ABC):
         """Update cookies for the request."""
         cookies.update(
             self._cookies.model_dump(
+                by_alias=True,
                 include=include,
                 exclude=exclude,
                 exclude_unset=exclude_unset,
