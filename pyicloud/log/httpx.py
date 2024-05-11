@@ -31,7 +31,7 @@ async def log_response_hook(response: httpx.Response):
         table = Table(**styles["table"])
         table.add_column("Header", style="gold3", width=30)
         table.add_column("Value")
-        for key, value in ((k, v) for k, v in data.headers.items() if k.lower() != "set-cookie"):
+        for key, value in ((k, v) for k, v in data.headers.items() if not k.lower().endswith("cookie")):
             table.add_row(key, h_(value))
         print(table)
 
@@ -40,12 +40,13 @@ async def log_response_hook(response: httpx.Response):
         table.add_column("Cookie", style="dim", width=30)
         table.add_column("Value")
 
-        cookies_string = data.headers.get("set-cookie", "")
-        cookies = SimpleCookie()
-        for cookie_string in re.split(", ", cookies_string):
-            cookies.load(cookie_string)
-        for key, morsel in cookies.items():
-            table.add_row(key, h_(morsel.value))
+        for key in (key for key in data.headers.keys() if key.lower().endswith("cookie")):
+            cookies_string = data.headers.get(key, "")
+            cookies = SimpleCookie()
+            for cookie_string in re.split(", ", cookies_string):
+                cookies.load(cookie_string)
+            for key, morsel in cookies.items():
+                table.add_row(key, h_(morsel.value))
 
         if table.row_count > 0:
             print(table)
