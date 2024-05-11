@@ -35,7 +35,7 @@ R = TypeVar("R")
 
 
 class ModelTree(BaseModel, ABC):
-    cookies: Cookies = Field(default_factory=Cookies)
+    cookies: Cookies = Field(default=Cookies({}))
     settings: Settings = Field(...)
 
     _context: ContextVar[dict[Any, Any]] = PrivateAttr(default_factory=lambda: ContextVar("blackboard"))
@@ -49,9 +49,13 @@ class ModelTree(BaseModel, ABC):
         )
 
         # Listen to username updates and reload config if necessary
-        self.settings.account.events.username.connect(partial(CookiesJar(self.cookies).loads))
-        self.settings.account.events.username.connect(partial(SettingsFile(self.settings).loads))
-        self.settings.account.events.username.emit()
+        self.settings.account.events.username.connect(lambda u: SettingsFile(self.settings).loads())
+        self.settings.account.events.username.connect(lambda u: CookiesJar(self.cookies).loads(username=u))
+
+        # Emit to force reload
+        assert self.settings.account.username, "Username is required"
+        self.settings.account.events.username.emit(self.settings.account.username)
+
         return self
 
     @contextmanager

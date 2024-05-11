@@ -51,7 +51,12 @@ class ABCCookies:
     def model_dump_as_dict(self, handler, info) -> dict[str, Any]:
         data = handler(self)
         if info.mode == "python":
-            data = {cookie["name"]: cookie["value"] for cookie in data.values()}
+            return_data = {}
+            for name, cookie in data.items():
+                cookie_name, cookie_value = cookie.get("name") or cookie.get("key"), cookie["value"]
+                assert name == cookie_name, f"Invalid cookie key: {cookie_name}, expected: {name}"
+                return_data[cookie_name] = cookie_value
+            data = return_data
         return data
 
 

@@ -248,4 +248,4 @@ async def main(**kwargs):
 
 
 if __name__ == "__main__":
-    main(_anyio_backend="asyncio")
+    main()

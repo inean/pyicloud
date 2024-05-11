@@ -53,12 +53,8 @@ def authenticated_user_settings():
     )
 
 
-@pytest.mark.parametrize("anyio_backend", ["asyncio"])
-async def test_login_request(
-    anyio_backend,
-    login_cookies,
-    authenticated_user_settings,
-):
+@pytest.mark.asyncio
+async def test_login_request(login_cookies, authenticated_user_settings):
     cookies, settings = login_cookies, authenticated_user_settings
 
     async with iLogin(settings=settings, cookies=cookies, settings_read=False) as session:
@@ -137,9 +133,8 @@ def httpx_login_mock(httpx_mock: HTTPXMock) -> HTTPXMock:
     return httpx_mock
 
 
-@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+@pytest.mark.asyncio
 async def test_login_success(
-    anyio_backend,
     login_cookies,
     authenticated_user_settings,
     httpx_login_mock: HTTPXMock,
@@ -190,7 +185,7 @@ async def test_login_success(
     session_mock.assert_called_once_with(VALID_TOKEN)
 
 
-# @pytest.mark.anyio
+# @pytest.mark.asyncio
 # def test_login_2fa_user_success(httpx_login_mock: HTTPXMock):
 #     matchers = {
 #         "url": iLogin.ENDPOINT,
@@ -216,9 +211,8 @@ def authenticated_user_bad_password_settings():
     )
 
 
-@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+@pytest.mark.asyncio
 async def test_login_bad_credentials(
-    anyio_backend,
     login_cookies,
     authenticated_user_bad_password_settings,
     httpx_login_mock: HTTPXMock,
