@@ -34,14 +34,21 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-class ModelTree(BaseModel, ABC):
-    cookies: Cookies = Field(default=Cookies({}))
-    settings: Settings = Field(...)
+class ModelTree(ABC):
+    cookies: Cookies
+    settings: Settings
+    _context: ContextVar[dict[Any, Any]]
 
-    _context: ContextVar[dict[Any, Any]] = PrivateAttr(default_factory=lambda: ContextVar("blackboard"))
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        cookies: Cookies | None = None,
+    ):
+        self.settings = settings
+        self.cookies = cookies or Cookies({})
+        self._context = ContextVar("blackboard")
 
-    @model_validator(mode="after")
-    def validate_settings(self) -> Self:
         # Add a filter so password is not logged
         PyiCloudPasswordFilter.register(self.settings)
         self.settings.account.events.password.connect(

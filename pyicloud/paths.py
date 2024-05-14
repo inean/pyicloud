@@ -7,6 +7,7 @@ from os import PathLike, fspath
 from pathlib import Path
 from typing import ClassVar, Literal, OrderedDict, TypedDict, cast, override
 
+from psygnal import EventedModel
 from pydantic import BaseModel, ValidationError
 
 from pyicloud.log import logger_get
@@ -163,9 +164,15 @@ class AbstractPath[T: BaseModel | dict | str](PathLike):
                 try:
                     smodel = cast(BaseModel, self._contents)
                     result = smodel.model_validate_json(f.read(), **kwargs)
-                    # Only update well known attributes
-                    smodel.__dict__.update(result.__dict__)
-                    smodel.__pydantic_fields_set__.update(result.__pydantic_fields_set__)
+
+                    # EventedModels implement update method to hanle SignalGroups Properly
+                    if issubclass(type_, EventedModel):
+                        emodel = cast(EventedModel, self._contents)
+                        emodel.update(cast(EventedModel, result))
+                    else:
+                        # Only update well known attributes
+                        smodel.__dict__.update(result.__dict__)
+                        smodel.__pydantic_fields_set__.update(result.__pydantic_fields_set__)
 
                 except ValidationError as err:
                     logger_get("paths").warning(f"Error loading file '{path}': {err}")

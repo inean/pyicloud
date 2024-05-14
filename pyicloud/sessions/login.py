@@ -28,15 +28,17 @@ from pyicloud.sessions.httpx import allow_verbs, iAsyncClient, serialize
 class LoginHeaders(HeadersModel):
     country_code: CountryCodeType | None = None
     trust_token: TrustTokenType | None = None
-    turst_token_eligible: TrustTokenEligibleType | None = None
+    trust_token_eligible: TrustTokenEligibleType | None = None
     session_token: SessionTokenType | None = None
     session_id: SessionIdType | None = None
     scnt: ScntType | None = None
 
 
 class LoginCookies(InitCookiesModel):
-    acn01: Acn01Type | None = None  # On login error, the acn01 cookie is not returned
-    aasp: AaspType
+    # On login error, the acn01 cookie is not returned
+    acn01: Acn01Type | None = None
+    # On successful login, the aasp cookie my not be returned if aasp already exists
+    aasp: AaspType | None = None
 
 
 #    client_id: XAppleUniqueClientIdType
@@ -85,7 +87,7 @@ class iLogin(OAuthSession[LoginRequest, LoginResponse]):
         # Set Headers
         self.update_headers(self._httpx.headers)
         # Set Cookies
-        self.update_cookies(self._httpx.cookies)
+        self.update_cookies(self._httpx.cookies, include=["dslang", "site"])
         # Set params
         self._httpx.params = {"isRememberMeEnabled": "true"}
         # Prepare Body

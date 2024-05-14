@@ -79,7 +79,10 @@ async def test_login_request(login_cookies, authenticated_user_settings):
         }.items() <= session.headers.items(), "Login Headers do not match"
 
         # Login Cookies
-        assert cookies.model_dump().items() <= {name: session.cookies[name] for name in session.cookies}.items()
+        assert (
+            cookies.model_dump(include=["dslang", "site"]).items()
+            <= {name: session.cookies[name] for name in session.cookies}.items()
+        )
 
         # Login Params
         assert {
@@ -258,10 +261,6 @@ async def test_login_bad_credentials(
     # Settings is updated with the new session token when the context manager is exited
     assert len(ilogin.response.errors) == 1
     assert ilogin.response.errors[0].code == -20101
-
-
-#
-#     pass
 
 
 # @pytest.mark.asyncio

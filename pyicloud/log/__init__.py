@@ -61,18 +61,26 @@ class PyiCloudPasswordFilter(logging.Filter):
                     logger.removeFilter(password_filter)
 
     @classmethod
-    def on_changed_password(cls, value: str, context: object):
+    def on_changed_password(cls, value: Any, context: object):
         """Update the password for the active filters."""
-        for logger in cls._ACTIVE_FILTERS:
-            for weak_ref, password_filter in cls._ACTIVE_FILTERS[logger].items():
-                if weak_ref() == context:
-                    if not isinstance(password_filter, cls):
-                        password_filter = cls(value)
-                        cls._ACTIVE_FILTERS[logger][weak_ref] = password_filter
-                        logger.addFilter(password_filter)
-                    else:
-                        # Update the password for the filter
-                        password_filter.name = value
+
+        # Parse value, it may be a string or a SecretStr
+        if hasattr(value, "get_secret_value"):
+            password = value.get_secret_value()
+        if isinstance(value, str):
+            password = value
+
+        if password:
+            for logger in cls._ACTIVE_FILTERS:
+                for weak_ref, password_filter in cls._ACTIVE_FILTERS[logger].items():
+                    if weak_ref() == context:
+                        if not isinstance(password_filter, cls):
+                            password_filter = cls(password)
+                            cls._ACTIVE_FILTERS[logger][weak_ref] = password_filter
+                            logger.addFilter(password_filter)
+                        else:
+                            # Update the password for the filter
+                            password_filter.name = password
 
     def __init__(self, password):
         super().__init__(password)

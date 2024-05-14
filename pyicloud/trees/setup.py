@@ -10,6 +10,7 @@ from typing import Any, cast
 import async_btree as bt
 import httpx
 
+from pyicloud.constants import AppleHeaders as Headers
 from pyicloud.exceptions import PyiCloudUserCancelledError
 from pyicloud.log import LOGGER, AsyncLogClient
 from pyicloud.sessions.base import BaseResponse
@@ -134,6 +135,9 @@ class SetupModelTree(ModelTree):
     @ModelTree.with_context
     async def is_2fa_pending(self, response: BaseResponse | None = None) -> int:
         """Return False if a trust token is not present or is not valid anymore."""
+        if response and Headers.TRUST_TOKEN_ELIGIBLE in response.headers:
+            LOGGER.debug("2FA is pending")
+            return True
         if not self.settings.token.trust:
             LOGGER.debug("No trust token found")
             return True
