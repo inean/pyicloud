@@ -1,64 +1,56 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Iterator, Mapping, Tuple, cast
+from typing import Any, Callable, ClassVar, Literal, Self, cast
 
 import httpx
-from pydantic import BaseModel, Field, model_validator
-from pydantic.fields import FieldInfo
+from pydantic import ConfigDict, PrivateAttr, ValidationInfo, model_validator
 
-from pyicloud.models.types import (
-    Meta,
-    RequestIdType,
-)
+from pyicloud.models.settings import Settings
+from pyicloud.models.types import LeafModel
 
 
-class HeadersModel(BaseModel, ABC):
-    """Result response."""
+class HeadersModel(LeafModel, ABC):
+    """Headers"""
 
-    # Add Headers as metadata so we can map them to the response
-    request_id: RequestIdType = Field(default=...)
+    model_config = ConfigDict(extra="allow")
 
-    # Catch all for json response
-    response: dict[str, Any] | str | None = None
+    _by_meta: ClassVar[Literal["config", "header", "body", "cookie"]] = PrivateAttr(default="header")
 
-    def header_items(self) -> Iterator[Tuple[str, str, Any]]:
-        # Parse httpx.Headers. Try to match available headers to the ones in fields and yield data
-        for field, info in self.model_fields.items():
-            if not (metadata := info.metadata):
-                try:
-                    metadata = cast(Any, info.annotation).__args__[0].__metadata__
-                except AttributeError:
-                    metadata = []
-            # Get header metadata entry from field info. If exists, check if it is in
-            # data and yield data with alias and value
-            if meta := next((x for x in metadata if isinstance(x, Meta)), None):
-                assert meta.header is not None, "Header metadata must have a header attribute"
-                yield field, cast(str, meta.header), getattr(self, field)
+    @staticmethod
+    def _get_value_from_header(field: str, header: Any) -> Any:
+        values = [value for header, value in cast(httpx.Headers, header).multi_items() if field == header]
+        return values[0] if len(values) == 1 else values
 
-    @model_validator(mode="before")
+    @model_validator(mode="wrap")
     @classmethod
-    def check_headers(cls, headers: httpx.Headers) -> Any:
-        data: dict[str, str | bytes | list] = {}
+    def validate_headers(cls, data: dict[str, Any] | Self, handler: Callable, info: ValidationInfo) -> Self:
+        headers: httpx.Headers | None = None
 
-        # Parse httpx.Headers. Try to math available headers to the ones in fields and return data
-        for field, info in cls.model_fields.items():
-            if not (metadata := info.metadata):
-                try:
-                    metadata = cast(Any, info.annotation).__args__[0].__metadata__
-                except AttributeError:
-                    metadata = []
-            # Get header metadata entry from field info. If exists, check if it is in
-            # data and update data with alias and value
-            if meta := next((x for x in metadata if isinstance(x, Meta)), None):
-                if meta.header in headers:
-                    values = [value for header, value in headers.multi_items() if meta.header == header]
-                    data[field] = values[0] if len(values) == 1 else values
-        return data
+        if isinstance(data, cls):
+            return handler(data)
+
+        assert isinstance(data, dict), f"Invalid data type for '{cls}': {type(data)}"
+
+        if isinstance(info.context, dict):
+            headers = info.context.get("headers", None)
+
+            # If header's is set, assume is a response header, so ignore settings and parse only headers
+            #
+            if isinstance(headers, httpx.Headers):
+                for field, meta_header, _ in cls.model_fields_from_meta(by_meta=cls._by_meta):
+                    if meta_header in headers:
+                        data.setdefault(field, cls._get_value_from_header(meta_header, headers))
+            elif settings := info.context.get("settings", None):
+                assert isinstance(settings, Settings), "Settings must be a Settings instance"
+                for field, config, _ in cls.model_fields_from_meta(by_meta="config"):
+                    data.setdefault(field, settings[config])
+
+        return handler(data)
 
     def __contains__(self, item: str) -> bool:
         item = item.lower()
-        for _, header, _ in self.header_items():
+        for _, header, _ in self.model_fields_from_meta(by_meta=self._by_meta):
             if item == header.lower():
                 return True
         return cast(HeadersModel, super()).__contains__(item)

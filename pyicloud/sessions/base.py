@@ -1,44 +1,62 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from copy import copy
 from functools import cached_property
-from typing import Any, Generic, Self, Sequence, Type, TypedDict, TypeVar, override
+from http.cookiejar import CookieJar
+from typing import Any, Callable, ClassVar, Generic, Literal, Self, Sequence, Type, TypedDict, TypeVar, cast, override
 
 import httpx
-from pydantic import BaseModel, Field
-from typing_extensions import ClassVar
+from pydantic import BaseModel, Field, ValidationInfo, model_validator
 
-from pyicloud.constants import AppleHeaders as Headers
+from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.log import PyiCloudPasswordFilter, logger_get
+from pyicloud.models.body import BodyModel
 from pyicloud.models.cookies import Cookies, CookiesModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
 from pyicloud.models.headers import HeadersModel
+from pyicloud.models.morsel import MorselModel
 from pyicloud.models.settings import Settings
+from pyicloud.models.types import _init_context_var
+
+
+class Endpoint(BaseModel):
+    # Constants
+    url: ClassVar[str]
+    verb: ClassVar[Literal["GET", "POST", "DELETE", "PUT"]] = "GET"
+    content_type: ClassVar[str] = "application/json"
+
 
 H = TypeVar("H", bound=HeadersModel)
 C = TypeVar("C", bound=CookiesModel)
+B = TypeVar("B", bound=BodyModel)
+U = TypeVar("U", bound=Endpoint)
 E = TypeVar("E", bound=Error)
 
 
 class ResponseConfig(TypedDict, total=False):
     headers: type[HeadersModel]
     cookies: type[CookiesModel]
+    body: type[BodyModel]
 
 
-class BaseResponse(BaseModel, Generic[H, C, E]):
+class BaseResponse(BaseModel, Generic[H, C, B]):
     """Response data."""
 
     _config: ClassVar[ResponseConfig] = ResponseConfig(
         headers=HeadersModel,
         cookies=CookiesModel,
+        body=BodyModel,
     )
+
+    status_code: int
 
     headers: H
     cookies: C
 
-    status_code: int
-    errors: list[E] = Field(default=[])
+    body: B | None = None
+    errors: list[Error] = Field(default=[])
 
     # Common Headers that must be stored as config
     @classmethod
@@ -47,54 +65,162 @@ class BaseResponse(BaseModel, Generic[H, C, E]):
         new_config = ResponseConfig(
             headers=HeadersModel,
             cookies=CookiesModel,
+            body=BodyModel,
         )
         new_config.update(cls._config)
         cls._config = new_config
 
     def __bool__(self):
         """Return True if the response is successful."""
-        return 200 <= self.status_code < 400
+        return not self.is_error(self.status_code)
+
+    @classmethod
+    def is_error(cls, status_code: int) -> bool:
+        """Return True if the response is an error."""
+        return status_code >= 400
 
     @classmethod
     def model_validate_response(cls, response: httpx.Response, *, data: Any = None) -> Self:
         """Create a response from a httpx response."""
         data = data or {}
-
-        if response.is_error:
-            if response.headers["content-type"].startswith("application/json"):
+        # Parse status code
+        data.setdefault("status_code", response.status_code)
+        # Parse Headers
+        data.setdefault("headers", cls._config["headers"].model_validate({}, context={"headers": response.headers}))  # type: ignore
+        # Parse Cookies
+        data.setdefault("cookies", cls._config["cookies"].model_validate({}, context={"cookies": response.cookies}))  # type: ignore
+        # Parse Body
+        if response.headers["content-type"].startswith("application/json"):
+            if cls.is_error(response.status_code):
                 error = ServiceErrorsModel.model_validate_json(response.content)
                 data.setdefault("errors", error.service_errors)
-
-        data.setdefault("status_code", response.status_code)
-        data.setdefault("headers", cls._config["headers"].model_validate(response.headers))  # type: ignore
-        data.setdefault("cookies", cls._config["cookies"].model_validate(response.cookies))  # type: ignore
-
+            elif cls._config.get("body") is not None:
+                data.setdefault("body", cls._config["body"].model_validate_json(response.content))  # type: ignore
         # create a new instance of the response
         return cls(**data)
 
-
-class BaseRequest(BaseModel, ABC):
-    _cookies: Cookies
-    _settings: Settings
-    _request: httpx.Request | None
-
+    @model_validator(mode="wrap")
     @classmethod
-    def model_dump_request(cls, session: "BaseSession") -> httpx.Request:
+    def model_validate_from_response(cls, data: dict[str, Any], handler: Callable, info: ValidationInfo) -> Self:
+        """Create a response from a httpx response."""
+        response: httpx.Response | None = None
+
+        if isinstance(info.context, dict):
+            response = info.context.get("response", None)
+
+            if isinstance(response, httpx.Response):
+                return cls.model_validate_response(response, data=data)
+
+        return handler(data)
+
+
+class RequestConfig(TypedDict, total=False):
+    endpoint: type[Endpoint]
+    headers: type[HeadersModel]
+    cookies: type[CookiesModel]
+    body: type[BodyModel]
+
+
+class BaseRequest(BaseModel, Generic[H, C, B, U]):
+    _config: ClassVar[RequestConfig] = RequestConfig(
+        endpoint=Endpoint,
+        headers=HeadersModel,
+        cookies=CookiesModel,
+        body=BodyModel,
+    )
+
+    endpoint: U
+    headers: H
+    cookies: C
+    body: B
+
+    # Common Headers that must be stored as config
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        # Update config with default values for bae class
+        new_config = RequestConfig(
+            headers=HeadersModel,
+            cookies=CookiesModel,
+            body=BodyModel,
+            endpoint=Endpoint,
+        )
+        new_config.update(cls._config)
+        cls._config = new_config
+        cls.model_rebuild(force=True)
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def model_validate_request(cls, data: dict[str, Any], handler: Callable, info: ValidationInfo) -> Self:
+        for key in ["headers", "cookies", "endpoint", "body"]:
+            # If not 'endpoint' or 'body' attributes, assume all dict may #
+            # contain valid data for tyhos models and let them validate it
+            key_data = data.get(key, copy(data) if key in ["endpoint", "body"] else {})
+            if isinstance(key_data, cls._config[key]):
+                # If model is passed, use it
+                data.setdefault(key, key_data)
+            elif isinstance(key_data, dict):
+                # otherwise, build the model from the data
+                data.setdefault(
+                    key,
+                    cast(BaseModel, cls._config[key]).model_validate(
+                        key_data,
+                        context=info.context,
+                    ),
+                )
+        return handler(data)
+
+    _DEFAULT = object()
+
+    def model_dump_httpx_request(self, context: dict[str, Any] | object = _DEFAULT) -> httpx.Request:
         """Dump the request data."""
-        return httpx.Request(url=session.ENDPOINT, method="POST")
+        # Ensure we have a valid context. Tbis method will be called from a property, so
+        # threre's no way to pass context directly to it, so we use the _init_context_var
+        # to store it. hack
+        if context == self._DEFAULT:
+            context = _init_context_var.get()
+        if not isinstance(context, dict):
+            context = {}
+
+        s_info = context.get("request", {})
+
+        # Set headers serialization info
+        hs_info: dict[str, Any] = s_info.get("headers", {})
+        hs_info.setdefault("context", {})
+        hs_info["context"]["by_meta"] = "header"
+        headers = self.headers.model_dump(**hs_info)
+
+        # Set cookies serialization info
+        cs_info = s_info.get("cookies", {})
+        cs_info.setdefault("context", {})
+        cs_info["context"]["by_meta"] = "cookie"
+        jar, cookies = CookieJar(), dict(self.cookies.model_dump(by_alias=True, **cs_info))
+        list(map(lambda x: jar.set_cookie(MorselModel.as_cookie(x)), cookies.values()))
+
+        return httpx.Request(
+            method=self.endpoint.verb,
+            url=self.endpoint.url,
+            headers=headers,
+            cookies=jar,
+            json=self.body.json_data,
+            content=self.body.content,
+        )
 
 
 T = TypeVar("T", bound="BaseRequest")
 K = TypeVar("K", bound="BaseResponse")
 
 
-class BaseSession(Generic[T, K], ABC):
+class BaseTransport(Generic[T, K], ABC):
     ENDPOINT: str
 
     _cookies: Cookies
     _settings: Settings
-    _httpx: httpx.AsyncClient
+
+    # Transport client
+    _client: httpx.AsyncClient
+    _request: httpx.Request | None
     _response: httpx.Response | None
+    _data: dict[str, Any]
 
     def __init__(
         self,
@@ -102,41 +228,64 @@ class BaseSession(Generic[T, K], ABC):
         cookies: Cookies,
         *,
         client: httpx.AsyncClient | None = None,
-        **kwargs,
+        data: dict[str, Any] | None = None,
+        # context: dict[str, Any] | None = None,
     ):
         client = client or httpx.AsyncClient(follow_redirects=True)
 
         self._cookies = cookies
         self._settings = settings
 
-        self._httpx = client
+        self._client = client
+        self._request = None
         self._response = None
+        self._data = data or {}
 
         # Add a hook to response events, so last one is automatically
         # stored in self._response
+        async def request_hook(value: httpx.Request) -> None:
+            self._request = value
+
         async def response_hook(value: httpx.Response) -> None:
             self._response = value
             await value.aread()
 
-        self._httpx.event_hooks["response"].append(response_hook)
+        self._client.event_hooks["request"].append(request_hook)
+        self._client.event_hooks["response"].append(response_hook)
 
         # set password filter
         PyiCloudPasswordFilter.register(self, logger=logger_get("http"))
 
     async def __aenter__(self):
-        return self._httpx
+        return self._client
 
     async def __aexit__(self, exc_type, exc, tb):
-        await self._httpx.aclose()
+        await self._client.aclose()
 
     @cached_property
     def response(self) -> K:
         assert self._response, "No response available"
-        return self.response_cls.model_validate_response(self._response)
+        response = self.response_cls.model_validate(
+            {},
+            context={
+                "response": self._response,
+                "settings": self._settings,
+                "cookies": self._cookies,
+            },
+        )
+        return response
 
     @cached_property
     def request(self) -> T:
-        return self.request_cls.model_validate(self)
+        assert not self._request, "Request already set"
+        request = self.request_cls.model_validate(
+            self._data,
+            context={
+                "settings": self._settings,
+                "cookies": self._cookies,
+            },
+        )
+        return request
 
     @property
     @abstractmethod
@@ -148,17 +297,20 @@ class BaseSession(Generic[T, K], ABC):
     def response_cls(self) -> Type[K]:
         """Endpoint to use for the session."""
 
-    def update_headers(
+    def dump_headers(
         self,
-        headers: httpx.Headers,
+        headers: httpx.Headers | None = None,
         *,
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset=True,
         exclude_defaults=False,
-    ) -> None:
+        context: Any = None,
+    ) -> httpx.Headers:
         """Update headers for the request."""
         # Set headers
+        headers = headers if headers is not None else httpx.Headers()
+
         headers.update(
             {
                 "Accept": "application/json",
@@ -167,24 +319,28 @@ class BaseSession(Generic[T, K], ABC):
             }
         )
         headers.update(
-            self._settings.model_dump_headers(
+            self._settings.model_dump_by_meta(
+                by_meta="header",
                 include=include,
                 exclude=exclude,
                 exclude_unset=exclude_unset,
                 exclude_defaults=exclude_defaults,
             )
         )
+        return headers
 
-    def update_cookies(
+    def dump_cookies(
         self,
-        cookies: httpx.Cookies,
+        cookies: httpx.Cookies | None = None,
         *,
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset=True,
         exclude_defaults=False,
-    ) -> None:
+        context: Any = None,
+    ) -> httpx.Cookies:
         """Update cookies for the request."""
+        cookies = cookies if cookies is not None else httpx.Cookies()
         cookies.update(
             self._cookies.model_dump(
                 by_alias=True,
@@ -194,6 +350,31 @@ class BaseSession(Generic[T, K], ABC):
                 exclude_defaults=exclude_defaults,
             )
         )
+        return cookies
+
+    def dump_content(
+        self,
+        content: bytes | dict[str, Any] | None = None,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
+        context: Any = None,
+    ) -> bytes | dict[str, Any] | None:
+        """Update the content for the request."""
+        if isinstance(content, dict):
+            content.update(
+                **self._settings.model_dump_by_meta(
+                    by_meta="body",
+                    include=include,
+                    exclude=exclude,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                )
+            )
+        # If content is not a dict, bypass it
+        return content
 
     def update_session(
         self,
@@ -202,42 +383,50 @@ class BaseSession(Generic[T, K], ABC):
         exclude: Sequence[str] | None = None,
     ) -> None:
         """Save the session data."""
-        if bool(self._response):
-            self._cookies.model_update(self.response)
-            self._settings.model_update(self.response)
+        if self._response is not None:
+            self._cookies.model_validate_from_response(self.response)
+            self._settings.model_validate_from_response(self.response)
 
 
-class OAuthSession(BaseSession[T, K], ABC):
+class OAuthTransport(BaseTransport[T, K], ABC):
     @override
-    def update_headers(
+    def dump_headers(
         self,
-        headers,
+        headers: httpx.Headers | None = None,
         *,
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset=True,
         exclude_defaults=False,
+        context: Any = None,
     ):
         # Don't set country code header for outbound request
-        super().update_headers(
+        headers = super().dump_headers(
             headers,
             include=include,
-            exclude=exclude or [Headers.COUNTRY_CODE],
+            exclude=exclude or [Header.COUNTRY_CODE],
             exclude_unset=exclude_unset,
             exclude_defaults=exclude_defaults,
+            context=context,
         )
 
         new_headers = {
             "content-type": "application/json",
-            Headers.OAUTH_CLIENT_ID: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
-            Headers.OAUTH_CLIENT_TYPE: "firstPartyAuth",
-            Headers.OAUTH_REDIRECT_URI: Endpoints.HOME,
-            Headers.OAUTH_REQUIRE_GRANT_CODE: "true",
-            Headers.OAUTH_RESPONSE_TYPE: "code",
-            Headers.OAUTH_RESPONSE_MODE: "web_message",
-            Headers.OAUTH_STATE: self._settings["client_settings.client_id"],
-            Headers.WIDGET_KEY: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+            Header.OAUTH_CLIENT_ID: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
+            Header.OAUTH_CLIENT_TYPE: "firstPartyAuth",
+            Header.OAUTH_REDIRECT_URI: Endpoints.HOME,
+            Header.OAUTH_REQUIRE_GRANT_CODE: "true",
+            Header.OAUTH_RESPONSE_TYPE: "code",
+            Header.OAUTH_RESPONSE_MODE: "web_message",
+            Header.OAUTH_STATE: self._settings["client_settings.client_id"],
+            Header.WIDGET_KEY: "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
         }
 
         for key, value in new_headers.items():
             headers.setdefault(key.lower(), value)
+
+        return headers
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self.update_session()
+        await super().__aexit__(exc_type, exc, tb)

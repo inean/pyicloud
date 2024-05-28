@@ -1,23 +1,25 @@
 from __future__ import annotations
 
+import datetime
+import re
 from http.cookiejar import Cookie, CookieJar
 from http.cookies import BaseCookie, Morsel, _quote
 from time import time
-from typing import Any, Sequence, cast
+from typing import Any, Sequence, TypeAlias, cast
 
 from httpx import Cookies
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    field_validator,
     model_validator,
 )
 
-type JarTypes = dict[str, Morsel[str]] | Cookies | CookieJar | Sequence
+JarTypes: TypeAlias = dict[str, Morsel] | Cookies | CookieJar | Sequence
+JarTuple = (dict, Cookies, CookieJar, Sequence)
 
-# Extend Morsel redserved keywords to support missing attributes:
-# path_spec
-
+# Extend Morsel reserved keywords to support missing attributes:
 cast(dict, Morsel._reserved).update(  # type: ignore
     path_spec="path_spec",
     discard="discard",
@@ -33,25 +35,42 @@ class MorselModel(BaseModel):
     key: str = Field(..., alias="name")
     value: str = Field(...)
     expires: int | None = None
-    path: str | None = None
+    path: str = Field(default="/")
     comment: str | None = None
-    domain: str | None = None
+    domain: str = Field(default="")
     max_age: float | None = Field(default=None, alias="max-age")
     secure: bool | None = None
     httponly: bool | None = None
-    domain_dot_: bool | None = None
+    domain_dot: bool | None = None
     discard: bool | None = None
     path_spec: bool | None = None
     samesite: str | None = None
     version: int | None = None
 
+    @field_validator("expires", mode="before")
+    def validate_expires(cls, value: int | str | datetime.datetime) -> int | None:
+        if isinstance(value, str):
+            return int(datetime.datetime.fromisoformat(value).timestamp())
+        if isinstance(value, datetime.datetime):
+            return int(value.timestamp())
+        return value
+
     @model_validator(mode="before")
     def extract_from_morsel_or_cookie(cls, data: Cookie | Morsel | str | dict[str, Any]) -> Any:
         cookie = data
         if isinstance(data, str):
+            # Define los atributos no soportados
+            unsupported_attributes = [
+                "path_spec",
+            ]
+            # Crea una expresión regular para buscar los atributos no soportados
+            regex = "|".join(f"{attr}=[^;]*" for attr in unsupported_attributes)
+            cleaned_data = re.sub(regex, "", data)
             jar = BaseCookie()
-            jar.load(data)
-            assert len(jar) == 1, f"Invalid cookie string: {data}"
+            jar.load(cleaned_data)
+            if len(jar) != 1:
+                raise ValueError(f"Invalid cookie string: {cleaned_data}")
+
             cookie = next(iter(jar.values()))
 
         if isinstance(cookie, Cookie):
@@ -97,11 +116,42 @@ class MorselModel(BaseModel):
     def __len__(self) -> int:
         return len(self.value)
 
+    def __cast__(self, cast_to: Any) -> Any:
+        if cast_to in (str, int, float, bool):
+            return cast_to(self.value)
+        raise TypeError(f"Cannot cast {self.__class__.__name__} to {type}")
+
     def model_dump_str(self, attrs=None, header="Set-Cookie:") -> str:
-        morsel, values = Morsel(), self.model_dump()
-        morsel.set(values.pop("key"), values.pop("value"), _quote(self.value))
+        morsel, values = Morsel(), self.model_dump(by_alias=True)
+        morsel.set(values.pop("name"), values.pop("value"), _quote(self.value))
         morsel.update(values)
         return morsel.output(attrs, header)
+
+    def model_dump_cookie(self) -> Cookie:
+        kwargs = {
+            "version": self.version,
+            "name": self.key,
+            "value": self.value,
+            "port": None,
+            "port_specified": False,
+            "domain": self.domain,
+            "domain_specified": bool(self.domain),
+            "domain_initial_dot": isinstance(self.domain, str) and self.domain.startswith("."),
+            "path": self.path,
+            "path_specified": bool(self.path),
+            "secure": self.secure,
+            "expires": self.expires,
+            "discard": self.discard,
+            "comment": self.comment,
+            "comment_url": None,
+            "rest": {"HttpOnly": self.httponly},
+            "rfc2109": False,
+        }
+        return Cookie(**kwargs)
+
+    @classmethod
+    def as_cookie(cls, data: dict[str, Any]) -> Cookie:
+        return cls(**data).model_dump_cookie()
 
     @classmethod
     def from_jar(cls, cookie_name: str, jar: JarTypes) -> MorselModel | None:

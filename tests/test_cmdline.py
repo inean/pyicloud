@@ -7,14 +7,13 @@ import pickle
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-import pytest
 from asyncclick.testing import CliRunner
 
 from pyicloud import cmdline
 
-from . import PyiCloudMock
 from .const import AUTHENTICATED_USER, REQUIRES_2FA_USER, VALID_2FA_CODE, VALID_PASSWORD
 from .const_findmyiphone import FMI_FAMILY_WORKING
+from .mock import PyiCloudMock
 
 
 class TestCmdline(IsolatedAsyncioTestCase):
@@ -25,7 +24,6 @@ class TestCmdline(IsolatedAsyncioTestCase):
         cmdline.PyiCloud = PyiCloudMock
         self.main = cmdline.main
 
-    @pytest.mark.asyncio
     async def test_no_arg(self):
         """Test no args."""
         runner = CliRunner()
@@ -36,7 +34,6 @@ class TestCmdline(IsolatedAsyncioTestCase):
         result = await runner.invoke(self.main, args=[])
         assert result.exit_code == 2
 
-    @pytest.mark.asyncio
     async def test_help(self):
         """Test the help command."""
         runner = CliRunner()
@@ -44,7 +41,6 @@ class TestCmdline(IsolatedAsyncioTestCase):
         result = await runner.invoke(self.main, ["--help"])
         assert result.exit_code == 0
 
-    @pytest.mark.asyncio
     async def test_username(self):
         """Test the username command."""
         # No username supplied
@@ -53,20 +49,18 @@ class TestCmdline(IsolatedAsyncioTestCase):
         result = await runner.invoke(self.main, ["--username"])
         assert result.exit_code == 2
 
-    @pytest.mark.asyncio
     async def test_username_password_invalid(self):  # pylint: disable=unused-argument
         """Test username and password commands."""
         # Bad username or password
         runner = CliRunner()
 
         result = await runner.invoke(self.main, ["--username", "invalid_user"])
-        assert "Value error, username must be a valid email" in str(result.exception)
+        assert "Invalid email address. Got 'invalid_user'" in str(result.exception)
 
         # We should not use getpass for this one, but we reset the password at login fail
         result = await runner.invoke(self.main, ["--username", "invalid_user", "--password", "invalid_pass"])
-        assert "Value error, username must be a valid email" in str(result.exception)
+        assert "Invalid email address. Got 'invalid_user'" in str(result.exception)
 
-    @pytest.mark.asyncio
     @patch("pyicloud.cmdline.input")
     async def test_username_password_requires_2fa(self, mock_input):  # pylint: disable=unused-argument
         """Test username and password commands."""
@@ -86,7 +80,6 @@ class TestCmdline(IsolatedAsyncioTestCase):
         )
         assert result.exit_code == 0
 
-    @pytest.mark.asyncio
     @patch("pyicloud.paths.AbstractPath.loads")
     async def test_device_outputfile(self, mock_loads):  # pylint: disable=unused-argument
         """Test the outputfile command."""

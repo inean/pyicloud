@@ -6,6 +6,7 @@
         ".venv": true,
     },
     "python.testing.pytestArgs": [
+        "--asyncio-mode=auto",
         "tests"
     ],
     "python.testing.unittestEnabled": false,

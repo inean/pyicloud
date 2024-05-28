@@ -13,8 +13,9 @@ import sys
 
 import asyncclick as click
 
-from pyicloud import PyiCloud, PyiCloudServices
+from pyicloud.base import PyiCloud
 from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
+from pyicloud.services import PyiCloudServices
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
 

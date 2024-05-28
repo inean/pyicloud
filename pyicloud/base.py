@@ -185,6 +185,8 @@ class PyiCloudUser(metaclass=Deprecated):
     authentication required to access iCloud services.
     """
 
+    session_cls = PyiCloudSession
+
     def __init__(self, config: Settings):
         # Public Props
         self._params: dict = {}
@@ -198,70 +200,13 @@ class PyiCloudUser(metaclass=Deprecated):
 
         # Update config after setting apple_id. If username
         # and password are provided, config will be updated data from config files
-        self._client = PyiCloudSession(self)
+        self._client = self.session_cls(self)
         self._client.headers.update(
             {
                 "Origin": Endpoints.HOME,
                 "Referer": f"{Endpoints.HOME}/",
             }
         )
-
-    # def _condition_is_logged(self):
-    #     """Returns True if logged."""
-    #     cookies, missing = self.cookies.fetch(self.config.cookies.LOGGED_COOKIES)
-
-    #     _ = self.config.token.session or LOGGER.debug("Missing session token")
-    #     _ = missing and LOGGER.debug("Missing cookies: {}".format(missing))
-    #     return cookies, missing
-
-    # async def verify(self, callback: callable = None, trust_token: str = "") -> Response[dict | None, dict | None]:
-    #     """Fetch a valid trust token"""
-    #     params = {
-    #         "clientBuildNumber": self.config["client_settings.clientBuildNumber"],
-    #         "client_settings.client_id": self.config["client_settings.client_id"],
-    #         "clientMasteringNumber": self.config["client_settings.clientMasteringNumber"],
-    #     }
-    #     headers = {
-    #         "Content-Type": "text/plain",
-    #         "Referer": "https://www.icloud.com/",
-    #         "Accept": "*/*",
-    #         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/603.3.1 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.1",
-    #         "Origin": "https://www.icloud.com",
-    #     }
-    #     body = {
-    #         "trustToken": trust_token,
-    #         "extended_login": True,
-    #         "accountCountryCode": self.config["account_country"],
-    #         "dsWebAuthToken": self.config["class.session"],
-    #     }
-    #     # Prepare data object to post with login info
-    #     async with httpx.AsyncClient() as client:
-    #         r = await client.post(
-    #             f"{Constants.SETUP_ENDPOINT}/accountLogin", headers=headers, params=params, json=body
-    #         )
-
-    #     # If there are any request errors
-    #     if not r.is_success:
-    #         return Response(None, {"error": "Request failed", "code": r.status_code, "response": r.text})
-
-    #     # Parse JSON response
-    #     try:
-    #         json_body = r.json()
-    #     except json.JSONDecodeError:
-    #         return Response(None, {"error": "Invalid JSON response", "code": r.status_code, "response": r.text})
-
-    #     # Extract session info from headers
-    #     result = {
-    #         "session_token": r.headers.get("x-apple-session-token"),
-    #         "session_id": r.headers.get("x-apple-id-session-id"),
-    #         "scnt": r.headers.get("scnt"),
-    #         "response": json_body,
-    #     }
-    #     err = None
-    #     if result["session_token"] is None:
-    #         err = {"error": "No session token", "code": r.status_code, "response": r.text}
-
-    #     return Response[result, err]
 
     def authenticate(self, force_refresh=False, service=None):
         """
@@ -291,7 +236,8 @@ class PyiCloudUser(metaclass=Deprecated):
 
         if not login_successful:
             LOGGER.info(f"Start full authenticating as {self.apple_id}")
-            self._authenticate_fetch_session_token()
+            session_token = self._authenticate_fetch_session_token()
+            self._authenticate_fetch_trust_token(session_token)
 
         self._ws = self._session.get("webservices", {})
         if self._ws:
@@ -348,8 +294,7 @@ class PyiCloudUser(metaclass=Deprecated):
         if not (token := self.config.token.session):
             self.password = ""
             return
-
-        self._authenticate_fetch_trust_token(token)
+        return token
 
     def _validate(self):
         """Checks if the current cookie set is still valid."""
@@ -386,9 +331,11 @@ class PyiCloudUser(metaclass=Deprecated):
 
     def _authenticate_fetch_trust_token(self, session_token: str | None = None):
         """Authenticate using session token."""
+        if not (session_token := session_token or self.config.token.session):
+            return
         data = {
             "accountCountryCode": self.config.account.country_code,
-            "dsWebAuthToken": session_token or self.config.token.session,
+            "dsWebAuthToken": session_token,
             "extended_login": True,
             "trustToken": [self.config.token.trust],
         }

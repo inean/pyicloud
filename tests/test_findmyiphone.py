@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from . import PyiCloudMock, PyiCloudServicesMock
 from .const import AUTHENTICATED_USER, VALID_PASSWORD
+from .mock import PyiCloudMock, PyiCloudServicesMock
 
 
 @pytest.fixture

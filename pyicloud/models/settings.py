@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-import datetime
-import re
+import bisect
+import locale
 import uuid
-import zoneinfo
-from abc import ABC
-from typing import Any, ClassVar, Generic, Protocol, Self, Sequence, Type, TypedDict, TypeVar, cast
+from typing import (
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    Protocol,
+    Self,
+    Sequence,
+    Type,
+    TypedDict,
+    TypeVar,
+)
 
 import tzlocal
 from pydantic import (
@@ -13,25 +22,29 @@ from pydantic import (
     ConfigDict,
     Field,
     SecretStr,
-    field_serializer,
-    field_validator,
+    ValidationInfo,
+    model_validator,
 )
 from pydantic_settings import BaseSettings as PydanticSettings
 from pydantic_settings import SettingsConfigDict
 
-from pyicloud.constants import ISO_3166_1_CODES_3
+from pyicloud.constants import ISO_3166_1_CODES, ISO_3166_1_CODES_3
 from pyicloud.models.types import (
     ClientIdType,
     CountryCodeType,
-    InitAbstractModel,
+    DslangType,
     LeafModel,
     Meta,
     NestedModel,
+    PasswordType,
     ScntType,
     SessionIdType,
     SessionTokenType,
+    SiteType,
+    TimeZone,
     TimeZoneType,
     TrustTokenType,
+    UsernameType,
 )
 from pyicloud.utils.decorators import classproperty
 
@@ -39,40 +52,15 @@ from pyicloud.utils.decorators import classproperty
 class Account(LeafModel, validate_assignment=True):
     model_config = ConfigDict(populate_by_name=True)
 
-    username: str
-    password: SecretStr | str | None = Field(default=None)
+    username: UsernameType
+    password: PasswordType | None = None
     country_code: CountryCodeType = Field(default=...)
     session_id: SessionIdType | None = None
     with_family: bool = True
 
-    @field_validator("username")
-    def username_must_be_email(cls, v: str):
-        # Apple ID must be a valid email or an empty string
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
-            raise ValueError("username must be a valid email")
-        return v
-
     @classmethod
     def country_code_default(cls):
         return "USA"
-
-    @field_validator("country_code")
-    def country_code_must_be_iso_3166_3(cls, v: CountryCodeType) -> CountryCodeType:
-        if v is not None:
-            country = v.upper()
-            if country not in ISO_3166_1_CODES_3:
-                raise ValueError(f"Invalid site {country}, expected ISO 3166-1 3 letter code")
-        return v
-
-    @field_validator("password")
-    def password_must_be_secret(cls, v: SecretStr | str | None) -> SecretStr | None:
-        if isinstance(v, str):
-            return SecretStr(v)
-        return v
-
-    @field_serializer("password", when_used="json")
-    def dump_secret(self, v: SecretStr | None) -> str | None:
-        return v.get_secret_value() if v else None
 
 
 class Token(LeafModel):
@@ -88,35 +76,33 @@ class Token(LeafModel):
     )
 
 
-class ClientSettings(InitAbstractModel):
-    model_config = ConfigDict(populate_by_name=True)
+class ClientSettings(LeafModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
+    dslang: DslangType = Field(default=...)
+    site: SiteType = Field(default=...)
     timezone: TimeZoneType = Field(default=...)
     client_id: ClientIdType = Field(default_factory=lambda: f"auth-{str(uuid.uuid4()).lower()}")
     scnt: ScntType | None = None
 
     @classmethod
-    def timezone_default(cls):
-        return tzlocal.get_localzone_name()
+    def dslang_default(cls):
+        locale_code = locale.getlocale()[0] or "en_US"
+        return f"{locale_code[3:]}-{locale_code[:2].upper()}"
 
-    @field_validator("timezone")
-    def validate_timezone(cls, v: str) -> str:
-        try:
-            zoneinfo.ZoneInfo(v)
-        except zoneinfo.ZoneInfoNotFoundError as err:
-            raise ValueError(f"Invalid timezone {v}") from err
-        return v
+    @classmethod
+    def site_default(cls):
+        locale_code = locale.getlocale()[0] or "en_US"
+        alpha3166_3 = bisect.bisect_left(ISO_3166_1_CODES, locale_code[3:])
+        return ISO_3166_1_CODES_3[alpha3166_3]
+
+    @classmethod
+    def timezone_default(cls) -> TimeZone:
+        return TimeZone(tzlocal.get_localzone_name())
 
     @property
-    def time_offset(self) -> str:  # type: ignore
-        zone = zoneinfo.ZoneInfo(self.timezone)
-        # compute the time offset
-        time_offset = zone.utcoffset(datetime.datetime.now())
-        time_offset = time_offset.seconds if time_offset else 0
-        # convert to hours and minutes in GMT format
-        hrs = int(time_offset // (60 * 60))
-        min = abs(time_offset % (60 * 60))
-        return f"GMT{hrs:+03d}:{min:02d}"
+    def timezone_offset(self) -> str:
+        return self.timezone.offset()
 
 
 class ResponseModel(Protocol):
@@ -129,7 +115,7 @@ T = TypeVar("T", bound=Token)
 C = TypeVar("C", bound=ClientSettings)
 
 
-class SettingsDict(TypedDict, Generic[A, T, C], total=False):
+class SettingsConfig(TypedDict, Generic[A, T, C], total=False):
     account: type[A]
     token: type[T]
     client_settings: type[C]
@@ -141,31 +127,40 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
         env_prefix="PYICLOUD",
     )
 
+    _config_settings: ClassVar[SettingsConfig] = SettingsConfig(
+        account=Account,
+        token=Token,
+        client_settings=ClientSettings,
+    )
+
     account: A
-    token: T = Field(default={})
-    client_settings: C = Field(default={})
+    token: T = Field(default=...)
+    client_settings: C = Field(default=...)
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
         # Update config with default values for bae class
-        new_config = SettingsDict(
+        new_config = SettingsConfig(
             account=Account,
             token=Token,
             client_settings=ClientSettings,
         )
-        new_config.update(cls.config_settings)
-        cls.config_settings = new_config
+        new_config.update(cls._config_settings)
+        cls._config_settings = new_config
 
-        # Update model fields with annotations from config
-        for f_name, f_value in cls.config_settings.items():
-            if info := cls.model_fields.get(f_name):
-                if callable(f_value):
-                    # If default value is the same that the annotation, update it.
-                    # We can use None becouse pydantic use PydanticUndefined
-                    if hasattr(f_value, "model_validate") and isinstance(info.default, dict):
-                        info.default = cast(Any, f_value).model_validate(info.default)
-                # update the annotation with the new value
-                info.annotation = f_value
+    @model_validator(mode="before")
+    @classmethod
+    def fill_defaults(cls, data: dict[str, Any], info: ValidationInfo) -> dict[str, Any]:
+        assert isinstance(data, dict)
+        for f_name, f_value in cls._config_settings.items():
+            if f_name not in cls.model_fields:
+                continue
+            if f_name not in data and isinstance(f_value, type) and issubclass(f_value, BaseModel):
+                # If default value is the same that the annotation, update it.
+                # We can use None becouse pydantic use PydanticUndefined
+                # Use model_validate instead of cosntruct to properly build event subsystem
+                data[f_name] = f_value.model_validate({})
+        return data
 
     @classmethod
     def create(cls, username: str | None = None, password: str | None = None) -> Self:
@@ -182,9 +177,10 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
     def __hash__(self) -> int:
         return id(self)
 
-    def model_dump_headers(
+    def model_dump_by_meta(
         self,
         *,
+        by_meta: Literal["header", "config", "body"] = "header",
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset=True,
@@ -192,14 +188,14 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
     ) -> dict[str, Any]:
         return Meta.model_dump_meta(
             self,
-            by_meta="header",
+            by_meta=by_meta,
             include=include,
             exclude=exclude,
             exclude_unset=exclude_unset,
             exclude_defaults=exclude_defaults,
         )
 
-    def model_update(
+    def model_validate_from_response(
         self,
         response: ResponseModel,
         *,
@@ -219,19 +215,17 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
         for config_key, value in settings.items():
             self[config_key] = value
 
-    config_settings: ClassVar[SettingsDict] = SettingsDict()
-
     @classproperty
     def Account(cls) -> type[Account]:
-        return cls.config_settings.get("account", Account)
+        return cls._config_settings.get("account", Account)
 
     @classproperty
     def Token(cls) -> type[Token]:
-        return cls.config_settings.get("token", Token)
+        return cls._config_settings.get("token", Token)
 
     @classproperty
     def ClientSettings(cls) -> Type[ClientSettings]:
-        return cls.config_settings.get("client_settings", ClientSettings)
+        return cls._config_settings.get("client_settings", ClientSettings)
 
 
 class Settings(BaseSettings[Account, Token, ClientSettings]):
@@ -240,7 +234,3 @@ class Settings(BaseSettings[Account, Token, ClientSettings]):
     def model_dump_json(self, **kwargs) -> str:
         kwargs.setdefault("by_alias", True)
         return super().model_dump_json(**kwargs)
-
-
-class SettingsModel(BaseModel, ABC):
-    """Update the settings with the result data."""

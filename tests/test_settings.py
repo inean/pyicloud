@@ -1,7 +1,7 @@
 import locale
 from datetime import datetime
 from functools import lru_cache
-from typing import cast
+from typing import Any, cast
 from unittest.mock import Mock
 from zoneinfo import ZoneInfo, available_timezones
 
@@ -18,11 +18,11 @@ from hypothesis.strategies import (
     text,
 )
 from psygnal import SignalGroup
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr, TypeAdapter, ValidationError
 
 from pyicloud.constants import ISO_3166_1_CODES, ISO_3166_1_CODES_3
 from pyicloud.models.settings import Account, ClientSettings, Settings
-from pyicloud.models.types import LeafModel
+from pyicloud.models.types import CountryCodeType, LeafModel, TimeZone
 
 # Define a strategy for generating country values
 country_code_strategy = from_regex(r"[A-Z]{3}", fullmatch=True)
@@ -62,13 +62,11 @@ scnt_strategy = text(min_size=1, max_size=50)
 
 # ACCOUNT TESTS
 #
-
-
-# Validators
 @given(country=country_code_strategy)
 def test_account_country_code_is_3166_3(country):
     try:
-        Account.country_code_must_be_iso_3166_3(country)  # type: ignore
+        country_code = TypeAdapter(CountryCodeType)
+        country_code.validate_python(country)
     except ValueError:
         assert country not in ISO_3166_1_CODES_3
 
@@ -97,7 +95,7 @@ def test_account_model(secret, email):
     username = "test@example.com"
     password = "PassWord123!"
     country_code = "USA"
-    account = Account(username=username, password=password, country_code=country_code)
+    account = Account(username=username, password=SecretStr(password), country_code=country_code)
 
     assert account.username == username
     assert account.password and cast(SecretStr, account.password).get_secret_value() == password
@@ -134,7 +132,7 @@ def test_client_defaults():
     client_settings = ClientSettings()
     assert client_settings.timezone == tzlocal.get_localzone_name()
     assert client_settings.client_id.startswith("auth-")
-    assert client_settings.time_offset == get_gmt_offset(client_settings.timezone)
+    assert client_settings.timezone_offset == get_gmt_offset(client_settings.timezone)
     assert client_settings.scnt is None
 
 
@@ -156,7 +154,7 @@ def test_client_settings_site_default(site):
 
 def test_client_settings_invalid_tz():
     with pytest.raises(ValueError):
-        ClientSettings(timezone="Invalid")
+        ClientSettings(timezone=cast(Any, "Invalid"))
 
 
 @given(timezone=timezone_strategy, client_id=client_id_strategy, scnt=scnt_strategy)
@@ -166,14 +164,14 @@ def test_client_settings(timezone, client_id, scnt):
     assert client_settings.client_id == client_id
     assert client_settings.scnt == scnt
     # check computed values
-    assert client_settings.time_offset == get_gmt_offset(client_settings.timezone)  # type: ignore
+    assert client_settings.timezone_offset == get_gmt_offset(client_settings.timezone)  # type: ignore
 
 
 @given(timezone=gmt_timezone_strategy)
 def test_client_settings_time_offset(timezone):
     timezone, expected_offset = timezone
-    client_settings = ClientSettings(timezone=timezone)
-    assert client_settings.time_offset == expected_offset
+    client_settings = ClientSettings(timezone=TimeZone(timezone))
+    assert client_settings.timezone_offset == expected_offset
 
 
 def test_client_dump_json():
@@ -218,7 +216,7 @@ def test_settings_event_system(username, new_username):
     assume(username != new_username)
     settings = SettingsTest.create(username=username)
     assert settings.account.password is None
-    settings.account.password = "password"
+    settings.account.password = SecretStr("password")
     assert cast(SecretStr, settings.account.password).get_secret_value() == "password"
 
     assert isinstance(settings.account.events, SignalGroup)

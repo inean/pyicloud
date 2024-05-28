@@ -1,18 +1,20 @@
 from __future__ import annotations
 
-import bisect
-import locale
+import datetime
 import re
+import zoneinfo
 from functools import lru_cache
 from typing import (
     Annotated,
     Any,
+    Callable,
     ClassVar,
     Iterator,
     Literal,
     Mapping,
     Self,
     Sequence,
+    Tuple,
     TypeAlias,
     cast,
     get_args,
@@ -20,17 +22,22 @@ from typing import (
 
 from psygnal import EventedModel
 from pydantic import (
+    BaseModel,
+    BeforeValidator,
     ConfigDict,
-    Field,
+    GetCoreSchemaHandler,
+    PlainSerializer,
+    SerializationInfo,
     StringConstraints,
-    field_serializer,
-    field_validator,
+    WithJsonSchema,
+    model_serializer,
     model_validator,
 )
 from pydantic.dataclasses import dataclass
 from pydantic.fields import FieldInfo
 from pydantic.functional_validators import ModelWrapValidatorHandler
 from pydantic.types import UUID1, SecretStr
+from pydantic_core import PydanticCustomError, core_schema
 
 from pyicloud.constants import (
     ISO_639_1_CODES,
@@ -38,8 +45,9 @@ from pyicloud.constants import (
     ISO_3166_1_CODES_3,
 )
 from pyicloud.constants import AppleCookies as Cookies
-from pyicloud.constants import AppleHeaders as Headers
+from pyicloud.constants import AppleHeaders as Header
 from pyicloud.models.morsel import MorselModel
+from pyicloud.utils.context import _init_context_var
 
 
 @dataclass(config=ConfigDict(extra="forbid", frozen=True))
@@ -47,6 +55,7 @@ class Meta:
     header: str | None = None
     config: str | None = None
     cookie: str | None = None
+    body: str | None = None
 
     def __iter__(self) -> Iterator[tuple[str, str]]:
         if self.header is not None:
@@ -55,6 +64,8 @@ class Meta:
             yield "config", self.config
         if self.cookie is not None:
             yield "cookie", self.cookie
+        if self.body is not None:
+            yield "body", self.body
 
     def __hash__(self) -> int:
         return hash(tuple(v for _, v in self))
@@ -74,7 +85,7 @@ class Meta:
     def model_dump_meta(
         obj: Any,
         *,
-        by_meta: Literal["header", "config", "cookie"],
+        by_meta: Literal["header", "config", "cookie", "body"],
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset: bool = True,
@@ -124,48 +135,150 @@ class Meta:
                     if exclude and (target in exclude or name in exclude):
                         continue
                     assert target not in data, f"Duplicate key {target} from {obj} found in data"
-                    # Set data in flattered space
-                    data[target] = current.get_secret_value() if hasattr(current, "get_secret_value") else current
-
+                    # Handle Special Cases.
+                    if hasattr(current, "get_secret_value"):
+                        # If the field is a SecretStr, get the secret value
+                        data[target] = current.get_secret_value()
+                    else:
+                        data[target] = current
         return data
 
 
 # Header Types:
-RequestIdType: TypeAlias = Annotated[UUID1, Meta(header=Headers.REQUEST_ID)]
-TrustTokenEligibleType: TypeAlias = Annotated[bool, Meta(header=Headers.TRUST_TOKEN_ELIGIBLE)]
+RequestIdType: TypeAlias = Annotated[UUID1, Meta(header=Header.REQUEST_ID)]
+TrustTokenEligibleType: TypeAlias = Annotated[bool, Meta(header=Header.TRUST_TOKEN_ELIGIBLE)]
 
 # Header and config types always use standard Python types. Cookies, on the other hand,
 # expect a Morsel due to its richer content.
 #
 # Config Types:
-TimeZoneType: TypeAlias = Annotated[str, Meta(config="client_settings.timezone")]
-UsernameType: TypeAlias = Annotated[str, Meta(config="account.username")]
-PasswordType: TypeAlias = Annotated[SecretStr, Meta(config="account.password")]
+
+
+class TimeZone(str):
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        source: type[Any],
+        handler: GetCoreSchemaHandler,
+    ) -> core_schema.CoreSchema:
+        return core_schema.with_info_after_validator_function(
+            cls._validate,
+            core_schema.str_schema(),
+        )
+
+    @classmethod
+    def _validate(cls, __input_value: str, _: Any) -> TimeZone:
+        try:
+            zoneinfo.ZoneInfo(__input_value)
+        except zoneinfo.ZoneInfoNotFoundError as err:
+            raise PydanticCustomError(
+                "invalid_timezone",
+                f"Invalid timezone {__input_value}",  # type: ignore
+            ) from err
+        return cls(__input_value)
+
+    def offset(self, date: datetime.datetime | None = None) -> str:
+        zone = zoneinfo.ZoneInfo(self)
+        # compute the time offset
+        time_offset = zone.utcoffset(date or datetime.datetime.now())
+        time_offset = time_offset.seconds if time_offset else 0
+        # convert to hours and minutes in GMT format
+        hrs = int(time_offset // (60 * 60))
+        min = abs(time_offset % (60 * 60))
+
+        return f"GMT{hrs:+03d}:{min:02d}"
+
+
+TimeZoneType: TypeAlias = Annotated[TimeZone, Meta(config="client_settings.timezone")]
+
+
+def validate_email(v: str) -> str:
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
+        raise PydanticCustomError("invalid_email", f"Invalid email address. Got '{v}'")  # type: ignore
+    return v
+
+
+UsernameType: TypeAlias = Annotated[
+    str,
+    BeforeValidator(validate_email),
+    Meta(config="account.username", body="accountName"),
+]
+PasswordType: TypeAlias = Annotated[
+    SecretStr,
+    PlainSerializer(
+        lambda v: cast(SecretStr, v).get_secret_value() if v else None, return_type=str | None, when_used="json"
+    ),
+    Meta(config="account.password", body="password"),
+]
+
+
 # Headers - Config types:
+def country_code_must_be_iso_3166_3(v: str) -> str:
+    if v is not None:
+        country = v.upper()
+        if country not in ISO_3166_1_CODES_3:
+            raise ValueError(f"Invalid site {country}, expected ISO 3166-1 3 letter code")
+    return v
+
+
 CountryCodeType: TypeAlias = Annotated[
     str,
-    Meta(header=Headers.COUNTRY_CODE, config="account.country_code"),
+    BeforeValidator(country_code_must_be_iso_3166_3),
+    Meta(header=Header.COUNTRY_CODE, config="account.country_code"),
     StringConstraints(min_length=3, max_length=3),
 ]
-ClientIdType: TypeAlias = Annotated[str, Meta(header=Headers.OAUTH_STATE, config="client_settings.client_id")]
-SessionIdType: TypeAlias = Annotated[str, Meta(header=Headers.SESSION_ID, config="account.session_id")]
-SessionTokenType: TypeAlias = Annotated[str, Meta(header=Headers.SESSION_TOKEN, config="token.session")]
-TrustTokenType: TypeAlias = Annotated[str, Meta(header=Headers.TRUST_TOKEN, config="token.trust")]
-ScntType: TypeAlias = Annotated[str, Meta(header=Headers.SCNT, config="client_settings.scnt")]
+ClientIdType: TypeAlias = Annotated[str, Meta(header=Header.OAUTH_STATE, config="client_settings.client_id")]
+SessionIdType: TypeAlias = Annotated[str, Meta(header=Header.SESSION_ID, config="account.session_id")]
+SessionTokenType: TypeAlias = Annotated[str, Meta(header=Header.SESSION_TOKEN, config="token.session")]
+ScntType: TypeAlias = Annotated[str, Meta(header=Header.SCNT, config="client_settings.scnt")]
+
+TrustTokenType = Annotated[
+    str | None,
+    BeforeValidator(lambda v: v[0] if v and isinstance(v, Sequence) else v if isinstance(v, str) else None),
+    PlainSerializer(lambda v: [v] if v else [], return_type=list[str], when_used="json"),
+    WithJsonSchema(
+        {"anyOf": [{"items": {"type": "string"}, "type": "array"}, {"type": "string"}, {"type": "null"}]},
+        mode="validation",
+    ),
+    WithJsonSchema({"items": {"type": "string"}, "type": "array"}, mode="serialization"),
+    Meta(header=Header.TRUST_TOKEN, config="token.trust", body="trustTokens"),
+]
 
 
-# Cookies - Config types:
+# Cookies - Config types: Default values are only set on config classes.
+def dslang_validate(v: MorselModel | str) -> str:
+    dslang = v if isinstance(v, str) else v.value
+    country, language = dslang.split("-")
+    if country not in ISO_3166_1_CODES:
+        raise ValueError(f"Invalid country, {country}, expected ISO 3166-1 2 letter code")
+    if language not in ISO_639_1_CODES:
+        raise ValueError(f"Invalid language, {language}, expected ISO 639-1 code")
+    return dslang
+
+
 DslangType: TypeAlias = Annotated[
-    str | MorselModel,
+    str,
+    BeforeValidator(dslang_validate),
     Meta(cookie=Cookies.DSLANG, config="client_settings.dslang"),
     StringConstraints(min_length=5, max_length=5),
 ]
+
+
+def site_validate(v: MorselModel | str) -> SiteType:
+    site = v.upper() if isinstance(v, str) else v.value.upper()
+    if site not in ISO_3166_1_CODES_3:
+        raise ValueError(f"Invalid site {site}, expected ISO 3166-1 3 letter code")
+    return site
+
+
 SiteType: TypeAlias = Annotated[
     str | MorselModel,
     Meta(cookie=Cookies.SITE, config="client_settings.site"),
     StringConstraints(min_length=3, max_length=3),
 ]
 # Cookie types:
+DslangCookieType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.DSLANG, config="client_settings.dslang")]
+SiteCookieType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.SITE, config="client_settings.site")]
 AaspType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.AASP)]
 Acn01Type: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.ACN01)]
 XAppleDsWebSessionTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEB_SESSION_TOKEN)]
@@ -179,7 +292,28 @@ XAppleWebauthHsaTrustType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookie
 XAppleWebauthTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_TOKEN)]
 
 
+class ContextModel(BaseModel):
+    def __init__(_model_self_, **data: Any) -> None:
+        _model_self_.__pydantic_validator__.validate_python(
+            data,
+            self_instance=_model_self_,
+            context=_init_context_var.get(),
+        )
+
+
 class LeafModel(EventedModel):
+    def __init__(_model_self_, **data: Any) -> None:
+        _model_self_.__pydantic_validator__.validate_python(
+            data,
+            self_instance=_model_self_,
+            context=_init_context_var.get(),
+        )
+        Group = _model_self_.__signal_group__
+        # the type error is "cannot assign to a class variable" ...
+        # but if we don't use `ClassVar`, then the `dataclass_transform` decorator
+        # will add _events: SignalGroup to the __init__ signature, for *all* user models
+        _model_self_._events = Group(_model_self_)  # type: ignore [misc]
+
     def __getitem__(self, name: str) -> Any:
         return getattr(self, name)
 
@@ -195,6 +329,32 @@ class LeafModel(EventedModel):
 
     def __delitem__(self, name: str):
         raise NotImplementedError
+
+    def reset_field(self, field: str, value: Any = None):
+        if field in self.model_fields:
+            info = self.model_fields[field]
+            value = value or info.get_default(call_default_factory=True)
+            with self.events.blocked():
+                # Set to default and remove from model_fields_set
+                setattr(self, field, value)
+                self.model_fields_set.remove(field)
+
+    @classmethod
+    def model_fields_from_meta(
+        cls, *, by_meta: Literal["header", "config", "cookie", "body"]
+    ) -> Iterator[Tuple[str, str, FieldInfo]]:
+        # Parse httpx.Headers. Try to match available headers to the ones in fields and yield data
+        for field, info in cls.model_fields.items():
+            if not (metadata := info.metadata):
+                try:
+                    metadata = cast(Any, info.annotation).__args__[0].__metadata__
+                except AttributeError:
+                    metadata = []
+            # Get header metadata entry from field info. If exists, check if it is in
+            # data and yield data with alias and value
+            if meta := next((x for x in metadata if isinstance(x, Meta)), None):
+                if (value := getattr(meta, by_meta, None)) is not None:
+                    yield field, cast(str, value), info
 
     @model_validator(mode="wrap")
     @classmethod
@@ -222,6 +382,39 @@ class LeafModel(EventedModel):
         retval.model_fields_set.difference_update(fields_set)
         return retval
 
+    @model_serializer(mode="wrap")
+    def model_serialize(self, handler: Callable, info: SerializationInfo) -> dict[str, Any]:
+        # Common case
+        by_meta = None
+        if isinstance(info.context, Mapping) and "by_meta" in info.context:
+            by_meta = info.context["by_meta"]
+        # Let default handler to serialize types. When done, fetch from that
+        data = handler(self)
+        if by_meta is None:
+            return data
+        # Serialize the model fields by meta if provided in context
+        assert by_meta in ["body", "header", "cookie", "config"], f"Invalid by_meta: {by_meta}"
+        for field, meta, field_info in self.model_fields_from_meta(by_meta=by_meta):
+            value = data.pop(field)
+            if field_info.exclude:
+                continue
+            if isinstance(info.exclude, Mapping | Sequence) and field in info.exclude:
+                continue
+            if isinstance(info.exclude, str) and field == info.exclude:
+                continue
+            if info.exclude_defaults and field not in self.model_fields_set:
+                continue
+            if info.exclude_none and value is None:
+                continue
+            # Split the field alias by '.' to create a nested dictionary
+            keys = meta.split(".") if "." in meta else [meta]
+            # Reverse the keys to create a nested dictionary
+            for key in reversed(keys):
+                value = {key: value}
+            # Update the data dictionary with the nested dictionary
+            data[key] = value[key]
+        return data
+
 
 class NestedModel(LeafModel):
     separator: ClassVar[str] = "."
@@ -242,47 +435,18 @@ class NestedModel(LeafModel):
                 key, child_key = key.split(sep, 1)
                 deep_setattr(getattr(model, key), child_key, value, sep)
                 return
+
+            f_info = cast(BaseModel, model).model_fields[key]
+            f_type = get_args(f_info.annotation) or (f_info.annotation,)
+            f_type = f_type[0] if len(f_type) == 1 else None
+            if f_type is not None and not isinstance(value, f_type):
+                # try to cast the value to the field type
+                if hasattr(value, "__cast__"):
+                    value = value.__cast__(f_type)
+                else:
+                    raise ValueError(f"Invalid value type: {type(value)} for {name}, expected {f_type}")
+                return
             setattr(model, key, value)
 
         # Recursively set the attribute
         deep_setattr(self, name, value, self.__class__.separator)
-
-
-class InitAbstractModel(LeafModel):
-    model_config = ConfigDict(extra="forbid")
-
-    dslang: DslangType = Field(default=...)
-    site: SiteType = Field(default=...)
-
-    @classmethod
-    def dslang_default(cls):
-        locale_code = locale.getlocale()[0] or "en_US"
-        return f"{locale_code[3:]}-{locale_code[:2].upper()}"
-
-    @field_validator("dslang")
-    @classmethod
-    def dslang_validate(cls, v: MorselModel | str) -> DslangType:
-        dslang = v if isinstance(v, str) else v.value
-        country, language = dslang.split("-")
-        if country not in ISO_3166_1_CODES:
-            raise ValueError(f"Invalid country, {country}, expected ISO 3166-1 2 letter code")
-        if language not in ISO_639_1_CODES:
-            raise ValueError(f"Invalid language, {language}, expected ISO 639-1 code")
-        return v
-
-    @classmethod
-    def site_default(cls):
-        locale_code = locale.getlocale()[0] or "en_US"
-        alpha3166_3 = bisect.bisect_left(ISO_3166_1_CODES, locale_code[3:])
-        return ISO_3166_1_CODES_3[alpha3166_3]
-
-    @field_validator("site")
-    def site_validate(cls, v: MorselModel | str) -> SiteType:
-        site = v.upper() if isinstance(v, str) else v.value.upper()
-        if site not in ISO_3166_1_CODES_3:
-            raise ValueError(f"Invalid site {site}, expected ISO 3166-1 3 letter code")
-        return v
-
-    @field_serializer("dslang", "site", when_used="json-unless-none")
-    def dump_morsel_values_only(self, v: MorselModel | str) -> str:
-        return v.value if isinstance(v, MorselModel) else v

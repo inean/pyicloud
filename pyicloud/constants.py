@@ -2,8 +2,12 @@
 
 class Endpoints:
     HOME = "https://www.icloud.com"
-    AUTH = "https://idmsa.apple.com/appleauth/auth"
     INIT = "https://setup.icloud.com/setup/ws/1"
+
+    AUTH = "https://idmsa.apple.com/appleauth/auth"
+    SIGIN = "https://idmsa.apple.com/appleauth/auth/signin"
+    VERIFY ="https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
+
 
 class AppleHeaders:
     # Account Headers
@@ -15,6 +19,7 @@ class AppleHeaders:
     WIDGET_KEY               = "x-apple-widget-key"
     TRUST_TOKEN              = "x-apple-twosv-trust-token"
     TRUST_TOKEN_ELIGIBLE     = "x-apple-twosv-trust-eligible"
+    AUTH_ATTRIBUTES          = "x-apple-auth-attributes"
     SCNT                     = "scnt"
     # Oauth Headers
     OAUTH_CLIENT_ID          = "x-apple-oauth-client-id"
@@ -42,6 +47,14 @@ class AppleCookies:
     WEBAUTH_FMIP      = "X-APPLE-WEBAUTH-FMIP"
     WEBAUTH_HSA_TRUST = "X-APPLE-WEBAUTH-HSA-TRUST"
     WEBAUTH_TOKEN     = "X-APPLE-WEBAUTH-TOKEN"
+
+class iCloud:
+    CLIENT_TYPE = "firstPartyAuth"
+    REDIRECT_URI = Endpoints.HOME
+    REQUIRE_GRANT_CODE = "true"
+    RESPONSE_MODE = "web_message"
+    RESPONSE_TYPE = "code"
+    WIDGET_KEY =  "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d"
 
 ISO_639_1_CODES = [
     'AA', 'AB', 'AE', 'AF', 'AK', 'AM', 'AN', 'AR', 'AS', 'AV', 'AY', 'AZ', 'BA', 'BE',
