@@ -1,6 +1,7 @@
 from __future__ import annotations  # noqa: I001
 
 from abc import ABC
+from collections.abc import Iterator
 from typing import (
     Any,
     Protocol,
@@ -26,10 +27,10 @@ class ResponseModel(Protocol):
 
 
 class Cookies(RootModel):
-    root: dict[str, Any]
+    root: dict[str, MorselModel]
 
-    def __iter__(self):
-        return iter(self.root)
+    def __iter__(self) -> Iterator[MorselModel]:
+        return iter(self.root.values())
 
     def __getitem__(self, name: str) -> dict:
         return self.root[name].model_dump()

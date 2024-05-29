@@ -104,8 +104,9 @@ try:
 except ImportError:
     import httpx
 
-    def _AsyncLogClient() -> httpx.AsyncClient:
-        return httpx.AsyncClient(follow_redirects=True)
+    def _AsyncLogClient(**kwargs: Any) -> httpx.AsyncClient:
+        kwargs.setdefault("follow_redirects", True)
+        return httpx.AsyncClient(**kwargs)
 
 
 print = print

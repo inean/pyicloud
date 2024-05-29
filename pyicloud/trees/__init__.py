@@ -13,17 +13,19 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    ClassVar,
     Coroutine,
     Generic,
     Iterator,
     ParamSpec,
-    Self,
+    TypedDict,
     TypeVar,
     cast,
 )
 
 import async_btree as bt
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, Secret, model_validator
+from httpx import AsyncClient
+from pydantic import Secret
 
 from pyicloud.log import PyiCloudPasswordFilter
 from pyicloud.models.cookies import Cookies
@@ -34,10 +36,48 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+class TreeAction(Enum):
+    CONTINUE = "CONTINUE"
+    EXIT = "EXIT"  # Catch the exception and return the value
+    FAIL = "FAIL"  # An exception will be raised
+
+
+class TreeConfig(TypedDict, total=False):
+    """
+    Configuration for the behavior tree.
+    """
+
+    client: type[AsyncClient] | Callable[..., AsyncClient]
+    """Type of HTTPX Async client."""
+
+    client_options: dict[str, Any]
+    """Options for the HTTPX Async client, represented as a dictionary of strings to any value."""
+
+
 class ModelTree(ABC):
+    __slots__ = ("settings", "cookies", "_context")
+
     cookies: Cookies
+    """Cookies for the model."""
+
     settings: Settings
+    """Settings for the model."""
+
+    tree_config: ClassVar[TreeConfig] = {}
+    """Configuration for the behavior tree."""
+
     _context: ContextVar[dict[Any, Any]]
+    """Context variable for the blackboard pattern."""
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        new_config = TreeConfig(
+            client=AsyncClient,
+            client_options={},
+        )
+        new_config.update(kwargs.get("tree_config", cls.tree_config or {}))
+        cls.tree_config = new_config
 
     def __init__(
         self,
@@ -56,14 +96,24 @@ class ModelTree(ABC):
         )
 
         # Listen to username updates and reload config if necessary
-        self.settings.account.events.username.connect(lambda u: SettingsFile(self.settings).loads())
-        self.settings.account.events.username.connect(lambda u: CookiesJar(self.cookies).loads(username=u))
+        self.settings.account.events.username.connect(
+            lambda u: SettingsFile(self.settings).loads(),
+        )
+        self.settings.account.events.username.connect(
+            lambda u: CookiesJar(self.cookies).loads(username=u),
+        )
 
         # Emit to force reload
         assert self.settings.account.username, "Username is required"
         self.settings.account.events.username.emit(self.settings.account.username)
 
         return self
+
+    @property
+    def client(self) -> AsyncClient:
+        options = self.tree_config.get("client_options", {})
+        session = self.tree_config.get("client", AsyncClient)
+        return session(**options)
 
     @contextmanager
     def context(self, initial_data: dict[Any, Any] | None = None) -> Iterator[None]:
@@ -174,12 +224,6 @@ class ModelTree(ABC):
 
 
 T = TypeVar("T", bound=ModelTree)
-
-
-class TreeAction(Enum):
-    CONTINUE = "CONTINUE"
-    EXIT = "EXIT"  # Catch the exception and return the value
-    FAIL = "FAIL"  # An exception will be raised
 
 
 class BehaveTree(ABC, Generic[T]):

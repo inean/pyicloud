@@ -151,23 +151,15 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
     @model_validator(mode="wrap")
     @classmethod
     def model_validate_request(cls, data: dict[str, Any], handler: Callable, info: ValidationInfo) -> Self:
-        for key in ["headers", "cookies", "endpoint", "body"]:
-            # If not 'endpoint' or 'body' attributes, assume all dict may #
-            # contain valid data for tyhos models and let them validate it
-            key_data = data.get(key, copy(data) if key in ["endpoint", "body"] else {})
-            if isinstance(key_data, cls._config[key]):
-                # If model is passed, use it
-                data.setdefault(key, key_data)
-            elif isinstance(key_data, dict):
-                # otherwise, build the model from the data
-                data.setdefault(
-                    key,
-                    cast(BaseModel, cls._config[key]).model_validate(
-                        key_data,
-                        context=info.context,
-                    ),
-                )
-        return handler(data)
+        return_data = {k: data.pop(k, None) for k in cls.model_fields.keys()}
+        for k, v in return_data.items():
+            # If key contents is None, or a dict, (Not a BaseModel, use it to create a new model)
+            if not isinstance(v, cls._config[k]):
+                # If not 'endpoint' or 'body' attributes, assume all dict may #
+                # contain valid data for thoss models and let them validate it
+                return_data[k] = cast(BaseModel, cls._config[k]).model_validate(v or copy(data), context=info.context)
+        # Create a new instance of the request
+        return handler(return_data)
 
     _DEFAULT = object()
 

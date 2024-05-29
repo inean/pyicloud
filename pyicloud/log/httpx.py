@@ -1,6 +1,6 @@
 import re
 from http.cookies import SimpleCookie
-from typing import cast
+from typing import Any, cast
 
 import httpx
 from rich import box, print
@@ -99,9 +99,10 @@ class LogTransport(httpx.AsyncBaseTransport):
         )
 
 
-def AsyncLogClient() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        follow_redirects=True,
+def AsyncLogClient(**kwargs: Any) -> httpx.AsyncClient:
+    kwargs.setdefault("follow_redirects", True)
+    kwargs.update(
         transport=LogTransport(httpx.AsyncHTTPTransport()),
         event_hooks={"response": [log_response_hook]},
     )
+    return httpx.AsyncClient(**kwargs)

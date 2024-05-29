@@ -45,7 +45,7 @@ class MorselModel(BaseModel):
     discard: bool | None = None
     path_spec: bool | None = None
     samesite: str | None = None
-    version: int | None = None
+    version: int = 0
 
     @field_validator("expires", mode="before")
     def validate_expires(cls, value: int | str | datetime.datetime) -> int | None:
@@ -120,6 +120,9 @@ class MorselModel(BaseModel):
         if cast_to in (str, int, float, bool):
             return cast_to(self.value)
         raise TypeError(f"Cannot cast {self.__class__.__name__} to {type}")
+
+    def is_expired(self) -> bool:
+        return bool(self.expires and self.expires < time())
 
     def model_dump_str(self, attrs=None, header="Set-Cookie:") -> str:
         morsel, values = Morsel(), self.model_dump(by_alias=True)

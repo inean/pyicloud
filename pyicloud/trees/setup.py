@@ -12,7 +12,7 @@ import async_btree as bt
 from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.exceptions import PyiCloudUserCancelledError
-from pyicloud.log import LOGGER, AsyncLogClient
+from pyicloud.log import LOGGER
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
 from pyicloud.models.settings import Settings
@@ -58,11 +58,11 @@ class SetupModelTree(ModelTree):
         for cookie in self.cookies:
             # Cookie data is too old
             if cookie.is_expired():
-                LOGGER.debug(f"Cookie {cookie.name} is expired")
+                LOGGER.debug(f"Cookie {cookie.key} is expired")
                 return True
             # 2FA step not completed yet
-            if cookie.name == "X-APPLE-WEBAUTH-HSA-LOGIN":
-                LOGGER.debug("Found X-APPLE-WEBAUTH-HSA-LOGIN cookie")
+            if cookie.key.upper() == Cookie.WEBAUTH_HSA_LOGIN:
+                LOGGER.debug(f"Found {Cookie.WEBAUTH_HSA_LOGIN} cookie")
                 return True
         return False
 
@@ -79,8 +79,8 @@ class SetupModelTree(ModelTree):
         self.cookies.pop("aasp", None)
         self.cookies.pop("acn01", None)
 
-    @ModelTree.set_context(name="response")
     @ModelTree.with_context
+    @ModelTree.set_context(name="response")
     async def reset_password(self, response: BaseResponse | None = None):
         """
         Check porrevious response and reset password if needed. If no previous
@@ -113,16 +113,16 @@ class SetupModelTree(ModelTree):
             raise PyiCloudUserCancelledError("Password entry operation stopped by user") from err
 
     @ModelTree.set_context(name="response")
-    async def login(self, refresh=False) -> BaseResponse:
+    async def init(self, refresh=False) -> BaseResponse:
         """Fetch a valid session token."""
 
         factory = FreshInit if refresh else Init
-        session = factory(self.settings, self.cookies, client=AsyncLogClient())
-
+        # Create a new session
+        session = factory(self.settings, self.cookies, client=self.client)
         # Context manager will load and save config and cookies for us
-        async with session as login:
+        async with session as client:
             LOGGER.debug(f"Login as '{self.settings.account.username}'")
-            await login.send(session.request.model_dump_httpx_request())
+            await client.send(session.request.model_dump_httpx_request())
         # If Sucess, Response will eval to True.
         return session.response
 
@@ -172,14 +172,14 @@ class SetupModelTree(ModelTree):
 
     @ModelTree.set_context(name="response")
     @ModelTree.with_context
-    async def verify_code(self, security_code: str | None = None) -> BaseResponse:
+    async def complete(self, security_code: str | None = None) -> BaseResponse:
         """Compomete 2FA verification with a valid code"""
 
         session = VerifyHSA2Code(
             settings=self.settings,
             cookies=self.cookies,
             data={"security_code": security_code},
-            client=AsyncLogClient(),
+            client=self.client,
         )
 
         # Context manager will load and save config and cookies for us
@@ -225,10 +225,9 @@ class SetupTree(BehaveTree[SetupModelTree]):
                     ]
                 ),
                 # Try to login
-                bt.condition(target=self._model.login, refresh=False),
+                bt.condition(target=self._model.init, refresh=False),
             ]
         )
-
         verify_code_subtree = bt.sequence(
             children=[
                 self._model.is_logged_in,
@@ -243,7 +242,7 @@ class SetupTree(BehaveTree[SetupModelTree]):
                                 bt.always_success(self._model.reset_security_code),
                                 bt.always_success(self._model.ask_security_code),
                                 # If 2FA is needed, verify code
-                                self._model.verify_code,
+                                self._model.complete,
                             ],
                         ),
                     ]

@@ -272,7 +272,7 @@ def site_validate(v: MorselModel | str) -> SiteType:
 
 
 SiteType: TypeAlias = Annotated[
-    str | MorselModel,
+    str,
     Meta(cookie=Cookies.SITE, config="client_settings.site"),
     StringConstraints(min_length=3, max_length=3),
 ]
