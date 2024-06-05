@@ -17,8 +17,8 @@ from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
 from pyicloud.models.settings import Settings
 from pyicloud.sessions.base import BaseResponse
-from pyicloud.sessions.login import FreshInit, Init
-from pyicloud.sessions.verify_code import VerifyHSA2Code
+from pyicloud.sessions.securitycode import SecurityCode
+from pyicloud.sessions.signin import FreshSignIn, SignIn
 from pyicloud.trees import BehaveTree, ModelTree, TreeAction
 
 
@@ -27,7 +27,7 @@ class SetupHooks:
     def get_password(self) -> str: ...
 
     @abstractmethod
-    def get_2fa_code(self, device: Any = None) -> str: ...
+    def get_security_code(self, device: Any = None) -> str: ...
 
     @abstractmethod
     def get_trusted_device(self, devices) -> Any: ...
@@ -35,7 +35,7 @@ class SetupHooks:
     # Optional Error hooks
     def on_password_error(self, error: Error): ...
 
-    def on_2fa_code_error(self, error: Error): ...
+    def on_security_code_error(self, error: Error): ...
 
 
 class SetupModelTree(ModelTree):
@@ -116,7 +116,7 @@ class SetupModelTree(ModelTree):
     async def init(self, refresh=False) -> BaseResponse:
         """Fetch a valid session token."""
 
-        factory = FreshInit if refresh else Init
+        factory = FreshSignIn if refresh else SignIn
         # Create a new session
         session = factory(self.settings, self.cookies, client=self.client)
         # Context manager will load and save config and cookies for us
@@ -137,7 +137,7 @@ class SetupModelTree(ModelTree):
         return True
 
     @ModelTree.with_context
-    async def is_2fa_pending(self, response: BaseResponse | None = None) -> int:
+    async def is_security_code_pending(self, response: BaseResponse | None = None) -> int:
         """Return False if a trust token is not present or is not valid anymore."""
         if response and Header.TRUST_TOKEN_ELIGIBLE in response.headers:
             LOGGER.debug("2FA is pending")
@@ -157,14 +157,14 @@ class SetupModelTree(ModelTree):
         # If a previous attempt failed, show error...
         if response is not None and bool(response) is False:
             LOGGER.error(f"{response.errors[0].code} ({response.errors[0].message})")
-            self.hooks.on_2fa_code_error(response.errors[0])
+            self.hooks.on_security_code_error(response.errors[0])
         return None
 
     @ModelTree.set_context(name="security_code")
     async def ask_security_code(self) -> str:
         # and ask for a new password
         while True:
-            code = await asyncio.to_thread(self.hooks.get_2fa_code)
+            code = await asyncio.to_thread(self.hooks.get_security_code)
             code = re.sub(r"[-_\s]", "", code)
             if re.fullmatch(r"\d{6}", code):
                 LOGGER.debug(f"Set security_code to: '{code}'")
@@ -175,7 +175,7 @@ class SetupModelTree(ModelTree):
     async def complete(self, security_code: str | None = None) -> BaseResponse:
         """Compomete 2FA verification with a valid code"""
 
-        session = VerifyHSA2Code(
+        session = SecurityCode(
             settings=self.settings,
             cookies=self.cookies,
             data={"security_code": security_code},
@@ -208,33 +208,29 @@ class SetupTree(BehaveTree[SetupModelTree]):
                 ),
             ]
         )
-        verify_password_subtree = bt.sequence(
+        init_subtree = bt.sequence(
             children=[
+                # If response is present and False, there is an error. Show it and
+                # reset password and response context
+                bt.always_success(self._model.reset_password),
                 bt.fallback(
                     children=[
                         # Check if password is defined. If not, ask for it
                         bt.inverter(self._model.is_password_needed),
-                        bt.sequence(
-                            children=[
-                                # If response is False, there is an error. Show it
-                                # reset password and response context
-                                bt.always_success(self._model.reset_password),
-                                self._model.ask_password,
-                            ],
-                        ),
+                        self._model.ask_password,
                     ]
                 ),
                 # Try to login
                 bt.condition(target=self._model.init, refresh=False),
             ]
         )
-        verify_code_subtree = bt.sequence(
+        security_code_subtree = bt.sequence(
             children=[
                 self._model.is_logged_in,
                 # Check response to see if 2FA is needed A non 0 code is interpreted as False
                 bt.fallback(
                     children=[
-                        bt.inverter(self._model.is_2fa_pending),
+                        bt.inverter(self._model.is_security_code_pending),
                         bt.sequence(
                             children=[
                                 # If response is False, there is an error. Show it
@@ -254,8 +250,8 @@ class SetupTree(BehaveTree[SetupModelTree]):
             children=[
                 bt.always_success(check_session_subtree),
                 # Login step
-                bt.retry(verify_password_subtree, max_retry=3),
+                bt.retry(init_subtree, max_retry=3),
                 # If Response is true, we sigin was successfull, but a 2FA may be needed
-                bt.retry(verify_code_subtree, max_retry=3),
+                bt.retry(security_code_subtree, max_retry=3),
             ]
         )

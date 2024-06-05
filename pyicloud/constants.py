@@ -5,8 +5,9 @@ class Endpoints:
     INIT = "https://setup.icloud.com/setup/ws/1"
 
     AUTH = "https://idmsa.apple.com/appleauth/auth"
-    SIGIN = "https://idmsa.apple.com/appleauth/auth/signin"
-    VERIFY ="https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
+    SIGNIN = "https://idmsa.apple.com/appleauth/auth/signin"
+    SECURITY_CODE ="https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
+    TRUST = "https://idmsa.apple.com/appleauth/auth/2sv/trust"
 
 
 class AppleHeaders:
@@ -26,6 +27,7 @@ class AppleHeaders:
     OAUTH_CLIENT_TYPE        = "x-apple-oauth-client-type"
     OAUTH_REDIRECT_URI       = "x-apple-oauth-redirect-uri"
     OAUTH_REQUIRE_GRANT_CODE = "x-apple-oauth-require-grant-code"
+    OAUTH_GRANT_CODE         = "x-apple-oauth-grant-code"
     OAUTH_RESPONSE_TYPE      = "x-apple-oauth-response-type"
     OAUTH_RESPONSE_MODE      = "x-apple-oauth-response-mode"
     OAUTH_STATE              = "x-apple-oauth-state"

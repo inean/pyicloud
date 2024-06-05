@@ -1,8 +1,6 @@
 import logging
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 from weakref import ReferenceType, ref
-
-from pyicloud.utils.decorators import deprecated
 
 # Use the package name as the logger name
 __package_name__ = __name__.partition(".")[0]
@@ -11,15 +9,9 @@ __package_name__ = __name__.partition(".")[0]
 LOGGER = logging.getLogger(__package_name__)
 
 
-@deprecated
-def log_request(func):
-    def wrapper(self, method, url, **kwargs):
-        # Charge logging to the right service endpoint
-        logger = logger_get("http")
-        logger.debug("%s %s %s", method, url, kwargs.get("data", ""))
-        return func(self, method, url, logger, **kwargs)
-
-    return wrapper
+@runtime_checkable
+class Secret(Protocol):
+    def get_secret_value(self) -> str: ...
 
 
 def logger_get(name: str) -> logging.Logger:
@@ -61,19 +53,22 @@ class PyiCloudPasswordFilter(logging.Filter):
                     logger.removeFilter(password_filter)
 
     @classmethod
-    def on_changed_password(cls, value: Any, context: object):
+    def on_changed_password(cls, value: str | Secret | None, context: object):
         """Update the password for the active filters."""
 
-        # Parse value, it may be a string or a SecretStr
-        if hasattr(value, "get_secret_value"):
+        # Parse value, it may be a string or a Secret[str]
+        password = value
+        if isinstance(value, Secret):
             password = value.get_secret_value()
-        if isinstance(value, str):
-            password = value
 
+        # If password is erased, don't remove filter and just wait until object is
+        # derstroyed and finalize callback is called or update filter when a new
+        # valid password is set
         if password:
             for logger in cls._ACTIVE_FILTERS:
                 for weak_ref, password_filter in cls._ACTIVE_FILTERS[logger].items():
                     if weak_ref() == context:
+                        assert isinstance(password, str)
                         if not isinstance(password_filter, cls):
                             password_filter = cls(password)
                             cls._ACTIVE_FILTERS[logger][weak_ref] = password_filter
@@ -87,7 +82,7 @@ class PyiCloudPasswordFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        if self.name in message:
+        if isinstance(self.name, str) and self.name in message:
             name_length = len(self.name)
             mask_length = min(8, name_length - 1)
             masked_name = "*" * mask_length + self.name[mask_length:]
@@ -95,19 +90,3 @@ class PyiCloudPasswordFilter(logging.Filter):
             record.msg = message.replace(self.name, masked_name)
             record.args = ()  # Assign an empty tuple instead of an empty list
         return True
-
-
-try:
-    from rich import print
-
-    from pyicloud.log.httpx import AsyncLogClient as _AsyncLogClient
-except ImportError:
-    import httpx
-
-    def _AsyncLogClient(**kwargs: Any) -> httpx.AsyncClient:
-        kwargs.setdefault("follow_redirects", True)
-        return httpx.AsyncClient(**kwargs)
-
-
-print = print
-AsyncLogClient = _AsyncLogClient

@@ -13,6 +13,7 @@ from pyicloud.models.headers import HeadersModel
 from pyicloud.models.types import (
     AaspType,
     Acn01Type,
+    AuthAttributesType,
     CountryCodeType,
     DslangCookieType,
     Meta,
@@ -40,15 +41,16 @@ from pyicloud.sessions.decorators import serialize
 ##
 # Request
 ##
-class InitRequestBody(BodyModel):
-    # Body parameters
-    remember_me: Annotated[bool, Meta(body="rememberMe")] = True
-    account_name: UsernameType
-    password: PasswordType | None = None
-    trust_tokens: TrustTokenType = None
+class SignInEndpoint(Endpoint):
+    url = Endpoints.SIGNIN
+    verb = "POST"
+    content_type = "application/json"
+
+    # Query parameters
+    remember_me: Annotated[bool, Meta(params="isRememberMeEnabled")] = True
 
 
-class InitRequestHeaders(HeadersModel):
+class SignInRequestHeaders(HeadersModel):
     oauth_client_id: Annotated[str, Meta(header=Header.OAUTH_CLIENT_ID)] = iCloud.WIDGET_KEY
     oauth_client_type: Annotated[str, Meta(header=Header.OAUTH_CLIENT_TYPE)] = iCloud.CLIENT_TYPE
     oauth_redirect_uri: Annotated[str, Meta(header=Header.OAUTH_REDIRECT_URI)] = iCloud.REDIRECT_URI
@@ -67,41 +69,47 @@ class InitRequestHeaders(HeadersModel):
         return data
 
 
-class InitRequestCookies(CookiesModel):
+class SignInRequestCookies(CookiesModel):
     dslang: DslangCookieType = Field(default=...)
     site: SiteCookieType = Field(default=...)
 
 
-class InitEndpoint(Endpoint):
-    url = Endpoints.SIGIN
-    verb = "POST"
-    content_type = "application/json"
+class SignInRequestBody(BodyModel):
+    # Body parameters
+    account_name: UsernameType
+    password: PasswordType | None = None
+    trust_tokens: TrustTokenType = None
+    remember_me: Annotated[bool, Meta(body="rememberMe")] = True
 
 
-class InitRequest(BaseRequest[InitRequestHeaders, InitRequestCookies, InitRequestBody, InitEndpoint]):
+class SignInRequest(BaseRequest[SignInRequestHeaders, SignInRequestCookies, SignInRequestBody, SignInEndpoint]):
     _config = RequestConfig(
-        headers=InitRequestHeaders,
-        cookies=InitRequestCookies,
-        body=InitRequestBody,
-        endpoint=InitEndpoint,
+        headers=SignInRequestHeaders,
+        cookies=SignInRequestCookies,
+        body=SignInRequestBody,
+        endpoint=SignInEndpoint,
     )
 
 
 ##
 # Response
 ##
-class InitResponseHeaders(HeadersModel):
-    # Add Headers as metadata so we can map them to the response
+class SignInResponseHeaders(HeadersModel):
+    # Required Headers
     request_id: RequestIdType
+    scnt: ScntType
+
+    # Required Headers only on successful response
     country_code: CountryCodeType | None = None
-    trust_token: TrustTokenType | None = None
-    trust_token_eligible: TrustTokenEligibleType | None = None
-    session_token: SessionTokenType | None = None
     session_id: SessionIdType | None = None
-    scnt: ScntType | None = None
+    session_token: SessionTokenType | None = None
+
+    # Optional Headers only present on successful response
+    trust_token_eligible: TrustTokenEligibleType | None = None
+    auth_attributes: AuthAttributesType | None = None
 
 
-class InitResponseCookies(CookiesModel):
+class SignInResponseCookies(CookiesModel):
     dslang: DslangCookieType
     site: SiteCookieType
     # On login error, the acn01 cookie is not returned
@@ -110,17 +118,17 @@ class InitResponseCookies(CookiesModel):
     aasp: AaspType | None = None
 
 
-class InitResponseBody(BodyModel):
+class SignInResponseBody(BodyModel):
     model_config = ConfigDict(extra="allow")
 
     auth_type: Literal["hsa2"] | None = Field(alias="authType", default=None)
 
 
-class InitResponse(BaseResponse[InitResponseHeaders, InitResponseCookies, InitResponseBody]):
+class SignInResponse(BaseResponse[SignInResponseHeaders, SignInResponseCookies, SignInResponseBody]):
     _config = ResponseConfig(
-        headers=InitResponseHeaders,
-        cookies=InitResponseCookies,
-        body=InitResponseBody,
+        headers=SignInResponseHeaders,
+        cookies=SignInResponseCookies,
+        body=SignInResponseBody,
     )
 
     @override
@@ -135,7 +143,7 @@ class InitResponse(BaseResponse[InitResponseHeaders, InitResponseCookies, InitRe
 # Transport
 ##
 @serialize
-class Init(OAuthTransport[InitRequest, InitResponse]):
+class SignIn(OAuthTransport[SignInRequest, SignInResponse]):
     @override
     def dump_content(
         self,
@@ -173,16 +181,16 @@ class Init(OAuthTransport[InitRequest, InitResponse]):
         return content
 
     @property
-    def response_cls(self) -> Type[InitResponse]:
-        return InitResponse
+    def response_cls(self) -> Type[SignInResponse]:
+        return SignInResponse
 
     @property
-    def request_cls(self) -> Type[InitRequest]:
-        return InitRequest
+    def request_cls(self) -> Type[SignInRequest]:
+        return SignInRequest
 
 
 @serialize
-class FreshInit(Init):
+class FreshSignIn(SignIn):
     """Re-Login to iCloud using available session data."""
 
     @override

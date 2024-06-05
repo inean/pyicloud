@@ -2,20 +2,26 @@ from __future__ import annotations  # noqa: I001
 
 from abc import ABC
 from collections.abc import Iterator
+import re
 from typing import (
+    Annotated,
     Any,
     Protocol,
     Sequence,
     Callable,
     Self,
+    get_args,
 )
+from typing_extensions import get_origin
 from pydantic import (
     BaseModel,
     RootModel,
+    ValidationError,
     model_validator,
     model_serializer,
     ValidationInfo,
 )
+from pyicloud.log import LOGGER
 from pyicloud.models.morsel import MorselModel, JarTypes, JarTuple
 from pyicloud.models.settings import Settings
 from pyicloud.models.types import Meta, LeafModel
@@ -128,6 +134,7 @@ class CookiesModel(LeafModel, ABC):
     @model_validator(mode="wrap")
     @classmethod
     def validate_from_jar(cls, data: dict[str, Any] | Self, handler: Callable, info: ValidationInfo) -> Self:
+        fields: dict[str, str | re.Pattern] = {}
         cookies: JarTypes | Cookies | None = None
 
         if isinstance(data, cls):
@@ -136,11 +143,13 @@ class CookiesModel(LeafModel, ABC):
         assert isinstance(data, dict), f"Invalid data type for '{cls}': {type(data)}"
 
         # Accept simple key/value pairs for cookies. Convert them to MorselModel
-        for key, value in data.items():
+        for name, value in data.items():
             if isinstance(value, str):
-                data[key] = MorselModel(name=key, value=value)
+                data[name] = MorselModel(name=name, value=value)
             elif isinstance(value, dict):
-                data[key] = MorselModel.model_validate(value)
+                data[name] = MorselModel.model_validate(value)
+            elif not isinstance(value, MorselModel):
+                raise ValidationError(f"Invalid value type: {type(value)}")
 
         # Try to fetch cookies from context
         if isinstance(info.context, dict):
@@ -149,16 +158,59 @@ class CookiesModel(LeafModel, ABC):
             if isinstance(cookies, JarTuple) or isinstance(cookies, Cookies):
                 cookies = Cookies.model_validate(cookies)
             if isinstance(cookies, Cookies):
-                for field, meta_cookie, _ in cls.model_fields_from_meta(by_meta="cookie"):
-                    if meta_cookie in cookies:
-                        data.setdefault(field, cookies.pop(meta_cookie))
+                for cookie in cookies:
+                    assert isinstance(cookie, MorselModel)
+                    data.setdefault(cookie.key, cookie)
 
-            # Try to set safe defaults from settings if not set previously
+        # Inspect model fields
+        for field, cookie, _ in cls.model_fields_from_meta(by_meta="cookie"):
+            fields[field] = cookie
+        # Inspect field annotations
+        for field, annotation in cls.__annotations__.items():
+            # skip field if ir's a model field
+            if field in cls.model_fields:
+                continue
+            if get_origin(annotation) and issubclass(get_origin(annotation), Annotated):
+                for meta in get_args(annotation)[1:]:
+                    if not isinstance(meta, Meta):
+                        continue
+                    if meta.cookie is None:
+                        continue
+                    fields[field] = meta.cookie
+        # Parse fields
+        for field, cookie_name in fields.items():
+            # Simple case: field and cookie_name are the same
+            if field == cookie_name:
+                continue
+            # Simple case if cookie_name is a constant string
+            if cookie_name in data:
+                # Purge cookie
+                assert field not in data
+                data[field] = data.pop(cookie_name)
+                continue
+            # Try to match cookie_name as a pattern
+            try:
+                cookie_pattern = re.compile(cookie_name)
+            except re.error:
+                LOGGER.debug(f"Invalid cookie pattern: {cookie_name}")
+                continue
+            for key in data.keys():
+                if cookie_pattern.match(key):
+                    assert field not in data
+                    data[field] = data.pop(key)
+                    break
+            else:
+                LOGGER.debug(f"Cookie pattern not found: {cookie_name}")
+
+        # Try to set safe defaults from settings if not set previously
+        if isinstance(info.context, dict):
             settings = info.context.get("settings", None)
             if isinstance(settings, Settings):
-                for field, meta_config, finfo in cls.model_fields_from_meta(by_meta="config"):
-                    if meta_config in settings:
+                for field, (cookie, config), finfo in cls.model_fields_from_meta(by_meta=["cookie", "config"]):
+                    if config in settings:
+                        value = settings[config]
+                        assert isinstance(value, str)
                         assert isinstance(finfo.annotation, type) and issubclass(finfo.annotation, MorselModel)
-                        data.setdefault(field, MorselModel(name=field, value=settings[meta_config]))
+                        data.setdefault(field, MorselModel(name=cookie, value=value))
 
         return handler(data)

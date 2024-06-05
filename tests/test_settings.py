@@ -18,7 +18,7 @@ from hypothesis.strategies import (
     text,
 )
 from psygnal import SignalGroup
-from pydantic import SecretStr, TypeAdapter, ValidationError
+from pydantic import Secret, TypeAdapter, ValidationError
 
 from pyicloud.constants import ISO_3166_1_CODES, ISO_3166_1_CODES_3
 from pyicloud.models.settings import Account, ClientSettings, Settings
@@ -87,7 +87,7 @@ def test_account_invalid_email_raises_error(email):
 @given(secret=text(min_size=1, max_size=20), email=emails())
 def test_account_dump_secret(secret, email):
     account = Account(username=email, password=secret)
-    assert account.password and cast(SecretStr, account.password).get_secret_value() == secret
+    assert account.password and cast(Secret[str], account.password).get_secret_value() == secret
 
 
 @given(secret=text(min_size=1, max_size=20), email=emails())
@@ -95,17 +95,17 @@ def test_account_model(secret, email):
     username = "test@example.com"
     password = "PassWord123!"
     country_code = "USA"
-    account = Account(username=username, password=SecretStr(password), country_code=country_code)
+    account = Account(username=username, password=Secret[str](password), country_code=country_code)
 
     assert account.username == username
-    assert account.password and cast(SecretStr, account.password).get_secret_value() == password
+    assert account.password and cast(Secret[str], account.password).get_secret_value() == password
     assert account.country_code == country_code
 
     account.username = email
     assert account.username == email
 
     account.password = secret
-    assert cast(SecretStr, account.password).get_secret_value() == secret
+    assert cast(Secret[str], account.password).get_secret_value() == secret
 
 
 def test_account_json():
@@ -216,8 +216,8 @@ def test_settings_event_system(username, new_username):
     assume(username != new_username)
     settings = SettingsTest.create(username=username)
     assert settings.account.password is None
-    settings.account.password = SecretStr("password")
-    assert cast(SecretStr, settings.account.password).get_secret_value() == "password"
+    settings.account.password = Secret[str]("password")
+    assert cast(Secret[str], settings.account.password).get_secret_value() == "password"
 
     assert isinstance(settings.account.events, SignalGroup)
     assert isinstance(settings.token.events, SignalGroup)

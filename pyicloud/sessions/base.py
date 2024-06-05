@@ -4,7 +4,21 @@ from abc import ABC, abstractmethod
 from copy import copy
 from functools import cached_property
 from http.cookiejar import CookieJar
-from typing import Any, Callable, ClassVar, Generic, Literal, Self, Sequence, Type, TypedDict, TypeVar, cast, override
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Literal,
+    Self,
+    Sequence,
+    Type,
+    TypedDict,
+    TypeVar,
+    cast,
+    get_args,
+    override,
+)
 
 import httpx
 from pydantic import BaseModel, Field, ValidationInfo, model_validator
@@ -18,14 +32,39 @@ from pyicloud.models.errors import Error, ServiceErrorsModel
 from pyicloud.models.headers import HeadersModel
 from pyicloud.models.morsel import MorselModel
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import _init_context_var
+from pyicloud.models.types import LeafModel, MetaFields, _init_context_var
 
 
-class Endpoint(BaseModel):
+class Endpoint(LeafModel, ABC):
     # Constants
     url: ClassVar[str]
     verb: ClassVar[Literal["GET", "POST", "DELETE", "PUT"]] = "GET"
     content_type: ClassVar[str] = "application/json"
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def model_validate_from_settings(cls, data: dict[str, Any], handler: Callable, info: ValidationInfo) -> Self:
+        settings: Settings | None = None
+
+        if isinstance(data, cls):
+            return handler(data)
+
+        assert isinstance(data, dict), f"Invalid data type for '{cls}': {type(data)}"
+
+        if isinstance(info.context, dict):
+            settings = info.context.get("settings", None)
+
+            if isinstance(settings, Settings):
+                by_meta: MetaFields = info.context.get("by_meta", "config")
+                assert by_meta in get_args(MetaFields), f"Invalid by_meta value: {by_meta}"
+                for field, meta_config, _ in cls.model_fields_from_meta(by_meta=by_meta):
+                    data.setdefault(field, settings[meta_config])
+
+        return handler(data)
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return self.model_dump(mode="json", by_alias=True, context=dict(by_meta="params"))
 
 
 H = TypeVar("H", bound=HeadersModel)
@@ -90,7 +129,7 @@ class BaseResponse(BaseModel, Generic[H, C, B]):
         # Parse Cookies
         data.setdefault("cookies", cls._config["cookies"].model_validate({}, context={"cookies": response.cookies}))  # type: ignore
         # Parse Body
-        if response.headers["content-type"].startswith("application/json"):
+        if response.headers["content-type"].startswith("application/json") and len(response.content) > 0:
             if cls.is_error(response.status_code):
                 error = ServiceErrorsModel.model_validate_json(response.content)
                 data.setdefault("errors", error.service_errors)
@@ -191,6 +230,7 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
         return httpx.Request(
             method=self.endpoint.verb,
             url=self.endpoint.url,
+            params=self.endpoint.params,
             headers=headers,
             cookies=jar,
             json=self.body.json_data,

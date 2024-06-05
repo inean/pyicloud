@@ -8,7 +8,7 @@ from pydantic import (
 )
 
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import LeafModel
+from pyicloud.models.types import LeafModel, MetaFields
 
 
 class BodyModel(LeafModel, ABC):
@@ -28,7 +28,7 @@ class BodyModel(LeafModel, ABC):
             settings = info.context.get("settings", None)
 
             if isinstance(settings, Settings):
-                by_meta = info.context.get("by_meta", "config")
+                by_meta: MetaFields = info.context.get("by_meta", "config")
                 for field, meta_config, _ in cls.model_fields_from_meta(by_meta=by_meta):
                     data.setdefault(field, settings[meta_config])
 
@@ -41,3 +41,17 @@ class BodyModel(LeafModel, ABC):
     @property
     def content(self) -> str | None:
         return None
+
+
+class EmptyModel(BodyModel):
+    model_config = ConfigDict(extra="forbid")
+
+    @classmethod
+    def model_validate_json(
+        cls,
+        json_data: str | bytes | bytearray,
+        *,
+        strict: bool | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> Self:
+        return cls()

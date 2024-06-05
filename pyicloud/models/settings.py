@@ -7,7 +7,6 @@ from typing import (
     Any,
     ClassVar,
     Generic,
-    Literal,
     Protocol,
     Self,
     Sequence,
@@ -21,7 +20,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    SecretStr,
+    Secret,
     ValidationInfo,
     model_validator,
 )
@@ -35,6 +34,7 @@ from pyicloud.models.types import (
     DslangType,
     LeafModel,
     Meta,
+    MetaFields,
     NestedModel,
     PasswordType,
     ScntType,
@@ -168,7 +168,7 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
             return cls(
                 account=cls.Account(
                     username=username,
-                    password=SecretStr(password) if password is not None else None,
+                    password=Secret[str](password) if password is not None else None,
                 )
             )
         assert password is None, "Can't set password without username."
@@ -180,7 +180,7 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
     def model_dump_by_meta(
         self,
         *,
-        by_meta: Literal["header", "config", "body"] = "header",
+        by_meta: MetaFields = "header",
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset=True,

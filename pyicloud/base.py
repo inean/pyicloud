@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import httpx
 
@@ -15,8 +16,10 @@ from pyicloud.exceptions import (
     PyiCloudServiceNotActivatedException,
 )
 from pyicloud.log import LOGGER, PyiCloudPasswordFilter, logger_get
+from pyicloud.log.httpx import LoggerHook, LogTransport
+from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.paths import SettingsFile
+from pyicloud.paths import CookiesJar, SettingsFile
 from pyicloud.utils.decorators import Deprecated
 
 
@@ -62,11 +65,15 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
     JSON_MIMETYPES = ["application/json", "text/json"]
 
     def __init__(self, owner, auth_callback=None, error_callback=None):
-        super().__init__(follow_redirects=True)
+        super().__init__(
+            follow_redirects=True,
+            transport=LogTransport(),
+            event_hooks={"response": [LoggerHook.log_response_hook]},
+        )
 
         # init elements
         self._owner = owner
-        self._config: Settings = owner.config
+        self._settings: Settings = owner.config
 
         self._auth_callback = auth_callback or self._owner.authenticate
         self._error_callback = error_callback or self._owner._raise_error
@@ -77,13 +84,14 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
     def _update_session(self, response):
         for header, key in self.HEADER_DATA.items():
             if value := response.headers.get(header):
-                self._config[key] = value
+                self._settings[key] = value
 
         # Save session_data to file
-        self._config.save()
-        LOGGER.debug("Saved session data to %s", self._config._session_file)
+        settings_file = SettingsFile(self._settings)
+        LOGGER.debug(f"Saved session data to {os.fspath(settings_file)}")
+        settings_file.saves()
 
-        return response.headers.get("Content-Type", "").split(";")[0]
+        return response.headers.get("content-type", "").split(";")[0]
 
     def _get_auth_headers(self, overrides=None):
         headers = {
@@ -95,7 +103,7 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
             "X-Apple-OAuth-Require-Grant-Code": "true",
             "X-Apple-OAuth-Response-Mode": "web_message",
             "X-Apple-OAuth-Response-Type": "code",
-            "X-Apple-OAuth-State": self._config["client_settings.client_id"],
+            "X-Apple-OAuth-State": self._settings["client_settings.client_id"],
             "X-Apple-Widget-Key": "d39ba9916b7251055b22c7f910e2ea796ee65e98b2ddecea8f5dde8d9d1a815d",
         }
         if overrides:
@@ -107,7 +115,12 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
         response = super().request(method, url, **kwargs)
 
         # Update response cookies to file
-        self._config.cookies.update(response.cookies, save=True)
+        if response.cookies:
+            cookies = Cookies({})
+            CookiesJar(cookies).loads(username=self._settings.account.username)
+            for cookie in Cookies.model_validate(response.cookies):
+                cookies[cookie.key] = cookie
+            CookiesJar(cookies).saves(username=self._settings.account.username)
 
         # Update session
         content_type = self._update_session(response)
@@ -331,6 +344,7 @@ class PyiCloudUser(metaclass=Deprecated):
 
     def _authenticate_fetch_trust_token(self, session_token: str | None = None):
         """Authenticate using session token."""
+
         if not (session_token := session_token or self.config.token.session):
             return
         data = {
@@ -542,12 +556,8 @@ class PyiCloudUser(metaclass=Deprecated):
 # Alias
 class PyiCloud(PyiCloudUser):
     def __init__(self, username: str, password: str | None = None):
-        config = Settings.model_validate(
-            {
-                "account": {
-                    "username": username,
-                    "password": password,
-                },
-            },
-        )
-        PyiCloudUser.__init__(self, config)
+        settings = Settings.model_validate({"account": {"username": username}})
+        SettingsFile(settings).loads()
+        if password:
+            settings.account.password = password  # type: ignore
+        PyiCloudUser.__init__(self, settings)

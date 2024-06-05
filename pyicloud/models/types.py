@@ -9,6 +9,7 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    Collection,
     Iterator,
     Literal,
     Mapping,
@@ -18,7 +19,10 @@ from typing import (
     TypeAlias,
     cast,
     get_args,
+    get_origin,
+    overload,
 )
+from uuid import UUID
 
 from psygnal import EventedModel
 from pydantic import (
@@ -27,6 +31,7 @@ from pydantic import (
     ConfigDict,
     GetCoreSchemaHandler,
     PlainSerializer,
+    Secret,
     SerializationInfo,
     StringConstraints,
     WithJsonSchema,
@@ -36,7 +41,7 @@ from pydantic import (
 from pydantic.dataclasses import dataclass
 from pydantic.fields import FieldInfo
 from pydantic.functional_validators import ModelWrapValidatorHandler
-from pydantic.types import UUID1, SecretStr
+from pydantic.types import UuidVersion
 from pydantic_core import PydanticCustomError, core_schema
 
 from pyicloud.constants import (
@@ -46,8 +51,11 @@ from pyicloud.constants import (
 )
 from pyicloud.constants import AppleCookies as Cookies
 from pyicloud.constants import AppleHeaders as Header
+from pyicloud.log import LOGGER
 from pyicloud.models.morsel import MorselModel
 from pyicloud.utils.context import _init_context_var
+
+MetaFields: TypeAlias = Literal["header", "config", "cookie", "body", "params"]
 
 
 @dataclass(config=ConfigDict(extra="forbid", frozen=True))
@@ -56,16 +64,12 @@ class Meta:
     config: str | None = None
     cookie: str | None = None
     body: str | None = None
+    params: str | None = None
 
     def __iter__(self) -> Iterator[tuple[str, str]]:
-        if self.header is not None:
-            yield "header", self.header
-        if self.config is not None:
-            yield "config", self.config
-        if self.cookie is not None:
-            yield "cookie", self.cookie
-        if self.body is not None:
-            yield "body", self.body
+        for field in get_args(MetaFields):
+            if getattr(self, field) is not None:
+                yield field, getattr(self, field)
 
     def __hash__(self) -> int:
         return hash(tuple(v for _, v in self))
@@ -85,7 +89,7 @@ class Meta:
     def model_dump_meta(
         obj: Any,
         *,
-        by_meta: Literal["header", "config", "cookie", "body"],
+        by_meta: MetaFields,
         include: Sequence[str] | None = None,
         exclude: Sequence[str] | None = None,
         exclude_unset: bool = True,
@@ -137,7 +141,7 @@ class Meta:
                     assert target not in data, f"Duplicate key {target} from {obj} found in data"
                     # Handle Special Cases.
                     if hasattr(current, "get_secret_value"):
-                        # If the field is a SecretStr, get the secret value
+                        # If the field is a Secret[str], get the secret value
                         data[target] = current.get_secret_value()
                     else:
                         data[target] = current
@@ -145,8 +149,11 @@ class Meta:
 
 
 # Header Types:
-RequestIdType: TypeAlias = Annotated[UUID1, Meta(header=Header.REQUEST_ID)]
+RequestIdType: TypeAlias = Annotated[UUID, UuidVersion(1), Meta(header=Header.REQUEST_ID)]
 TrustTokenEligibleType: TypeAlias = Annotated[bool, Meta(header=Header.TRUST_TOKEN_ELIGIBLE)]
+AuthAttributesType: TypeAlias = Annotated[str, Meta(header=Header.AUTH_ATTRIBUTES)]
+OAuthGrantCodeType: TypeAlias = Annotated[str, Meta(header=Header.OAUTH_GRANT_CODE)]
+
 
 # Header and config types always use standard Python types. Cookies, on the other hand,
 # expect a Morsel due to its richer content.
@@ -204,9 +211,9 @@ UsernameType: TypeAlias = Annotated[
     Meta(config="account.username", body="accountName"),
 ]
 PasswordType: TypeAlias = Annotated[
-    SecretStr,
+    Secret[str],
     PlainSerializer(
-        lambda v: cast(SecretStr, v).get_secret_value() if v else None, return_type=str | None, when_used="json"
+        lambda v: cast(Secret[str], v).get_secret_value() if v else None, return_type=str | None, when_used="json"
     ),
     Meta(config="account.password", body="password"),
 ]
@@ -339,22 +346,46 @@ class LeafModel(EventedModel):
                 setattr(self, field, value)
                 self.model_fields_set.remove(field)
 
+    @overload
+    @classmethod
+    def model_fields_from_meta(cls, *, by_meta: MetaFields) -> Iterator[Tuple[str, str, FieldInfo]]: ...
+
+    @overload
     @classmethod
     def model_fields_from_meta(
-        cls, *, by_meta: Literal["header", "config", "cookie", "body"]
-    ) -> Iterator[Tuple[str, str, FieldInfo]]:
-        # Parse httpx.Headers. Try to match available headers to the ones in fields and yield data
+        cls, *, by_meta: Sequence[MetaFields]
+    ) -> Iterator[Tuple[str, Sequence[str], FieldInfo]]: ...
+
+    @classmethod
+    def model_fields_from_meta(
+        cls, *, by_meta: MetaFields | Sequence[MetaFields]
+    ) -> Iterator[Tuple[str, str | Sequence[str], FieldInfo]]:
+        by_meta = [by_meta] if isinstance(by_meta, str) else by_meta
+
         for field, info in cls.model_fields.items():
-            if not (metadata := info.metadata):
-                try:
-                    metadata = cast(Any, info.annotation).__args__[0].__metadata__
-                except AttributeError:
-                    metadata = []
-            # Get header metadata entry from field info. If exists, check if it is in
-            # data and yield data with alias and value
-            if meta := next((x for x in metadata if isinstance(x, Meta)), None):
-                if (value := getattr(meta, by_meta, None)) is not None:
-                    yield field, cast(str, value), info
+            assert isinstance(info, FieldInfo)
+            if info.metadata:
+                metadata = info.metadata
+                assert isinstance(metadata, Collection)
+            elif get_args(info.annotation) and issubclass(get_origin(get_args(info.annotation)[0]), Annotated):
+                metadata = get_args(info.annotation)[0].__metadata__
+            else:
+                LOGGER.debug(f"Skipping {field} due to missing metadata")
+                continue
+            for meta in metadata:
+                # Skip non meta instance in field Annotations
+                if not isinstance(meta, Meta):
+                    continue
+                # Build value from required meta fields
+                value = []
+                for meta_field in by_meta:
+                    if (v := getattr(meta, meta_field)) is not None:
+                        value.append(v)
+                # only yield if all required meta fields are present
+                if len(value) != len(by_meta):
+                    LOGGER.debug(f"Skipping {field} due to missing meta fields: {by_meta}")
+                    continue
+                yield field, value if len(value) > 1 else value[0], info
 
     @model_validator(mode="wrap")
     @classmethod
@@ -385,7 +416,7 @@ class LeafModel(EventedModel):
     @model_serializer(mode="wrap")
     def model_serialize(self, handler: Callable, info: SerializationInfo) -> dict[str, Any]:
         # Common case
-        by_meta = None
+        by_meta: MetaFields | None = None
         if isinstance(info.context, Mapping) and "by_meta" in info.context:
             by_meta = info.context["by_meta"]
         # Let default handler to serialize types. When done, fetch from that
@@ -393,7 +424,7 @@ class LeafModel(EventedModel):
         if by_meta is None:
             return data
         # Serialize the model fields by meta if provided in context
-        assert by_meta in ["body", "header", "cookie", "config"], f"Invalid by_meta: {by_meta}"
+        assert by_meta in get_args(MetaFields), f"Invalid by_meta: {by_meta}"
         for field, meta, field_info in self.model_fields_from_meta(by_meta=by_meta):
             value = data.pop(field)
             if field_info.exclude:

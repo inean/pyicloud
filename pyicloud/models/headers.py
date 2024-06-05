@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Callable, ClassVar, Literal, Self, cast
+from typing import Any, Callable, ClassVar, Self, cast
 
 import httpx
 from pydantic import ConfigDict, PrivateAttr, ValidationInfo, model_validator
 
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import LeafModel
+from pyicloud.models.types import LeafModel, MetaFields
 
 
 class HeadersModel(LeafModel, ABC):
@@ -15,7 +15,7 @@ class HeadersModel(LeafModel, ABC):
 
     model_config = ConfigDict(extra="allow")
 
-    _by_meta: ClassVar[Literal["config", "header", "body", "cookie"]] = PrivateAttr(default="header")
+    _by_meta: ClassVar[MetaFields] = PrivateAttr(default="header")
 
     @staticmethod
     def _get_value_from_header(field: str, header: Any) -> Any:

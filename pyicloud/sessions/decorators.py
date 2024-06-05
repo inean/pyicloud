@@ -63,7 +63,7 @@ class SerializationInfo(BaseSerialize):
 
 @dataclass
 class Serialize(BaseSerialize):
-    read: bool = True
+    read: bool = False
     write: bool = True
     options: SerializationInfo = field(default_factory=SerializationInfo)
 
