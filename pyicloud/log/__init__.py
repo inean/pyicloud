@@ -56,7 +56,7 @@ class PyiCloudPasswordFilter(logging.Filter):
     def on_changed_password(cls, value: str | Secret | None, context: object):
         """Update the password for the active filters."""
 
-        # Parse value, it may be a string or a Secret[str]
+        # Parse value, it may be a string or a Secret
         password = value
         if isinstance(value, Secret):
             password = value.get_secret_value()

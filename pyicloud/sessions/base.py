@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field, ValidationInfo, model_validator
 
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
-from pyicloud.log import PyiCloudPasswordFilter, logger_get
+from pyicloud.log import LOGGER, PyiCloudPasswordFilter, logger_get
 from pyicloud.models.body import BodyModel
 from pyicloud.models.cookies import Cookies, CookiesModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
@@ -129,8 +129,10 @@ class BaseResponse(BaseModel, Generic[H, C, B]):
         # Parse Cookies
         data.setdefault("cookies", cls._config["cookies"].model_validate({}, context={"cookies": response.cookies}))  # type: ignore
         # Parse Body
-        if response.headers["content-type"].startswith("application/json") and len(response.content) > 0:
-            if cls.is_error(response.status_code):
+        if len(response.content) > 0:
+            if not cast(str, response.headers.get("content-type", "")).lower().startswith("application/json"):
+                LOGGER.warning("Response content is not JSON: %s", response.content)
+            elif cls.is_error(response.status_code):
                 error = ServiceErrorsModel.model_validate_json(response.content)
                 data.setdefault("errors", error.service_errors)
             elif cls._config.get("body") is not None:

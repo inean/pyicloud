@@ -8,7 +8,7 @@ from pyicloud.models.body import BodyModel, EmptyModel
 
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.headers import HeadersModel
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from pyicloud.models.types import (
     AaspType,
@@ -32,7 +32,7 @@ from pyicloud.sessions.base import (
     ResponseConfig,
 )
 from pyicloud.sessions.decorators import serialize
-from pyicloud.sessions.signin import SignInRequestHeaders
+from pyicloud.models.headers import OAuthHeadersModel
 
 
 ##
@@ -44,10 +44,18 @@ class SecurityCodeRequestEndpoint(Endpoint):
     content_type = "application/json"
 
 
-class SecurityCodeRequestHeaders(SignInRequestHeaders):
+class SecurityCodeRequestHeaders(OAuthHeadersModel):
     # Header Fields
     scnt: ScntType
     session_id: SessionIdType
+
+    @model_validator(mode="before")
+    @classmethod
+    def model_validate_set_defaults(cls, data: dict[str, Any]) -> dict[str, Any]:
+        data.setdefault("accept", "application/json")
+        data.setdefault("origin", Endpoints.HOME)
+        data.setdefault("content-type", "application/json")
+        return data
 
 
 class SecurityCodeRequestCookies(CookiesModel):

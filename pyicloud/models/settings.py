@@ -20,7 +20,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    Secret,
+    SecretStr,
     ValidationInfo,
     model_validator,
 )
@@ -168,7 +168,7 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
             return cls(
                 account=cls.Account(
                     username=username,
-                    password=Secret[str](password) if password is not None else None,
+                    password=SecretStr(password) if password is not None else None,
                 )
             )
         assert password is None, "Can't set password without username."

@@ -31,7 +31,7 @@ from pydantic import (
     ConfigDict,
     GetCoreSchemaHandler,
     PlainSerializer,
-    Secret,
+    SecretStr,
     SerializationInfo,
     StringConstraints,
     WithJsonSchema,
@@ -141,8 +141,11 @@ class Meta:
                     assert target not in data, f"Duplicate key {target} from {obj} found in data"
                     # Handle Special Cases.
                     if hasattr(current, "get_secret_value"):
-                        # If the field is a Secret[str], get the secret value
+                        # If the field is a Secret, get the secret value
                         data[target] = current.get_secret_value()
+                    elif isinstance(current, MorselModel):
+                        # Let placeholder just for case that we want to store by cookie name or pattern
+                        data[target] = current
                     else:
                         data[target] = current
         return data
@@ -211,9 +214,9 @@ UsernameType: TypeAlias = Annotated[
     Meta(config="account.username", body="accountName"),
 ]
 PasswordType: TypeAlias = Annotated[
-    Secret[str],
+    SecretStr,
     PlainSerializer(
-        lambda v: cast(Secret[str], v).get_secret_value() if v else None, return_type=str | None, when_used="json"
+        lambda v: cast(SecretStr, v).get_secret_value() if v else None, return_type=str | None, when_used="json"
     ),
     Meta(config="account.password", body="password"),
 ]
@@ -241,7 +244,7 @@ ScntType: TypeAlias = Annotated[str, Meta(header=Header.SCNT, config="client_set
 
 TrustTokenType = Annotated[
     str | None,
-    BeforeValidator(lambda v: v[0] if v and isinstance(v, Sequence) else v if isinstance(v, str) else None),
+    BeforeValidator(lambda v: v if isinstance(v, str) else v[0] if isinstance(v, Sequence) else None),
     PlainSerializer(lambda v: [v] if v else [], return_type=list[str], when_used="json"),
     WithJsonSchema(
         {"anyOf": [{"items": {"type": "string"}, "type": "array"}, {"type": "string"}, {"type": "null"}]},
@@ -288,6 +291,7 @@ DslangCookieType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.DSLANG,
 SiteCookieType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.SITE, config="client_settings.site")]
 AaspType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.AASP)]
 Acn01Type: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.ACN01)]
+DesType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.DES_PATTERN)]
 XAppleDsWebSessionTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEB_SESSION_TOKEN)]
 XAppleUniqueClientIdType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.CLIENT_ID)]
 XAppleWebauthLoginType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_LOGIN)]

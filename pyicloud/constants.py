@@ -50,6 +50,9 @@ class AppleCookies:
     WEBAUTH_HSA_TRUST = "X-APPLE-WEBAUTH-HSA-TRUST"
     WEBAUTH_TOKEN     = "X-APPLE-WEBAUTH-TOKEN"
 
+    # Secret Cookies
+    DES_PATTERN       = r"DES\w+"
+
 class iCloud:
     CLIENT_TYPE = "firstPartyAuth"
     REDIRECT_URI = Endpoints.HOME

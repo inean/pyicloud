@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Callable, ClassVar, Self, cast
+from typing import Annotated, Any, Callable, ClassVar, Self, cast
 
 import httpx
 from pydantic import ConfigDict, PrivateAttr, ValidationInfo, model_validator
 
+from pyicloud.constants import AppleHeaders as Header
+from pyicloud.constants import iCloud
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import LeafModel, MetaFields
+from pyicloud.models.types import LeafModel, Meta, MetaFields
 
 
 class HeadersModel(LeafModel, ABC):
@@ -54,3 +56,14 @@ class HeadersModel(LeafModel, ABC):
             if item == header.lower():
                 return True
         return cast(HeadersModel, super()).__contains__(item)
+
+
+class OAuthHeadersModel(HeadersModel):
+    oauth_client_id: Annotated[str, Meta(header=Header.OAUTH_CLIENT_ID)] = iCloud.WIDGET_KEY
+    oauth_client_type: Annotated[str, Meta(header=Header.OAUTH_CLIENT_TYPE)] = iCloud.CLIENT_TYPE
+    oauth_redirect_uri: Annotated[str, Meta(header=Header.OAUTH_REDIRECT_URI)] = iCloud.REDIRECT_URI
+    oauth_require_grant_code: Annotated[str, Meta(header=Header.OAUTH_REQUIRE_GRANT_CODE)] = iCloud.REQUIRE_GRANT_CODE
+    oauth_response_mode: Annotated[str, Meta(header=Header.OAUTH_RESPONSE_MODE)] = iCloud.RESPONSE_MODE
+    oauth_response_type: Annotated[str, Meta(header=Header.OAUTH_RESPONSE_TYPE)] = iCloud.RESPONSE_TYPE
+    oauth_state: Annotated[str, Meta(header=Header.OAUTH_STATE, config="client_settings.client_id")] = cast(Any, None)
+    widget_key: Annotated[str, Meta(header=Header.WIDGET_KEY)] = iCloud.WIDGET_KEY

@@ -6,10 +6,10 @@ import httpx
 from pydantic import ConfigDict, Field, model_validator
 
 from pyicloud.constants import AppleHeaders as Header
-from pyicloud.constants import Endpoints, iCloud
+from pyicloud.constants import Endpoints
 from pyicloud.models.body import BodyModel
 from pyicloud.models.cookies import CookiesModel
-from pyicloud.models.headers import HeadersModel
+from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.models.types import (
     AaspType,
     Acn01Type,
@@ -50,16 +50,7 @@ class SignInEndpoint(Endpoint):
     remember_me: Annotated[bool, Meta(params="isRememberMeEnabled")] = True
 
 
-class SignInRequestHeaders(HeadersModel):
-    oauth_client_id: Annotated[str, Meta(header=Header.OAUTH_CLIENT_ID)] = iCloud.WIDGET_KEY
-    oauth_client_type: Annotated[str, Meta(header=Header.OAUTH_CLIENT_TYPE)] = iCloud.CLIENT_TYPE
-    oauth_redirect_uri: Annotated[str, Meta(header=Header.OAUTH_REDIRECT_URI)] = iCloud.REDIRECT_URI
-    oauth_require_grant_code: Annotated[str, Meta(header=Header.OAUTH_REQUIRE_GRANT_CODE)] = iCloud.REQUIRE_GRANT_CODE
-    oauth_response_mode: Annotated[str, Meta(header=Header.OAUTH_RESPONSE_MODE)] = iCloud.RESPONSE_MODE
-    oauth_response_type: Annotated[str, Meta(header=Header.OAUTH_RESPONSE_TYPE)] = iCloud.RESPONSE_TYPE
-    oauth_state: Annotated[str, Meta(header=Header.OAUTH_STATE, config="client_settings.client_id")] = cast(Any, None)
-    widget_key: Annotated[str, Meta(header=Header.WIDGET_KEY)] = iCloud.WIDGET_KEY
-
+class SignInRequestHeaders(OAuthHeadersModel):
     @model_validator(mode="before")
     @classmethod
     def model_validate_set_defaults(cls, data: dict[str, Any]) -> dict[str, Any]:

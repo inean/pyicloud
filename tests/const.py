@@ -16,7 +16,7 @@ VALID_COOKIE = "valid_cookie"
 OAUTH_GRANT_CODE = "oauth_grant_code"
 
 # Session related constants
-IVALID_SESSION_ID = "invalid_session_id"
+INVALID_SESSION_ID = "invalid_session_id"
 SESSION_ID = "session_id"
 SCNT = "scnt"
 
@@ -27,6 +27,7 @@ VALID_2FA_CODE = "000000"
 # Token related constants
 VALID_TOKEN = "valid_token"
 VALID_TOKENS = [VALID_TOKEN, REQUIRES_2FA_TOKEN]
+INVALID_TOKEN = "invalid_token"
 
 # Other constants
 REQUEST_ID = "00000000-0000-1000-8000-000000000000"

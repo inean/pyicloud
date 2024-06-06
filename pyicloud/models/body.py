@@ -39,7 +39,7 @@ class BodyModel(LeafModel, ABC):
         return self.model_dump(mode="json", by_alias=True, context=dict(by_meta="body"))
 
     @property
-    def content(self) -> str | None:
+    def content(self) -> None:
         return None
 
 
@@ -55,3 +55,11 @@ class EmptyModel(BodyModel):
         context: dict[str, Any] | None = None,
     ) -> Self:
         return cls()
+
+    @property
+    def json_data(self) -> None:
+        return None
+
+    @property
+    def content(self) -> bytes:
+        return b""

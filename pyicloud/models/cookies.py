@@ -22,7 +22,7 @@ from pydantic import (
     ValidationInfo,
 )
 from pyicloud.log import LOGGER
-from pyicloud.models.morsel import MorselModel, JarTypes, JarTuple
+from pyicloud.models.morsel import JarTuple, MorselModel, JarTypes
 from pyicloud.models.settings import Settings
 from pyicloud.models.types import Meta, LeafModel
 
@@ -38,8 +38,21 @@ class Cookies(RootModel):
     def __iter__(self) -> Iterator[MorselModel]:
         return iter(self.root.values())
 
-    def __getitem__(self, name: str) -> dict:
-        return self.root[name].model_dump()
+    def __getitem__(self, name: str) -> MorselModel:
+        # Suggar case. constant
+        if name in self.root:
+            return self.root[name]
+        # Try to match name as a pattern
+        for morsel in self.root.values():
+            if morsel.key == name:
+                return morsel
+            try:
+                pattern = re.compile(morsel.key)
+                if pattern.match(name):
+                    return morsel
+            except re.error:
+                continue
+        raise KeyError(name)
 
     def __setitem__(self, name: str, value: dict | MorselModel | str):
         cookie = value
@@ -155,8 +168,10 @@ class CookiesModel(LeafModel, ABC):
         if isinstance(info.context, dict):
             # If valid cookies are already set and missing from inpuyt data override them
             cookies = info.context.get("cookies", None)
+            # A string is also a valid sequence...
             if isinstance(cookies, JarTuple) or isinstance(cookies, Cookies):
                 cookies = Cookies.model_validate(cookies)
+                assert isinstance(cookies, Cookies)
             if isinstance(cookies, Cookies):
                 for cookie in cookies:
                     assert isinstance(cookie, MorselModel)

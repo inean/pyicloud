@@ -1,8 +1,8 @@
 """Login test constants."""
 
 import re
-from collections import namedtuple
 from datetime import datetime, timedelta
+from typing import cast
 
 from .const_account_family import (
     APPLE_ID_EMAIL,
@@ -13,91 +13,122 @@ from .const_account_family import (
     PRIMARY_EMAIL,
 )
 
-Cookie = namedtuple("Cookie", ["header", "value"])
 
+class Cookie:
+    def __init__(self, *, header, content, update_expires: bool = True):
+        if update_expires and "expires" in content:
+            # Update the 'expires' field with the current date
+            expires = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+            content = re.sub(r"expires=[^;]*", f"expires={expires}", content)
+        self._header: str = header
+        self._content: str = content
 
-def CookieFactory(header, value):
-    # Check if 'expires' is present in the value
-    if "expires" in value:
-        # Update the 'expires' field with the current date
-        expires = (datetime.now() + timedelta(days=365 * 3)).strftime(
-            "%a, %d-%b-%Y %H:%M:%S GMT"
-        )  # expires in 3 years from now
-        value = re.sub(r"expires=[^;]*", f"expires={expires}", value)
-    return Cookie(header=header, value=value)
+    def __getitem__(self, index):
+        match index:
+            case 0:
+                return self._header
+            case 1:
+                return self._content
+        raise IndexError("Index out of range")
+
+    def __len__(self):
+        return 2
+
+    def __iter__(self):
+        yield self._header
+        yield self._content
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._header!r}, {self._content!r})"
+
+    @property
+    def header(self) -> str:
+        return self._header
+
+    @property
+    def content(self) -> str:
+        return self._content
+
+    @property
+    def name(self) -> str:
+        return cast(str, self._content).split("=")[0]
+
+    @property
+    def value(self) -> str:
+        return cast(str, self._content).split("=")[1].split(";")[0]
 
 
 DSLANG = Cookie(
     header="Set-Cookie",
-    value="dslang=US-EN; path=/; domain=.apple.com; path_spec; secure; discard; HttpOnly; version=0",
+    content="dslang=US-EN; path=/; domain=.apple.com; path_spec; secure; discard; HttpOnly; version=0",
 )
 
 SITE = Cookie(
     header="Set-Cookie",
-    value="site=USA; path=/; domain=.apple.com; path_spec; secure; discard; HttpOnly; version=0",
+    content="site=USA; path=/; domain=.apple.com; path_spec; secure; discard; HttpOnly; version=0",
 )
 
 AASP = Cookie(
     header="Set-Cookie",
-    value="aasp=login_aasp; path=/; domain=idmsa.apple.com; path_spec; secure; discard; HttpOnly; version=0",
+    content="aasp=login_aasp; path=/; domain=idmsa.apple.com; path_spec; secure; discard; HttpOnly; version=0",
 )
 
 ACN01 = Cookie(
     header="Set-Cookie",
-    value="acn01=acn01_value; path=/; domain=.apple.com; path_spec; secure; " "HttpOnly; version=0",
+    content="acn01=acn01_value; path=/; domain=.apple.com; path_spec; secure; " "HttpOnly; version=0",
 )
 
 X_APPLE_UNIQUE_CLIENT_ID = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-UNIQUE-CLIENT-ID=clientId_value; path=/; path_spec; secure; discard; version=0",
+    content="X-APPLE-UNIQUE-CLIENT-ID=clientId_value; path=/; path_spec; secure; discard; version=0",
 )
 
 X_APPLE_WEBAUTH_LOGIN = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-LOGIN=v=1:webauth_login_value; path=/;  path_spec; secure; discard; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-LOGIN=v=1:webauth_login_value; path=/;  path_spec; secure; discard; HttpOnly; version=0",
 )
 
 X_APPLE_WEBAUTH_VALIDATE = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-VALIDATE=v=1:webauth_login_value; path=/;  path_spec; secure; discard; version=0",
+    content="X-APPLE-WEBAUTH-VALIDATE=v=1:webauth_login_value; path=/;  path_spec; secure; discard; version=0",
 )
 
 X_APPLE_WEBAUTH_HSA_LOGIN = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-HSA-LOGIN=webauth_login_value; path=/;  path_spec; secure; discard; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-HSA-LOGIN=webauth_login_value; path=/;  path_spec; secure; discard; HttpOnly; version=0",
 )
 
 X_APPLE_WEBAUTH_USER = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-USER=webauth_user_value; path=/; path_spec; secure; expires=2024-03-31; "
+    content="X-APPLE-WEBAUTH-USER=webauth_user_value; path=/; path_spec; secure; expires=2024-03-31; "
     "HttpOnly; version=0",
 )
 X_APPLE_WEBAUTH_FMIP = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-FMIP=webauth_fmip_value; path=/;  "
+    content="X-APPLE-WEBAUTH-FMIP=webauth_fmip_value; path=/;  "
     "path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
 )
 
 X_APPLE_WEBAUTH_HSA_TRUST = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-HSA-TRUST=webauth_hsa_trust_value; path=/;  "
+    content="X-APPLE-WEBAUTH-HSA-TRUST=webauth_hsa_trust_value; path=/;  "
     "path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
 )
 
 X_APPLE_WEBAUTH_TOKEN = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-WEBAUTH-TOKEN=v=webauth_token_value; path=/;  "
+    content="X-APPLE-WEBAUTH-TOKEN=v=webauth_token_value; path=/;  "
     "path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
 )
 
 X_APPLE_DS_WEB_SESSION_TOKEN = Cookie(
     header="Set-Cookie",
-    value="X-APPLE-DS-WEB-SESSION-TOKEN=session_token; path=/;  path_spec; "
+    content="X-APPLE-DS-WEB-SESSION-TOKEN=session_token; path=/;  path_spec; "
     "secure; expires=2029-03-31; HttpOnly; version=0",
 )
-DES_COOKIE = CookieFactory(
+DES_COOKIE = Cookie(
     header="Set-Cookie",
-    value="DES=1; path=/; domain=.idmsa.apple.com; path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
+    content="DESXXXXXX=1; path=/; domain=.idmsa.apple.com; path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
 )
 
 BASE_COOKIES: list[Cookie] = [DSLANG, SITE]
@@ -112,8 +143,19 @@ SIGNIN_RESPONSE_KO_COOKIES = [
     *BASE_COOKIES,
     AASP,
 ]
-TRUST_RESPONSE_OK_COOKIES = [DES_COOKIE, *BASE_COOKIES]
+
+TRUST_REQUEST_COOKIES = [
+    *BASE_COOKIES,
+    AASP,
+    ACN01,
+]
+TRUST_RESPONSE_OK_COOKIES = [
+    DES_COOKIE,
+    *BASE_COOKIES,
+]
 TRUST_RESPONSE_KO_COOKIES = [*BASE_COOKIES]
+
+
 LOGIN_COOKIES: list[Cookie] = [AASP]
 
 LOGGED_COOKIES: list[Cookie] = [

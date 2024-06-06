@@ -18,7 +18,6 @@ from pydantic import (
 
 JarTypes: TypeAlias = dict[str, Morsel] | Cookies | CookieJar | Sequence
 JarTuple = (dict, Cookies, CookieJar, Sequence)
-
 # Extend Morsel reserved keywords to support missing attributes:
 cast(dict, Morsel._reserved).update(  # type: ignore
     path_spec="path_spec",

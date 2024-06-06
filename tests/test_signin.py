@@ -78,7 +78,7 @@ def signin_handler(request: httpx.Request) -> httpx.Response:
 
     # If status_code is 500, test will fail
     assert status_code != 500
-    headers = [(key, value) for key, value in headers.items()] + cookies
+    headers = [(key, value) for key, value in headers.items()] + cast(list[tuple[str, str]], cookies)
     return httpx.Response(headers=headers, status_code=status_code, json=content)
 
 
@@ -138,7 +138,7 @@ def signin_bad_credentials_settings():
 ##
 @pytest.fixture
 def signin_cookies():
-    return Cookies.model_validate([cookie.value for cookie in SIGNIN_REQUEST_COOKIES])
+    return Cookies.model_validate([cookie._content for cookie in SIGNIN_REQUEST_COOKIES])
 
 
 ##
