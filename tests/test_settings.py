@@ -21,8 +21,9 @@ from psygnal import SignalGroup
 from pydantic import Secret, SecretStr, TypeAdapter, ValidationError
 
 from pyicloud.constants import ISO_3166_1_CODES, ISO_3166_1_CODES_3
+from pyicloud.models import LeafModel
+from pyicloud.models.fields import CountryCodeType, TimeZone
 from pyicloud.models.settings import Account, ClientSettings, Settings
-from pyicloud.models.types import CountryCodeType, LeafModel, TimeZone
 
 # Define a strategy for generating country values
 country_code_strategy = from_regex(r"[A-Z]{3}", fullmatch=True)

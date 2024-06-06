@@ -8,8 +8,8 @@ from pydantic import ConfigDict, PrivateAttr, ValidationInfo, model_validator
 
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import iCloud
+from pyicloud.models import LeafModel, Meta, MetaFields
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import LeafModel, Meta, MetaFields
 
 
 class HeadersModel(LeafModel, ABC):

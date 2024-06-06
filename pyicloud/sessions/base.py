@@ -26,13 +26,12 @@ from pydantic import BaseModel, Field, ValidationInfo, model_validator
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.log import LOGGER, PyiCloudPasswordFilter, logger_get
-from pyicloud.models.body import BodyModel
-from pyicloud.models.cookies import Cookies, CookiesModel
+from pyicloud.models import LeafModel, MetaFields, _init_context_var
+from pyicloud.models.bodies import BodyModel
+from pyicloud.models.cookies import Cookies, CookiesModel, MorselModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
 from pyicloud.models.headers import HeadersModel
-from pyicloud.models.morsel import MorselModel
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import LeafModel, MetaFields, _init_context_var
 
 
 class Endpoint(LeafModel, ABC):

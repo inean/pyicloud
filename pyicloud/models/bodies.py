@@ -7,8 +7,8 @@ from pydantic import (
     model_validator,
 )
 
+from pyicloud.models import LeafModel, MetaFields
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import LeafModel, MetaFields
 
 
 class BodyModel(LeafModel, ABC):

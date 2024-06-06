@@ -15,9 +15,9 @@ from typing import (
     overload,
 )
 
-from pyicloud.models.types import _init_context_var
 from pyicloud.paths import CookiesJar, SettingsFile
 from pyicloud.sessions.base import BaseTransport
+from pyicloud.utils.context import _init_context_var
 
 T = TypeVar("T", bound=BaseTransport)
 P = ParamSpec("P")

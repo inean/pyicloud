@@ -4,13 +4,13 @@ from collections.abc import Sequence
 from typing import Type, Annotated, Self, override, Any
 
 from pyicloud.constants import Endpoints
-from pyicloud.models.body import BodyModel, EmptyModel
+from pyicloud.models.bodies import BodyModel, EmptyModel
 
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.headers import HeadersModel
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from pyicloud.models.types import (
+from pyicloud.models.fields import (
     AaspType,
     Acn01Type,
     AuthAttributesType,

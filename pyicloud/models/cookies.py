@@ -1,30 +1,35 @@
 from __future__ import annotations  # noqa: I001
 
+import re
+
 from abc import ABC
 from collections.abc import Iterator
-import re
+
 from typing import (
     Annotated,
     Any,
-    Protocol,
-    Sequence,
     Callable,
+    Protocol,
     Self,
+    Sequence,
     get_args,
+    get_origin,
 )
-from typing_extensions import get_origin
+
 from pydantic import (
     BaseModel,
     RootModel,
     ValidationError,
-    model_validator,
-    model_serializer,
     ValidationInfo,
+    model_serializer,
+    model_validator,
 )
+
+
 from pyicloud.log import LOGGER
-from pyicloud.models.morsel import JarTuple, MorselModel, JarTypes
+from pyicloud.models import LeafModel, Meta
+from pyicloud.models.fields import JarTuple, JarTypes, MorselModel
 from pyicloud.models.settings import Settings
-from pyicloud.models.types import Meta, LeafModel
 
 
 class ResponseModel(Protocol):

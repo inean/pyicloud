@@ -3,14 +3,13 @@ from __future__ import annotations
 from typing import Any, Sequence, Type, override
 
 import httpx
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
-from pyicloud.models.body import EmptyModel
+from pyicloud.models.bodies import EmptyModel
 from pyicloud.models.cookies import CookiesModel
-from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
-from pyicloud.models.types import (
+from pyicloud.models.fields import (
     AaspType,
     Acn01Type,
     AuthAttributesType,
@@ -25,6 +24,7 @@ from pyicloud.models.types import (
     SiteCookieType,
     TrustTokenType,
 )
+from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions.base import (
     BaseRequest,
     BaseResponse,

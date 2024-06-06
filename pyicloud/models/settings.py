@@ -28,14 +28,11 @@ from pydantic_settings import BaseSettings as PydanticSettings
 from pydantic_settings import SettingsConfigDict
 
 from pyicloud.constants import ISO_3166_1_CODES, ISO_3166_1_CODES_3
-from pyicloud.models.types import (
+from pyicloud.models import LeafModel, Meta, MetaFields, NestedModel
+from pyicloud.models.fields import (
     ClientIdType,
     CountryCodeType,
     DslangType,
-    LeafModel,
-    Meta,
-    MetaFields,
-    NestedModel,
     PasswordType,
     ScntType,
     SessionIdType,
