@@ -26,13 +26,16 @@ from tests.const import (
     VALID_TOKEN,
     VALID_USERS,
 )
+from tests.const_account_family import (
+    APPLE_ID_COUNTRY_CODE,
+)
 
 from .const_auth import (
-    AUTH_KO_BAD_PASSWORD,
-    AUTH_OK,
-    LOGGED_COOKIES,
-    LOGIN_WORKING,
+    ACCOUNT_LOGIN_RESPONSE_BODY_OK,
     SIGNIN_REQUEST_COOKIES,
+    SIGNIN_RESPONSE_2FA_COOKIES,
+    SIGNIN_RESPONSE_BODY_2FA,
+    SIGNIN_RESPONSE_BODY_KO_BAD_PASSWORD,
     SIGNIN_RESPONSE_KO_COOKIES,
     SIGNIN_RESPONSE_OK_COOKIES,
 )
@@ -52,13 +55,13 @@ def signin_handler(request: httpx.Request) -> httpx.Response:
         headers.update(
             {
                 Header.SESSION_TOKEN: VALID_TOKEN,
-                Header.COUNTRY_CODE: "FRA",
+                Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
                 Header.SESSION_ID: SESSION_ID,
                 Header.AUTH_ATTRIBUTES: AUTH_ATTRIBUTES,
             }
         )
-        cookies = LOGGED_COOKIES
-        content = LOGIN_WORKING
+        cookies = SIGNIN_RESPONSE_OK_COOKIES
+        content = ACCOUNT_LOGIN_RESPONSE_BODY_OK
         # 2FA path
         if data.get("accountName") == REQUIRES_2FA_USER:
             status_code = 409
@@ -68,18 +71,18 @@ def signin_handler(request: httpx.Request) -> httpx.Response:
                     Header.TRUST_TOKEN_ELIGIBLE: "true",
                 }
             )
-            cookies = SIGNIN_RESPONSE_OK_COOKIES
-            content = AUTH_OK
+            cookies = SIGNIN_RESPONSE_2FA_COOKIES
+            content = SIGNIN_RESPONSE_BODY_2FA
     # Error Path
     else:
         status_code = 401
         cookies = SIGNIN_RESPONSE_KO_COOKIES
-        content = AUTH_KO_BAD_PASSWORD
+        content = SIGNIN_RESPONSE_BODY_KO_BAD_PASSWORD
 
     # If status_code is 500, test will fail
     assert status_code != 500
-    headers = [(key, value) for key, value in headers.items()] + cast(list[tuple[str, str]], cookies)
-    return httpx.Response(headers=headers, status_code=status_code, json=content)
+    headers = list(headers.items()) + list(map(lambda o: o.items(), cookies))
+    return httpx.Response(headers=headers, status_code=status_code, json=content if content else None)
 
 
 @pytest.fixture
@@ -332,7 +335,7 @@ async def test_signin_response_status_code(signin_user, code, response_factory):
             lf("user"),  # type: ignore
             {
                 Header.AUTH_ATTRIBUTES: AUTH_ATTRIBUTES,
-                Header.COUNTRY_CODE: "FRA",
+                Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
                 Header.REQUEST_ID: REQUEST_ID,
                 Header.SCNT: SCNT,
                 Header.SESSION_ID: SESSION_ID,
@@ -401,7 +404,7 @@ async def test_signin_response_user(user: SignIn):
         _ = await session.send(user.request.model_dump_httpx_request())
 
     assert bool(user.response) is True
-    assert user.response.headers.country_code == "FRA"
+    assert user.response.headers.country_code == APPLE_ID_COUNTRY_CODE
     assert user.response.headers.session_token == VALID_TOKEN
 
     # Settings is updated with the new session token when the context manager is exited
@@ -413,7 +416,7 @@ async def test_signin_response_user_secure(user_secure: SignIn):
         _ = await session.send(user_secure.request.model_dump_httpx_request())
 
     assert bool(user_secure.response) is True
-    assert user_secure.response.headers.country_code == "FRA"
+    assert user_secure.response.headers.country_code == APPLE_ID_COUNTRY_CODE
     assert user_secure.response.headers.session_token == REQUIRES_2FA_TOKEN
 
     # Settings is updated with the new session token when the context manager is exited

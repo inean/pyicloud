@@ -1,5 +1,5 @@
 import json
-from typing import cast
+from typing import TYPE_CHECKING, cast, overload
 from unittest.mock import patch
 
 import httpx
@@ -10,6 +10,8 @@ from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.sessions.securitycode import SecurityCode, SecurityCodeRequest, SecurityCodeResponse
+from pyicloud.utils import mapping
+from tests import process_cookies
 from tests.const import (
     REQUEST_ID,
     REQUIRES_2FA_USER,
@@ -18,39 +20,70 @@ from tests.const import (
     VALID_2FA_CODE,
     VALID_TOKEN,
 )
+from tests.const_account_family import APPLE_ID_COUNTRY_CODE
 
 from .const_auth import (
-    AUTH_KO_BAD_SECURITY_CODE,
-    BASE_COOKIES,
-    SECURITY_CODE_COOKIES,
+    SECURITY_CODE_REQUEST_COOKIES,
+    SECURITY_CODE_REQUEST_HEADERS,
+    SECURITY_CODE_RESPONSE_BODY_KO_BAD_SECURITY_CODE,
+    SECURITY_CODE_RESPONSE_COOKIES_KO,
+    SECURITY_CODE_RESPONSE_COOKIES_OK,
+    SECURITY_CODE_RESPONSE_HEADERS_KO,
+    SECURITY_CODE_RESPONSE_HEADERS_OK,
 )
 
+if TYPE_CHECKING:
 
-def security_code_handler(request: httpx.Request) -> httpx.Response:
+    class Request(httpx.Request):
+        cookies: dict[str, str]
+else:
+    Request = httpx.Request
+
+
+@overload
+def security_code_handler(request: httpx.Request) -> httpx.Response: ...
+
+
+@overload
+def security_code_handler(request: Request) -> httpx.Response: ...
+
+
+@process_cookies
+def security_code_handler(request: Request | httpx.Request) -> httpx.Response:
     assert request.method == "POST"
     assert str(request.url).startswith(Endpoints.SECURITY_CODE)
 
-    headers = {Header.REQUEST_ID: REQUEST_ID, Header.SCNT: SCNT}
     status_code = 500  # Internal error
+    while True:
+        # Malformed request
+        if not mapping.compare(dict(map(tuple, SECURITY_CODE_REQUEST_HEADERS)), dict(request.headers)):
+            content = b""
+            break
+        if not mapping.compare(dict(map(tuple, SECURITY_CODE_REQUEST_COOKIES)), cast(Request, request).cookies):
+            content = b""
+            break
 
-    # Success path
-    data = json.loads(request.content)
-    if data.get("securityCode", {}).get("code", None) == VALID_2FA_CODE:
+        # Success path
         status_code = 204
-        headers.update({Header.SESSION_TOKEN: VALID_TOKEN, Header.COUNTRY_CODE: "FRA"})
-        cookies = BASE_COOKIES
-        content = ""
-    # Error Path
-    else:
-        headers.update({Header.SCNT: SCNT})
+        headers = SECURITY_CODE_RESPONSE_HEADERS_OK
+        cookies = SECURITY_CODE_RESPONSE_COOKIES_OK
+        data = json.loads(request.content)
+
+        if data.get("securityCode", {}).get("code", None) == VALID_2FA_CODE:
+            content = b""
+            break
+
+        # Error Path
         status_code = 400
-        cookies = BASE_COOKIES
-        content = AUTH_KO_BAD_SECURITY_CODE
+        headers = SECURITY_CODE_RESPONSE_HEADERS_KO
+        cookies = SECURITY_CODE_RESPONSE_COOKIES_KO
+        content = SECURITY_CODE_RESPONSE_BODY_KO_BAD_SECURITY_CODE
+        break
 
     # If status_code is 500, test will fail
     assert status_code != 500
-    headers = [(key, value) for key, value in headers.items()] + cast(list[tuple[str, str]], cookies)
-    return httpx.Response(headers=headers, status_code=status_code, json=content)
+    headers = list(headers.items()) + list(map(lambda o: o.items(), cookies))
+    return httpx.Response(headers=headers, status_code=status_code, json=content if content else None)
 
 
 @pytest.fixture
@@ -74,7 +107,7 @@ def security_code_settings():
 
 @pytest.fixture
 def security_code_cookies():
-    return Cookies.model_validate([cookie._content for cookie in SECURITY_CODE_COOKIES])
+    return Cookies.model_validate([cookie._content for cookie in SECURITY_CODE_REQUEST_COOKIES])
 
 
 @pytest.fixture

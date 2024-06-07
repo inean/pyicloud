@@ -1,4 +1,4 @@
-from typing import cast, get_args
+from typing import TYPE_CHECKING, cast, get_args, overload
 from unittest.mock import Mock, patch
 
 import httpx
@@ -11,74 +11,84 @@ from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.sessions.base import BodyModel, CookiesModel, HeadersModel
 from pyicloud.sessions.trust import Trust, TrustRequest, TrustResponse
+from pyicloud.utils import mapping
+from tests import process_cookies
 from tests.const import (
     AUTH_ATTRIBUTES,
     AUTHENTICATED_USER,
     INVALID_SESSION_ID,
     INVALID_TOKEN,
-    OAUTH_GRANT_CODE,
     REQUEST_ID,
     SCNT,
     SESSION_ID,
     VALID_TOKEN,
 )
+from tests.const_account_family import APPLE_ID_COUNTRY_CODE
 
 from .const_auth import (
     DES_COOKIE,
     TRUST_REQUEST_COOKIES,
-    TRUST_RESPONSE_INVALID_SESSION,
+    TRUST_REQUEST_HEADERS,
+    TRUST_RESPONSE_BODY_KO_INVALID_SESSION,
+    TRUST_RESPONSE_HEADERS_KO,
+    TRUST_RESPONSE_HEADERS_OK,
     TRUST_RESPONSE_KO_COOKIES,
     TRUST_RESPONSE_OK_COOKIES,
 )
 
+if TYPE_CHECKING:
 
+    class Request(httpx.Request):
+        cookies: dict[str, str]
+else:
+    Request = httpx.Request
+
+
+@overload
+def trust_handler(request: httpx.Request) -> httpx.Response: ...
+
+
+@overload
+def trust_handler(request: Request) -> httpx.Response: ...
+
+
+@process_cookies
 def trust_handler(request: httpx.Request) -> httpx.Response:
     assert request.method == "GET"
     assert request.content == b""
     assert str(request.url).startswith(Endpoints.TRUST)
 
-    cookies = {}
-    if "cookie" in request.headers:
-        for pair in request.headers["cookie"].split("; "):
-            cookies.update({pair.split("=")[0]: pair.split("=")[1]})
-    request.cookies = cookies  # type: ignore
-
     status_code = 500  # Internal error
-    headers = {Header.REQUEST_ID: REQUEST_ID, Header.SCNT: SCNT}
 
-    # Success path
-    if {
-        Header.SESSION_ID: SESSION_ID,
-        Header.SCNT: SCNT,
-    }.items() <= dict(request.headers).items() and {
-        Jar.DSLANG: "US-EN",
-        Jar.SITE: "USA",
-        Jar.AASP: "login_aasp",
-        Jar.ACN01: "acn01_value",
-    }.items() <= cast(dict, request.cookies).items():  # type: ignore
-        status_code = 204
-        content = b""
-        headers.update(
-            {
-                Header.SESSION_ID: SESSION_ID,
-                Header.TRUST_TOKEN: VALID_TOKEN,
-                Header.SESSION_TOKEN: VALID_TOKEN,
-                Header.AUTH_ATTRIBUTES: AUTH_ATTRIBUTES,
-                Header.OAUTH_GRANT_CODE: OAUTH_GRANT_CODE,
-                Header.SESSION_TOKEN: VALID_TOKEN,
-                Header.COUNTRY_CODE: "FRA",
-            }
-        )
-        cookies = TRUST_RESPONSE_OK_COOKIES
-    # Error Path
-    else:
+    while True:
+        # ErrorPath
+        if not mapping.compare(TRUST_REQUEST_HEADERS, dict(request.headers), exclude_values=True):
+            break
+        if not mapping.compare(
+            dict(map(tuple, TRUST_REQUEST_COOKIES)),
+            cast(Request, request).cookies,
+            ignore={DES_COOKIE.name},
+        ):
+            break
+
+        # Success path
+        if request.headers[Header.SESSION_ID] == SESSION_ID:
+            status_code = 204
+            headers = TRUST_RESPONSE_HEADERS_OK
+            cookies = TRUST_RESPONSE_OK_COOKIES
+            content = b""
+            break
+
+        # Error Path
         status_code = 400
+        headers = TRUST_RESPONSE_HEADERS_KO
         cookies = TRUST_RESPONSE_KO_COOKIES
-        content = TRUST_RESPONSE_INVALID_SESSION
+        content = TRUST_RESPONSE_BODY_KO_INVALID_SESSION
+        break
 
     # If status_code is 500, test will fail
     assert status_code != 500
-    headers = [(key, value) for key, value in headers.items()] + cast(list[tuple[str, str]], cookies)
+    headers = list(headers.items()) + list(map(lambda o: o.items(), cookies))
     return httpx.Response(headers=headers, status_code=status_code, json=content if content else None)
 
 
@@ -330,7 +340,7 @@ async def test_trust_response_status_code(trust_user, code, response_factory):
             pytest.lazy_fixtures("user"),  # type: ignore
             {
                 Header.AUTH_ATTRIBUTES: AUTH_ATTRIBUTES,
-                Header.COUNTRY_CODE: "FRA",
+                Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
                 Header.REQUEST_ID: REQUEST_ID,
                 Header.SCNT: SCNT,
                 Header.SESSION_ID: SESSION_ID,

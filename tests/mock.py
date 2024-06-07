@@ -29,9 +29,9 @@ from .const import (
 from .const_account import ACCOUNT_DEVICES_WORKING, ACCOUNT_STORAGE_WORKING
 from .const_account_family import ACCOUNT_FAMILY_WORKING
 from .const_auth import (
-    AUTH_OK,
-    LOGIN_2FA,
-    LOGIN_WORKING,
+    SIGNIN_RESPONSE_BODY_2FA,
+    ACCOUNT_LOGIN_RESPONSE_BODY_2FA,
+    ACCOUNT_LOGIN_RESPONSE_BODY_OK,
     TRUSTED_DEVICE_1,
     TRUSTED_DEVICES,
     VERIFICATION_CODE_KO,
@@ -90,8 +90,8 @@ class PyiCloudSessionMock(PyiCloudSession):
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._error_callback(None, "Unknown reason")
                 if data.get("dsWebAuthToken") == REQUIRES_2FA_TOKEN:
-                    return ResponseMock(LOGIN_2FA)
-                return ResponseMock(LOGIN_WORKING)
+                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_2FA)
+                return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
 
             if "listDevices" in url and method == "GET":
                 return ResponseMock(TRUSTED_DEVICES)
@@ -110,7 +110,7 @@ class PyiCloudSessionMock(PyiCloudSession):
 
             if "validate" in url and method == "POST":
                 if headers.get("X-APPLE-WEBAUTH-TOKEN") == VALID_COOKIE:
-                    return ResponseMock(LOGIN_WORKING)
+                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
                 self._error_callback(None, "Session expired")
 
         if Endpoints.AUTH in url:
@@ -119,10 +119,10 @@ class PyiCloudSessionMock(PyiCloudSession):
                     self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
                     self._settings.token.session = REQUIRES_2FA_TOKEN
-                    return ResponseMock(AUTH_OK, 409)
+                    return ResponseMock(SIGNIN_RESPONSE_BODY_2FA, 409)
 
                 self._settings.token.session = VALID_TOKEN
-                return ResponseMock(AUTH_OK)
+                return ResponseMock(SIGNIN_RESPONSE_BODY_2FA)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
@@ -194,8 +194,8 @@ class PyiCloudTransportMock(httpx.MockTransport):
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._error_callback(None, "Unknown reason")
                 if data.get("dsWebAuthToken") == REQUIRES_2FA_TOKEN:
-                    return ResponseMock(LOGIN_2FA)
-                return ResponseMock(LOGIN_WORKING)
+                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_2FA)
+                return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
 
             if "listDevices" in url and method == "GET":
                 return ResponseMock(TRUSTED_DEVICES)
@@ -214,7 +214,7 @@ class PyiCloudTransportMock(httpx.MockTransport):
 
             if "validate" in url and method == "POST":
                 if headers.get("X-APPLE-WEBAUTH-TOKEN") == VALID_COOKIE:
-                    return ResponseMock(LOGIN_WORKING)
+                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
                 self._error_callback(None, "Session expired")
 
         if Endpoints.AUTH in url:
@@ -223,10 +223,10 @@ class PyiCloudTransportMock(httpx.MockTransport):
                     self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
                     self.token = REQUIRES_2FA_TOKEN
-                    return ResponseMock(AUTH_OK)
+                    return ResponseMock(SIGNIN_RESPONSE_BODY_2FA)
 
                 self.token = VALID_TOKEN
-                return ResponseMock(AUTH_OK)
+                return ResponseMock(SIGNIN_RESPONSE_BODY_2FA)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
@@ -269,7 +269,7 @@ class PyiCloudTransportMock(httpx.MockTransport):
         if "fmi" in url and method == "POST":
             return ResponseMock(FMI_FAMILY_WORKING)
 
-        return None
+        raise AssertionError(f"Unhandled request: {url}")
 
 
 class PyiCloudMock(PyiCloud):

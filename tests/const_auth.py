@@ -1,20 +1,26 @@
 """Login test constants."""
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import cast
 
+from pyicloud.constants import AppleHeaders as Header
+from tests.const import AUTH_ATTRIBUTES, OAUTH_GRANT_CODE, REQUEST_ID, SCNT, SESSION_ID, VALID_TOKEN
+
 from .const_account_family import (
+    APPLE_ID_COUNTRY_CODE,
     APPLE_ID_EMAIL,
     FIRST_NAME,
     FULL_NAME,
     ICLOUD_ID_EMAIL,
     LAST_NAME,
+    PERSON_ID,
     PRIMARY_EMAIL,
 )
 
 
-class Cookie:
+class Cookie(Sequence):
     def __init__(self, *, header, content, update_expires: bool = True):
         if update_expires and "expires" in content:
             # Update the 'expires' field with the current date
@@ -35,11 +41,14 @@ class Cookie:
         return 2
 
     def __iter__(self):
-        yield self._header
-        yield self._content
+        yield self.name
+        yield self.value
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._header!r}, {self._content!r})"
+
+    def items(self) -> tuple[str, str]:
+        return self._header, self._content
 
     @property
     def header(self) -> str:
@@ -131,77 +140,138 @@ DES_COOKIE = Cookie(
     content="DESXXXXXX=1; path=/; domain=.idmsa.apple.com; path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
 )
 
-BASE_COOKIES: list[Cookie] = [DSLANG, SITE]
+##
+# SignIn
+##
 
-SIGNIN_REQUEST_COOKIES = BASE_COOKIES
-SIGNIN_RESPONSE_OK_COOKIES = [
-    *BASE_COOKIES,
-    AASP,
-    ACN01,
-]
-SIGNIN_RESPONSE_KO_COOKIES = [
-    *BASE_COOKIES,
-    AASP,
-]
+# Headers
+SIGNIN_REQUEST_HEADERS = []
+SIGNIN_RESPONSE_HEADERS_KO = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+}
 
-TRUST_REQUEST_COOKIES = [
-    *BASE_COOKIES,
-    AASP,
-    ACN01,
-]
-TRUST_RESPONSE_OK_COOKIES = [
-    DES_COOKIE,
-    *BASE_COOKIES,
-]
-TRUST_RESPONSE_KO_COOKIES = [*BASE_COOKIES]
-
-
-LOGIN_COOKIES: list[Cookie] = [AASP]
-
-LOGGED_COOKIES: list[Cookie] = [
-    ACN01,
-    X_APPLE_DS_WEB_SESSION_TOKEN,
-    X_APPLE_UNIQUE_CLIENT_ID,
-    X_APPLE_WEBAUTH_LOGIN,
-    X_APPLE_WEBAUTH_USER,
-    X_APPLE_WEBAUTH_VALIDATE,
-    *BASE_COOKIES,
-    *LOGIN_COOKIES,
-]
-SECURITY_CODE_COOKIES: list[Cookie] = [
-    X_APPLE_WEBAUTH_HSA_LOGIN,
-    *LOGGED_COOKIES,
-]
-VERIFIED_COOKIES: list[Cookie] = [
-    X_APPLE_WEBAUTH_HSA_TRUST,
-    X_APPLE_WEBAUTH_FMIP,
-    X_APPLE_WEBAUTH_TOKEN,
-    *BASE_COOKIES,
-    *LOGGED_COOKIES,
-]
-
-
-LOGIN_RESPONSE_COOKIES = [
+# Cookies
+SIGNIN_REQUEST_COOKIES = [
     DSLANG,
     SITE,
-    X_APPLE_UNIQUE_CLIENT_ID,
+]
+SIGNIN_RESPONSE_OK_COOKIES = [
     AASP,
     ACN01,
-    X_APPLE_WEBAUTH_LOGIN,
-    X_APPLE_WEBAUTH_VALIDATE,
-    X_APPLE_WEBAUTH_HSA_LOGIN,
-    X_APPLE_WEBAUTH_USER,
-    X_APPLE_DS_WEB_SESSION_TOKEN,
+    DSLANG,
+    SITE,
+]
+SIGNIN_RESPONSE_2FA_COOKIES = SIGNIN_RESPONSE_OK_COOKIES
+SIGNIN_RESPONSE_KO_COOKIES = [
+    AASP,
+    DSLANG,
+    SITE,
 ]
 
-PERSON_ID = (FIRST_NAME + LAST_NAME).lower()
-NOTIFICATION_ID = "12345678-1234-1234-1234-123456789012" + PERSON_ID
-A_DS_ID = "123456-12-12345678-1234-1234-1234-123456789012" + PERSON_ID
-WIDGET_KEY = "widget_key" + PERSON_ID
+##
+# SecurityCode
+##
+
+# Headers
+SECURITY_CODE_REQUEST_HEADERS = []
+SECURITY_CODE_RESPONSE_HEADERS_OK = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+    Header.SESSION_TOKEN: VALID_TOKEN,
+    Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
+}
+SECURITY_CODE_RESPONSE_HEADERS_KO = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+}
+
+# Cookies
+SECURITY_CODE_REQUEST_COOKIES = SIGNIN_RESPONSE_OK_COOKIES
+SECURITY_CODE_RESPONSE_COOKIES_OK = [
+    AASP,
+    ACN01,
+    DSLANG,
+    SITE,
+]
+SECURITY_CODE_RESPONSE_COOKIES_KO = [
+    AASP,
+    ACN01,
+    DSLANG,
+    SITE,
+]
+SECURITY_CODE_RESPONSE_KO_COOKIES = SECURITY_CODE_RESPONSE_COOKIES_OK
+
+##
+# Trust
+##
+
+# Headers
+TRUST_REQUEST_HEADERS = {
+    Header.SESSION_ID: SESSION_ID,
+    Header.SCNT: SCNT,
+}
+TRUST_RESPONSE_HEADERS_OK = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+    Header.SESSION_TOKEN: VALID_TOKEN,
+    Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
+    Header.SESSION_ID: SESSION_ID,
+    Header.TRUST_TOKEN: VALID_TOKEN,
+    Header.SESSION_TOKEN: VALID_TOKEN,
+    Header.AUTH_ATTRIBUTES: AUTH_ATTRIBUTES,
+    Header.OAUTH_GRANT_CODE: OAUTH_GRANT_CODE,
+    Header.SESSION_TOKEN: VALID_TOKEN,
+    Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
+}
+TRUST_RESPONSE_HEADERS_KO = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+}
+
+# Cookies
+TRUST_REQUEST_COOKIES = SECURITY_CODE_RESPONSE_COOKIES_OK
+
+TRUST_RESPONSE_OK_COOKIES = [
+    DES_COOKIE,
+    DSLANG,
+    SITE,
+]
+TRUST_RESPONSE_KO_COOKIES = [
+    DSLANG,
+    SITE,
+]
+##
+# AccountLogin
+##
+
+# Headers
+ACCOUNT_LOGIN_REQUEST_HEADERS = []
+ACCOUNT_LOGIN_RESPONSE_HEADERS_KO = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+}
+ACCOUNT_LOGIN_RESPONSE_HEADERS_OK = {
+    Header.REQUEST_ID: REQUEST_ID,
+    Header.SCNT: SCNT,
+}
+# Cookies
+ACCOUNT_LOGIN_REQUEST_COOKIES = [
+    DSLANG,
+    SITE,
+]
+ACCOUNT_LOGIN_RESPONSE_COOKIES_OK = [
+    DSLANG,
+    SITE,
+]
+ACCOUNT_LOGIN_RESPONSE_COOKIES_KO = [
+    DSLANG,
+    SITE,
+]
 
 # Data
-AUTH_OK = {"authType": "hsa2"}
-AUTH_KO_BAD_PASSWORD = {
+SIGNIN_RESPONSE_BODY_2FA = {"authType": "hsa2"}
+SIGNIN_RESPONSE_BODY_KO_BAD_PASSWORD = {
     "serviceErrors": [
         {
             "code": "-20101",
@@ -210,7 +280,8 @@ AUTH_KO_BAD_PASSWORD = {
         }
     ]
 }
-AUTH_KO_BAD_SECURITY_CODE = {
+
+SECURITY_CODE_RESPONSE_BODY_KO_BAD_SECURITY_CODE = {
     "service_errors": [
         {
             "code": "-21669",
@@ -221,7 +292,8 @@ AUTH_KO_BAD_SECURITY_CODE = {
     ],
     "hasError": True,
 }
-TRUST_RESPONSE_INVALID_SESSION = {
+
+TRUST_RESPONSE_BODY_KO_INVALID_SESSION = {
     "service_errors": [
         {
             "code": "-20528",
@@ -232,7 +304,7 @@ TRUST_RESPONSE_INVALID_SESSION = {
     "hasError": True,
 }
 
-LOGIN_WORKING = {
+ACCOUNT_LOGIN_RESPONSE_BODY_OK = {
     "dsInfo": {
         "lastName": LAST_NAME,
         "iCDPEnabled": False,
@@ -247,10 +319,10 @@ LOGIN_WORKING = {
         "appleIdAliases": [APPLE_ID_EMAIL, ICLOUD_ID_EMAIL],
         "hsaVersion": 2,
         "isPaidDeveloper": False,
-        "countryCode": "FRA",
-        "notificationId": NOTIFICATION_ID,
+        "countryCode": APPLE_ID_COUNTRY_CODE,
+        "notificationId": "12345678-1234-1234-1234-123456789012" + PERSON_ID,
         "primaryEmailVerified": True,
-        "aDsID": A_DS_ID,
+        "aDsID": "123456-12-12345678-1234-1234-1234-123456789012" + PERSON_ID,
         "locked": False,
         "hasICloudQualifyingDevice": True,
         "primaryEmail": PRIMARY_EMAIL,
@@ -362,13 +434,21 @@ LOGIN_WORKING = {
     "pcsEnabled": True,
     "configBag": {
         "urls": {
-            "accountCreateUI": "https://appleid.apple.com/widget/account/?widgetKey=" + WIDGET_KEY + "#!create",
-            "accountLoginUI": "https://idmsa.apple.com/appleauth/auth/signin?widgetKey=" + WIDGET_KEY,
+            "accountCreateUI": "https://appleid.apple.com/widget/account/?widgetKey="
+            + "widget_key"
+            + PERSON_ID
+            + "#!create",
+            "accountLoginUI": "https://idmsa.apple.com/appleauth/auth/signin?widgetKey=" + "widget_key" + PERSON_ID,
             "accountLogin": "https://setup.icloud.com/setup/ws/1/accountLogin",
-            "accountRepairUI": "https://appleid.apple.com/widget/account/?widgetKey=" + WIDGET_KEY + "#!repair",
+            "accountRepairUI": "https://appleid.apple.com/widget/account/?widgetKey="
+            + "widget_key"
+            + PERSON_ID
+            + "#!repair",
             "downloadICloudTerms": "https://setup.icloud.com/setup/ws/1/downloadLiteTerms",
             "repairDone": "https://setup.icloud.com/setup/ws/1/repairDone",
-            "accountAuthorizeUI": "https://idmsa.apple.com/appleauth/auth/authorize/signin?client_id=" + WIDGET_KEY,
+            "accountAuthorizeUI": "https://idmsa.apple.com/appleauth/auth/authorize/signin?client_id="
+            + "widget_key"
+            + PERSON_ID,
             "vettingUrlForEmail": "https://id.apple.com/IDMSEmailVetting/vetShareEmail",
             "accountCreate": "https://setup.icloud.com/setup/ws/1/createLiteAccount",
             "getICloudTerms": "https://setup.icloud.com/setup/ws/1/getTerms",
@@ -417,9 +497,7 @@ LOGIN_WORKING = {
         "contacts": {},
     },
 }
-
-# Setup data
-LOGIN_2FA = {
+ACCOUNT_LOGIN_RESPONSE_BODY_2FA = {
     "dsInfo": {
         "lastName": LAST_NAME,
         "iCDPEnabled": False,
@@ -434,10 +512,10 @@ LOGIN_2FA = {
         "appleIdAliases": [APPLE_ID_EMAIL, ICLOUD_ID_EMAIL],
         "hsaVersion": 2,
         "isPaidDeveloper": False,
-        "countryCode": "FRA",
-        "notificationId": NOTIFICATION_ID,
+        "countryCode": APPLE_ID_COUNTRY_CODE,
+        "notificationId": "12345678-1234-1234-1234-123456789012" + PERSON_ID,
         "primaryEmailVerified": True,
-        "aDsID": A_DS_ID,
+        "aDsID": "123456-12-12345678-1234-1234-1234-123456789012" + PERSON_ID,
         "locked": False,
         "hasICloudQualifyingDevice": True,
         "primaryEmail": PRIMARY_EMAIL,
@@ -549,13 +627,21 @@ LOGIN_2FA = {
     "pcsEnabled": True,
     "configBag": {
         "urls": {
-            "accountCreateUI": "https://appleid.apple.com/widget/account/?widgetKey=" + WIDGET_KEY + "#!create",
-            "accountLoginUI": "https://idmsa.apple.com/appleauth/auth/signin?widgetKey=" + WIDGET_KEY,
+            "accountCreateUI": "https://appleid.apple.com/widget/account/?widgetKey="
+            + "widget_key"
+            + PERSON_ID
+            + "#!create",
+            "accountLoginUI": "https://idmsa.apple.com/appleauth/auth/signin?widgetKey=" + "widget_key" + PERSON_ID,
             "accountLogin": "https://setup.icloud.com/setup/ws/1/accountLogin",
-            "accountRepairUI": "https://appleid.apple.com/widget/account/?widgetKey=" + WIDGET_KEY + "#!repair",
+            "accountRepairUI": "https://appleid.apple.com/widget/account/?widgetKey="
+            + "widget_key"
+            + PERSON_ID
+            + "#!repair",
             "downloadICloudTerms": "https://setup.icloud.com/setup/ws/1/downloadLiteTerms",
             "repairDone": "https://setup.icloud.com/setup/ws/1/repairDone",
-            "accountAuthorizeUI": "https://idmsa.apple.com/appleauth/auth/authorize/signin?client_id=" + WIDGET_KEY,
+            "accountAuthorizeUI": "https://idmsa.apple.com/appleauth/auth/authorize/signin?client_id="
+            + "widget_key"
+            + PERSON_ID,
             "vettingUrlForEmail": "https://id.apple.com/IDMSEmailVetting/vetShareEmail",
             "accountCreate": "https://setup.icloud.com/setup/ws/1/createLiteAccount",
             "getICloudTerms": "https://setup.icloud.com/setup/ws/1/getTerms",
@@ -604,7 +690,7 @@ LOGIN_2FA = {
         "contacts": {},
     },
 }
-
+ACCOUNT_LOGIN_RESPONSE_BODY_KO_INVALID_TOKEN = TRUST_RESPONSE_BODY_KO_INVALID_SESSION
 TRUSTED_DEVICE_1 = {
     "deviceType": "SMS",
     "areaCode": "",

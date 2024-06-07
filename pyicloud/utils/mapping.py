@@ -2,38 +2,29 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypeVar
+from collections.abc import Mapping, MutableMapping
+from typing import Any
 
 
-class DictProtocol(Protocol):
-    def __getitem__(self, name: str) -> Any: ...
-    def __setitem__(self, name: str, value: Any): ...
-    def __delitem__(self, name: str): ...
-    def __contains__(self, name: str) -> bool: ...
-
-
-T = TypeVar("T", bound=DictProtocol)
-
-
-def flatten(d, parent_key="", sep="."):
+def flatten(d: Mapping, parent_key: str = "", sep: str = ".") -> dict[str, Any]:
     items = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
+        if isinstance(v, Mapping):
             items.extend(flatten(v, new_key, sep).items())
         else:
             items.append((new_key, v))
     return dict(items)
 
 
-def unflatten(key: str, value, sep="."):
+def unflatten(key: str, value: Any, sep: str = ".") -> dict[str, Any]:
     if sep not in key:
         return {key: value}
     key, child_key = key.split(sep, 1)
     return {key: unflatten(child_key, value, sep)}
 
 
-def deep_getitem(d: DictProtocol, key: str, sep="."):
+def deep_getitem(d: Mapping, key: str, sep="."):
     if sep in key:
         key, child_key = key.split(sep, 1)
         if key not in d:
@@ -45,13 +36,13 @@ def deep_getitem(d: DictProtocol, key: str, sep="."):
     return d[key]
 
 
-def deep_setitem(d: dict, key: str, value, sep="."):
+def deep_setitem(d: MutableMapping, key: str, value: Any, sep="."):
     if sep in key:
         key, child_key = key.split(sep, 1)
         if key not in d:
             raise KeyError(f"{key}")
-        if not isinstance(d[key], dict):
-            raise ValueError(f"Expected dict {key}. got {type(d[key])}")
+        if not isinstance(d[key], Mapping):
+            raise ValueError(f"Expected {key}. got {type(d[key])}")
         return deep_setitem(d[key], child_key, value, sep)
 
     old_value = d.get(key, type(value)())
@@ -63,24 +54,49 @@ def deep_setitem(d: dict, key: str, value, sep="."):
     return old_value, value
 
 
-def deep_popitem(d: dict, key: str, sep="."):
+def deep_popitem(d: MutableMapping, key: str, sep=".") -> Any:
     if sep in key:
         key, child_key = key.split(sep, 1)
         if key not in d:
             raise KeyError(f"{key}")
-        if not isinstance(d[key], dict):
-            raise ValueError(f"Expected dict got {type(d[key])}")
+        if not isinstance(d[key], MutableMapping):
+            raise ValueError(f"Expected MuttableMapping, got {type(d[key])}")
         return deep_popitem(d[key], child_key, sep)
     try:
-        d.pop(key)
+        return d.pop(key)
     except KeyError:
         pass
 
 
-def deep_update(dict_base: dict, other_dict: dict):
+def deep_update(dict_base: MutableMapping, other_dict: Mapping) -> MutableMapping:
     for k, v in other_dict.items():
-        if k in dict_base and isinstance(dict_base[k], dict) and isinstance(v, dict):
+        if k in dict_base and isinstance(dict_base[k], MutableMapping) and isinstance(v, Mapping):
             deep_update(dict_base[k], v)
         else:
             dict_base[k] = v
     return dict_base
+
+
+def compare(
+    subset: dict,
+    superset: dict,
+    *,
+    ignore: set[str] | None = None,
+    require: set[str] | None = None,
+    exclude_values: bool = False,
+) -> bool:
+    subset_keys = {key for key in subset.keys() if key not in (ignore or set())}
+
+    for key in require or set():
+        if key not in subset_keys:
+            return False
+    if not subset_keys <= superset.keys():
+        return False
+
+    if not exclude_values:
+        for key, value in subset.items():
+            if key not in subset_keys:
+                continue
+            if superset[key] != value:
+                return False
+    return True
