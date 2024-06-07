@@ -25,15 +25,15 @@ from pyicloud.models.fields import (
     TrustTokenType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
-from pyicloud.sessions.base import (
+from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
     Endpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
+    serialize,
 )
-from pyicloud.sessions.decorators import serialize
 
 
 ##

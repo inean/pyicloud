@@ -3,11 +3,15 @@
 class Endpoints:
     HOME = "https://www.icloud.com"
     INIT = "https://setup.icloud.com/setup/ws/1"
-
     AUTH = "https://idmsa.apple.com/appleauth/auth"
+
+    # Auth Setup Endpoints
     SIGNIN = "https://idmsa.apple.com/appleauth/auth/signin"
     SECURITY_CODE ="https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
     TRUST = "https://idmsa.apple.com/appleauth/auth/2sv/trust"
+
+    # Account Endpoints
+    ACCOUNT_LOGIN = "https://setup.icloud.com/setup/ws/1/accountLogin"
 
 
 class AppleHeaders:

@@ -5,22 +5,19 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.sessions.securitycode import SecurityCode, SecurityCodeRequest, SecurityCodeResponse
+from pyicloud.sessions.security_code import SecurityCode, SecurityCodeRequest, SecurityCodeResponse
 from pyicloud.utils import mapping
 from tests import process_cookies
 from tests.const import (
-    REQUEST_ID,
     REQUIRES_2FA_USER,
     SCNT,
     SESSION_ID,
     VALID_2FA_CODE,
     VALID_TOKEN,
 )
-from tests.const_account_family import APPLE_ID_COUNTRY_CODE
 
 from .const_auth import (
     SECURITY_CODE_REQUEST_COOKIES,

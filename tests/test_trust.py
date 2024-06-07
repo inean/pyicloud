@@ -9,7 +9,7 @@ from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.sessions.base import BodyModel, CookiesModel, HeadersModel
+from pyicloud.sessions import BodyModel, CookiesModel, HeadersModel
 from pyicloud.sessions.trust import Trust, TrustRequest, TrustResponse
 from pyicloud.utils import mapping
 from tests import process_cookies

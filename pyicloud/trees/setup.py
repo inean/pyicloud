@@ -16,8 +16,8 @@ from pyicloud.log import LOGGER
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
 from pyicloud.models.settings import Settings
-from pyicloud.sessions.base import BaseResponse
-from pyicloud.sessions.securitycode import SecurityCode
+from pyicloud.sessions import BaseResponse
+from pyicloud.sessions.security_code import SecurityCode
 from pyicloud.sessions.signin import FreshSignIn, SignIn
 from pyicloud.trees import BehaveTree, ModelTree, TreeAction
 

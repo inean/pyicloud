@@ -11,7 +11,7 @@ from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.sessions.base import BodyModel, CookiesModel, HeadersModel
+from pyicloud.sessions import BodyModel, CookiesModel, HeadersModel
 from pyicloud.sessions.signin import SignIn, SignInRequest, SignInResponse
 from tests.const import (
     AUTH_ATTRIBUTES,
