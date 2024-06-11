@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import httpx
 import pytest
+from pytest_lazy_fixtures import lf
 
 from pyicloud.constants import AppleCookies as Jar
 from pyicloud.constants import AppleHeaders as Header
@@ -61,7 +62,7 @@ def trust_handler(request: httpx.Request) -> httpx.Response:
     status_code = 500  # Internal error
 
     while True:
-        # ErrorPath
+        # Malformed request
         if not mapping.compare(TRUST_REQUEST_HEADERS, dict(request.headers), exclude_values=True):
             break
         if not mapping.compare(
@@ -324,8 +325,8 @@ async def response_factory(expected_cookies):
 @pytest.mark.parametrize(
     "trust_user, code",
     [
-        (pytest.lazy_fixtures("user"), 204),  # type: ignore
-        (pytest.lazy_fixtures("user_invalid_token"), 400),  #  type: ignore
+        (lf("user"), 204),  # type: ignore
+        (lf("user_invalid_token"), 400),  #  type: ignore
     ],
 )
 async def test_trust_response_status_code(trust_user, code, response_factory):
@@ -337,7 +338,7 @@ async def test_trust_response_status_code(trust_user, code, response_factory):
     "trust_user, headers",
     [
         (
-            pytest.lazy_fixtures("user"),  # type: ignore
+            lf("user"),  # type: ignore
             {
                 Header.AUTH_ATTRIBUTES: AUTH_ATTRIBUTES,
                 Header.COUNTRY_CODE: APPLE_ID_COUNTRY_CODE,
@@ -349,7 +350,7 @@ async def test_trust_response_status_code(trust_user, code, response_factory):
             },
         ),
         (
-            pytest.lazy_fixtures("user_invalid_token"),  #  type: ignore
+            lf("user_invalid_token"),  #  type: ignore
             {
                 Header.REQUEST_ID: REQUEST_ID,
                 Header.SCNT: SCNT,
@@ -366,7 +367,7 @@ async def test_trust_response_headers(trust_user, headers, response_factory):
     "trust_user, cookies",
     [
         (
-            pytest.lazy_fixtures("user"),  # type: ignore
+            lf("user"),  # type: ignore
             {
                 Jar.DSLANG: "US-EN",
                 Jar.SITE: "USA",
@@ -374,7 +375,7 @@ async def test_trust_response_headers(trust_user, headers, response_factory):
             },
         ),  # type: ignore
         (
-            pytest.lazy_fixtures("user_invalid_token"),  #  type: ignore
+            lf("user_invalid_token"),  #  type: ignore
             {
                 Jar.DSLANG: "US-EN",
                 Jar.SITE: "USA",

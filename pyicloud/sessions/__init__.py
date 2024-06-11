@@ -34,7 +34,7 @@ from pyicloud.models import LeafModel, MetaFields, _init_context_var
 from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import Cookies, CookiesModel, MorselModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
-from pyicloud.models.headers import HeadersModel
+from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
 
@@ -231,7 +231,11 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
         cs_info.setdefault("context", {})
         cs_info["context"]["by_meta"] = "cookie"
         jar, cookies = CookieJar(), dict(self.cookies.model_dump(by_alias=True, **cs_info))
-        list(map(lambda x: jar.set_cookie(MorselModel.as_cookie(x)), cookies.values()))
+
+        for morsel_data in cookies.values():
+            if morsel_data is not None:
+                assert isinstance(morsel_data, dict), f"Invalid morsel type: {type(morsel_data)}"
+                jar.set_cookie(MorselModel.as_cookie(morsel_data))
 
         return httpx.Request(
             method=self.endpoint.verb,
@@ -464,6 +468,26 @@ class OAuthTransport(BaseTransport[T, K], ABC):
             headers.setdefault(key.lower(), value)
 
         return headers
+
+    @override
+    def dump_content(
+        self,
+        content: bytes | dict[str, Any] | None = None,
+        *,
+        include: Sequence[str] | None = None,
+        exclude: Sequence[str] | None = None,
+        exclude_unset=True,
+        exclude_defaults=False,
+        context: Any = None,
+    ) -> bytes | dict[str, Any] | None:
+        body = self.request.body
+        if (json_data := body.json_data) is not None:
+            content = content or {}
+            assert isinstance(content, dict), "Content must be a dictionary."
+            content.update(json_data)
+            return content
+        # Case where body is not a dict
+        return body.content
 
     async def __aexit__(self, exc_type, exc, tb):
         self.update_session()

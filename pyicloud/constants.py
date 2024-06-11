@@ -15,6 +15,10 @@ class Endpoints:
 
 
 class AppleHeaders:
+    # Base Headers
+    ACCEPT                   = "accept"
+    ORIGIN                   = "origin"
+    CONTENT_TYPE             = "content-type"
     # Account Headers
     COUNTRY_CODE             = "x-apple-id-account-country"
     SESSION_ID               = "x-apple-id-session-id"
@@ -54,8 +58,21 @@ class AppleCookies:
     WEBAUTH_HSA_TRUST = "X-APPLE-WEBAUTH-HSA-TRUST"
     WEBAUTH_TOKEN     = "X-APPLE-WEBAUTH-TOKEN"
 
+    # PCS Cookies
+    WEBAUTH_PCS_DOCUMENTS = "X-APPLE-WEBAUTH-PCS-Documents"
+    WEBAUTH_PCS_PHOTOS    = "X-APPLE-WEBAUTH-PCS-Photos"
+    WEBAUTH_PCS_CLOUDKIT  = "X-APPLE-WEBAUTH-PCS-Cloudkit"
+    WEBAUTH_PCS_SAFARI    = "X-APPLE-WEBAUTH-PCS-Safari"
+    WEBAUTH_PCS_MAIL      = "X-APPLE-WEBAUTH-PCS-Mail"
+    WEBAUTH_PCS_NOTES     = "X-APPLE-WEBAUTH-PCS-Notes"
+    WEBAUTH_PCS_NEWS      = "X-APPLE-WEBAUTH-PCS-News"
+    WEBAUTH_PCS_SHARING   = "X-APPLE-WEBAUTH-PCS-Sharing"
+
     # Secret Cookies
     DES_PATTERN       = r"DES\w+"
+
+    # Dynamic Cookies
+    WEB_KB_PATTERN    = r"X_APPLE_WEB_KB-\w+"
 
 class iCloud:
     CLIENT_TYPE = "firstPartyAuth"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Sequence, Type, override
 
 import httpx
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
@@ -11,18 +11,20 @@ from pyicloud.models.bodies import EmptyModel
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.fields import (
     AaspType,
+    AcceptType,
     Acn01Type,
     AuthAttributesType,
     CountryCodeType,
     DesType,
     DslangCookieType,
     OAuthGrantCodeType,
+    OriginType,
     RequestIdType,
     ScntType,
     SessionIdType,
     SessionTokenType,
     SiteCookieType,
-    TrustTokenType,
+    TrustTokensType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
@@ -48,24 +50,20 @@ class TrustEndpoint(Endpoint):
 
 
 class TrustRequestHeaders(OAuthHeadersModel):
+    accept: AcceptType = "application/json"
+    origin: OriginType = Endpoints.HOME
+
     # Header Fields
     scnt: ScntType
     session_id: SessionIdType
 
-    @model_validator(mode="before")
-    @classmethod
-    def model_validate_set_defaults(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data.setdefault("accept", "application/json")
-        data.setdefault("origin", Endpoints.HOME)
-        return data
-
 
 class TrustRequestCookies(CookiesModel):
-    dslang: DslangCookieType = Field(default=...)
-    site: SiteCookieType = Field(default=...)
+    dslang: DslangCookieType
+    site: SiteCookieType
     # Cookie Fields
-    aasp: AaspType = Field(default=...)
-    acn01: Acn01Type = Field(default=...)
+    aasp: AaspType
+    acn01: Acn01Type
 
 
 class TrustRequestBody(EmptyModel): ...
@@ -88,7 +86,7 @@ class TrustResponseHeaders(HeadersModel):
     request_id: RequestIdType
     scnt: ScntType
     # Required Headers only on successful response
-    trust_token: TrustTokenType | None = None
+    trust_token: TrustTokensType | None = None
     session_id: SessionIdType | None = None
     oauth_grant_code: OAuthGrantCodeType | None = None
     auth_attributes: AuthAttributesType | None = None
@@ -129,47 +127,3 @@ class Trust(OAuthTransport[TrustRequest, TrustResponse]):
     @property
     def request_cls(self) -> Type[TrustRequest]:
         return TrustRequest
-
-    @override
-    def dump_content(
-        self,
-        content: bytes | dict[str, Any] | None = None,
-        *,
-        include: Sequence[str] | None = None,
-        exclude: Sequence[str] | None = None,
-        exclude_unset=True,
-        exclude_defaults=False,
-        context: Any = None,
-    ) -> bytes | dict[str, Any] | None:
-        """Update the content for the request."""
-
-        return b""
-
-    @override
-    def dump_headers(
-        self,
-        headers: httpx.Headers | None = None,
-        *,
-        include: Sequence[str] | None = None,
-        exclude: Sequence[str] | None = None,
-        exclude_unset=True,
-        exclude_defaults=False,
-        context: Any = None,
-    ) -> httpx.Headers:
-        headers = headers or httpx.Headers()
-        # Don't set country code header for outbound request
-        headers = super().dump_headers(
-            headers,
-            include=include,
-            exclude=exclude,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            context=context,
-        )
-
-        if scnt := self._settings["client_settings.scnt"]:
-            headers[Header.SCNT] = scnt
-        if ssid := self._settings["account.session_id"]:
-            headers[Header.SESSION_ID] = ssid
-
-        return headers

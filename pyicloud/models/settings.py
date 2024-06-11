@@ -40,7 +40,8 @@ from pyicloud.models.fields import (
     SiteType,
     TimeZone,
     TimeZoneType,
-    TrustTokenType,
+    TrustTokenEligibleType,
+    TrustTokensType,
     UsernameType,
 )
 from pyicloud.utils.decorators import classproperty
@@ -67,7 +68,7 @@ class Token(LeafModel):
         default=None,
         serialization_alias="sessionToken",
     )
-    trust: TrustTokenType = Field(
+    trust: TrustTokensType = Field(
         default=None,
         serialization_alias="trustToken",
     )
@@ -81,6 +82,7 @@ class ClientSettings(LeafModel):
     timezone: TimeZoneType = Field(default=...)
     client_id: ClientIdType = Field(default_factory=lambda: f"auth-{str(uuid.uuid4()).lower()}")
     scnt: ScntType | None = None
+    trust_eligible: TrustTokenEligibleType | None = None
 
     @classmethod
     def dslang_default(cls):

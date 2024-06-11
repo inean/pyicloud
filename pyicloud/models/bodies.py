@@ -1,14 +1,17 @@
+import re
 from abc import ABC
-from typing import Any, Callable, Self
+from typing import Any, Callable, ClassVar, Self
 
 from pydantic import (
     ConfigDict,
     ValidationInfo,
     model_validator,
 )
+from pydantic.alias_generators import to_camel
 
 from pyicloud.models import LeafModel, MetaFields
 from pyicloud.models.settings import Settings
+from pyicloud.utils import mapping
 
 
 class BodyModel(LeafModel, ABC):
@@ -63,3 +66,26 @@ class EmptyModel(BodyModel):
     @property
     def content(self) -> bytes:
         return b""
+
+
+class DynamicBodyModel(BodyModel):
+    pattern_1: ClassVar[re.Pattern] = re.compile(r"(.)([A-Z][a-z]+)")
+    pattern_2: ClassVar[re.Pattern] = re.compile("([a-z0-9])([A-Z])")
+
+    model_config = ConfigDict(
+        extra="allow",
+        populate_by_name=True,
+        alias_generator=to_camel,
+    )
+
+    @model_validator(mode="before")
+    def make_it_all_snake_case(cls, values: dict) -> dict:
+        snake_values = mapping.map(values, cls.camel_case_or_pascal_case_to_snake_case)
+        return snake_values
+
+    @classmethod
+    def camel_case_or_pascal_case_to_snake_case(cls, camel_case_string: str) -> str:
+        """Converts a camelCase or PascalCase string to snake_case."""
+        string = cls.pattern_1.sub(r"\1_\2", camel_case_string)
+        string = cls.pattern_2.sub(r"\1_\2", string).lower()
+        return string

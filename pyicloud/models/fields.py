@@ -9,6 +9,7 @@ from time import time
 from typing import (
     Annotated,
     Any,
+    Literal,
     Sequence,
     TypeAlias,
     cast,
@@ -42,8 +43,11 @@ from pyicloud.constants import AppleHeaders as Header
 from pyicloud.models import Meta
 
 # Header Types:
+AcceptType: TypeAlias = Annotated[str, Meta(header=Header.ACCEPT)]
+OriginType: TypeAlias = Annotated[str, Meta(header=Header.ORIGIN)]
+ContentTypeType: TypeAlias = Annotated[str, Meta(header=Header.CONTENT_TYPE)]
+
 RequestIdType: TypeAlias = Annotated[UUID, UuidVersion(1), Meta(header=Header.REQUEST_ID)]
-TrustTokenEligibleType: TypeAlias = Annotated[bool, Meta(header=Header.TRUST_TOKEN_ELIGIBLE)]
 AuthAttributesType: TypeAlias = Annotated[str, Meta(header=Header.AUTH_ATTRIBUTES)]
 OAuthGrantCodeType: TypeAlias = Annotated[str, Meta(header=Header.OAUTH_GRANT_CODE)]
 
@@ -103,12 +107,21 @@ UsernameType: TypeAlias = Annotated[
     BeforeValidator(validate_email),
     Meta(config="account.username", body="accountName"),
 ]
+AppleIdType: TypeAlias = Annotated[
+    str,
+    BeforeValidator(validate_email),
+    Meta(config="account.username", body="apple_id"),
+]
 PasswordType: TypeAlias = Annotated[
     SecretStr,
     PlainSerializer(
         lambda v: cast(SecretStr, v).get_secret_value() if v else None, return_type=str | None, when_used="json"
     ),
     Meta(config="account.password", body="password"),
+]
+ServiceType: TypeAlias = Annotated[
+    Literal["findme", "mail", "notes", "photos", "cloudkit", "safari", "news", "sharing"],
+    Meta(body="service"),
 ]
 
 
@@ -129,10 +142,11 @@ CountryCodeType: TypeAlias = Annotated[
 ]
 ClientIdType: TypeAlias = Annotated[str, Meta(header=Header.OAUTH_STATE, config="client_settings.client_id")]
 SessionIdType: TypeAlias = Annotated[str, Meta(header=Header.SESSION_ID, config="account.session_id")]
-SessionTokenType: TypeAlias = Annotated[str, Meta(header=Header.SESSION_TOKEN, config="token.session")]
+SessionTokenType: TypeAlias = Annotated[
+    str, Meta(header=Header.SESSION_TOKEN, config="token.session", body="dsWebAuthToken")
+]
 ScntType: TypeAlias = Annotated[str, Meta(header=Header.SCNT, config="client_settings.scnt")]
-
-TrustTokenType = Annotated[
+TrustTokensType = Annotated[
     str | None,
     BeforeValidator(lambda v: v if isinstance(v, str) else v[0] if isinstance(v, Sequence) else None),
     PlainSerializer(lambda v: [v] if v else [], return_type=list[str], when_used="json"),
@@ -142,6 +156,10 @@ TrustTokenType = Annotated[
     ),
     WithJsonSchema({"items": {"type": "string"}, "type": "array"}, mode="serialization"),
     Meta(header=Header.TRUST_TOKEN, config="token.trust", body="trustTokens"),
+]
+TrustTokenType = Annotated[str, Meta(header=Header.TRUST_TOKEN, config="token.trust", body="trustToken")]
+TrustTokenEligibleType: TypeAlias = Annotated[
+    bool, Meta(header=Header.TRUST_TOKEN_ELIGIBLE, config="client_settings.trust_eligible")
 ]
 
 
@@ -343,6 +361,9 @@ SiteCookieType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.SITE, con
 AaspType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.AASP)]
 Acn01Type: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.ACN01)]
 DesType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.DES_PATTERN)]
+XAppleWebKBType = Annotated[MorselModel, Meta(cookie=Cookies.WEB_KB_PATTERN)]
+XAppleClientIdType = Annotated[MorselModel, Meta(cookie=Cookies.CLIENT_ID)]
+
 XAppleDsWebSessionTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEB_SESSION_TOKEN)]
 XAppleUniqueClientIdType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.CLIENT_ID)]
 XAppleWebauthLoginType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_LOGIN)]
@@ -352,3 +373,13 @@ XAppleWebauthHsaLoginType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookie
 XAppleWebauthFmipType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_FMIP)]
 XAppleWebauthHsaTrustType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_HSA_TRUST)]
 XAppleWebauthTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_TOKEN)]
+
+
+PcsDocumentsType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_DOCUMENTS)]
+PcsPhotosType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_PHOTOS)]
+PcsCloudkitType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_CLOUDKIT)]
+PcsSafariType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_SAFARI)]
+PcsMailType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_MAIL)]
+PcsNotesType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_NOTES)]
+PcsNewsType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_NEWS)]
+PcsSharingType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_SHARING)]

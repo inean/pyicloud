@@ -8,15 +8,18 @@ from pyicloud.models.bodies import BodyModel, EmptyModel
 
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.headers import HeadersModel
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pyicloud.models.fields import (
     AaspType,
+    AcceptType,
     Acn01Type,
     AuthAttributesType,
+    ContentTypeType,
     CountryCodeType,
     DslangCookieType,
     OAuthGrantCodeType,
+    OriginType,
     RequestIdType,
     ScntType,
     SessionIdType,
@@ -45,17 +48,13 @@ class SecurityCodeRequestEndpoint(Endpoint):
 
 
 class SecurityCodeRequestHeaders(OAuthHeadersModel):
+    accept: AcceptType = "application/json"
+    origin: OriginType = Endpoints.HOME
+    content_type: ContentTypeType = "application/json"
+
     # Header Fields
     scnt: ScntType
     session_id: SessionIdType
-
-    @model_validator(mode="before")
-    @classmethod
-    def model_validate_set_defaults(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data.setdefault("accept", "application/json")
-        data.setdefault("origin", Endpoints.HOME)
-        data.setdefault("content-type", "application/json")
-        return data
 
 
 class SecurityCodeRequestCookies(CookiesModel):
@@ -149,22 +148,6 @@ class SecurityCodeResponse(
 ##
 @serialize
 class SecurityCode(OAuthTransport[SecurityCodeRequest, SecurityCodeResponse]):
-    @override
-    def dump_content(
-        self,
-        content: bytes | dict[str, Any] | None = None,
-        *,
-        include: Sequence[str] | None = None,
-        exclude: Sequence[str] | None = None,
-        exclude_unset=True,
-        exclude_defaults=False,
-        context: Any = None,
-    ) -> bytes | dict[str, Any] | None:
-        content = content or {}
-        assert isinstance(content, dict), "Content must be a dictionary."
-        content.update(self.request.body.json_data)
-        return content
-
     @property
     def response_cls(self) -> Type[SecurityCodeResponse]:
         return SecurityCodeResponse

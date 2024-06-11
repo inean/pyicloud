@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
-from typing import Any
+from typing import Any, Callable
 
 
 def flatten(d: Mapping, parent_key: str = "", sep: str = ".") -> dict[str, Any]:
@@ -100,3 +100,23 @@ def compare(
             if superset[key] != value:
                 return False
     return True
+
+
+def map(root: Mapping, func: Callable) -> dict:
+    """Calls a function on all of the keys in a dictionary, recursively.
+
+    Args:
+        root (Mapping): A dictionary.
+        func (Callable): A function that operates on the key. This should
+            return the new key.
+
+    Returns:
+        dict: A dictionary with new keys.
+    """
+    new_root = {}
+    for k, v in root.items():
+        if isinstance(v, Mapping):
+            new_root[func(k)] = map(v, func)
+        else:
+            new_root[func(k)] = v
+    return new_root

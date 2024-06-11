@@ -409,6 +409,7 @@ async def test_signin_response_user(user: SignIn):
 
     # Settings is updated with the new session token when the context manager is exited
     assert user._settings.token.session == VALID_TOKEN
+    assert user._settings.client_settings.trust_eligible is None
 
 
 async def test_signin_response_user_secure(user_secure: SignIn):
@@ -421,6 +422,7 @@ async def test_signin_response_user_secure(user_secure: SignIn):
 
     # Settings is updated with the new session token when the context manager is exited
     assert user_secure._settings.token.session == REQUIRES_2FA_TOKEN
+    assert user_secure._settings.client_settings.trust_eligible is True
 
 
 async def test_signin_bad_credentials(user_bad_credentials: SignIn):

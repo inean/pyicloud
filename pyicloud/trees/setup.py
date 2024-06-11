@@ -17,8 +17,10 @@ from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
 from pyicloud.models.settings import Settings
 from pyicloud.sessions import BaseResponse
+from pyicloud.sessions.account_login import AccountLogin
 from pyicloud.sessions.security_code import SecurityCode
 from pyicloud.sessions.signin import FreshSignIn, SignIn
+from pyicloud.sessions.trust import Trust
 from pyicloud.trees import BehaveTree, ModelTree, TreeAction
 
 
@@ -113,7 +115,7 @@ class SetupModelTree(ModelTree):
             raise PyiCloudUserCancelledError("Password entry operation stopped by user") from err
 
     @ModelTree.set_context(name="response")
-    async def init(self, refresh=False) -> BaseResponse:
+    async def signin(self, refresh=False) -> BaseResponse:
         """Fetch a valid session token."""
 
         factory = FreshSignIn if refresh else SignIn
@@ -170,23 +172,36 @@ class SetupModelTree(ModelTree):
                 LOGGER.debug(f"Set security_code to: '{code}'")
                 return code
 
-    @ModelTree.set_context(name="response")
     @ModelTree.with_context
-    async def complete(self, security_code: str | None = None) -> BaseResponse:
+    async def security_code(self, security_code: str | None = None) -> BaseResponse:
         """Compomete 2FA verification with a valid code"""
-
         session = SecurityCode(
             settings=self.settings,
             cookies=self.cookies,
             data={"security_code": security_code},
             client=self.client,
         )
-
-        # Context manager will load and save config and cookies for us
         async with session as complete:
             LOGGER.debug(f"Verifing HSA2 code: '{session.request.body.security_code}'")
             await complete.send(session.request.model_dump_httpx_request())
-        # If Sucess, Response will eval to True.
+        return session.response
+
+    async def trust(self) -> BaseResponse:
+        """Trust the session."""
+        session = Trust(settings=self.settings, cookies=self.cookies, client=self.client)
+        async with session as complete:
+            LOGGER.debug(f"Trust session with: '{self.settings.token.session[:7]}...'")
+            await complete.send(session.request.model_dump_httpx_request())
+        return session.response
+
+    async def account_login(self, require_trust_token=True) -> BaseResponse:
+        """Fetch account login."""
+        if require_trust_token and not self.settings.token.trust:
+            raise ValueError("Trust token is required to fetch account login.")
+        session = AccountLogin(settings=self.settings, cookies=self.cookies, client=self.client)
+        async with session as complete:
+            LOGGER.debug(f"Fetch account details for: '{self.settings.account.username}'")
+            await complete.send(session.request.model_dump_httpx_request())
         return session.response
 
 
@@ -221,7 +236,7 @@ class SetupTree(BehaveTree[SetupModelTree]):
                     ]
                 ),
                 # Try to login
-                bt.condition(target=self._model.init, refresh=False),
+                bt.condition(target=self._model.signin, refresh=False),
             ]
         )
         security_code_subtree = bt.sequence(
@@ -238,11 +253,21 @@ class SetupTree(BehaveTree[SetupModelTree]):
                                 bt.always_success(self._model.reset_security_code),
                                 bt.always_success(self._model.ask_security_code),
                                 # If 2FA is needed, verify code
-                                self._model.complete,
+                                self._model.security_code,
+                                # Trust session code,
+                                self._model.trust,
                             ],
                         ),
                     ]
                 ),
+            ]
+        )
+        account_login_subtree = bt.sequence(
+            children=[
+                # Get Account Login,
+                bt.action(self._model.account_login, require_trust_token=True),
+                # Validate response to ensure we are logged in
+                self._model.is_logged_in,
             ]
         )
 
@@ -253,5 +278,7 @@ class SetupTree(BehaveTree[SetupModelTree]):
                 bt.retry(init_subtree, max_retry=3),
                 # If Response is true, we sigin was successfull, but a 2FA may be needed
                 bt.retry(security_code_subtree, max_retry=3),
+                # Fetch Acccount login.
+                bt.action(account_login_subtree),
             ]
         )

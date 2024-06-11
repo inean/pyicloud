@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Sequence, Type, cast, override
+from typing import Annotated, Any, Literal, Sequence, Type, override
 
 import httpx
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field
 
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
@@ -11,11 +11,14 @@ from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.fields import (
     AaspType,
+    AcceptType,
     Acn01Type,
     AuthAttributesType,
+    ContentTypeType,
     CountryCodeType,
     DslangCookieType,
     Meta,
+    OriginType,
     PasswordType,
     RequestIdType,
     ScntType,
@@ -23,7 +26,7 @@ from pyicloud.models.fields import (
     SessionTokenType,
     SiteCookieType,
     TrustTokenEligibleType,
-    TrustTokenType,
+    TrustTokensType,
     UsernameType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
@@ -51,25 +54,21 @@ class SignInEndpoint(Endpoint):
 
 
 class SignInRequestHeaders(OAuthHeadersModel):
-    @model_validator(mode="before")
-    @classmethod
-    def model_validate_set_defaults(cls, data: dict[str, Any]) -> dict[str, Any]:
-        data.setdefault("accept", "application/json")
-        data.setdefault("origin", Endpoints.HOME)
-        data.setdefault("content-type", "application/json")
-        return data
+    accept: AcceptType = "application/json"
+    origin: OriginType = Endpoints.HOME
+    content_type: ContentTypeType = "application/json"
 
 
 class SignInRequestCookies(CookiesModel):
-    dslang: DslangCookieType = Field(default=...)
-    site: SiteCookieType = Field(default=...)
+    dslang: DslangCookieType
+    site: SiteCookieType
 
 
 class SignInRequestBody(BodyModel):
     # Body parameters
     account_name: UsernameType
     password: PasswordType | None = None
-    trust_tokens: TrustTokenType = None
+    trust_tokens: TrustTokensType = None
     remember_me: Annotated[bool, Meta(body="rememberMe")] = True
 
 
@@ -135,42 +134,6 @@ class SignInResponse(BaseResponse[SignInResponseHeaders, SignInResponseCookies, 
 ##
 @serialize
 class SignIn(OAuthTransport[SignInRequest, SignInResponse]):
-    @override
-    def dump_content(
-        self,
-        content: bytes | dict[str, Any] | None = None,
-        *,
-        include: Sequence[str] | None = None,
-        exclude: Sequence[str] | None = None,
-        exclude_unset=True,
-        exclude_defaults=False,
-        context: Any = None,
-    ) -> bytes | dict[str, Any] | None:
-        content = content or {}
-        assert isinstance(content, dict), "Content must be a dictionary."
-
-        # Upate json data
-        super().dump_content(
-            content,
-            include=["password", "accountName", "trustTokens"],
-            exclude=exclude,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            context=context,
-        )
-        # Prepare Body
-        content = {
-            "rememberMe": True,
-            "accountName": self._settings.account.username,
-            "trustTokens": [],
-        }
-        if self._settings.account.password:
-            content["password"] = cast(Any, self._settings.account.password).get_secret_value()
-        if self._settings.token.trust:
-            content["trustTokens"] = [self._settings.token.trust]
-        # updated
-        return content
-
     @property
     def response_cls(self) -> Type[SignInResponse]:
         return SignInResponse

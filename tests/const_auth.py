@@ -64,27 +64,27 @@ class Cookie(Sequence):
 
     @property
     def value(self) -> str:
-        return cast(str, self._content).split("=")[1].split(";")[0]
+        return cast(str, self._content).split(";")[0].split("=")[-1]
 
 
 DSLANG = Cookie(
     header="Set-Cookie",
-    content="dslang=US-EN; path=/; domain=.apple.com; path_spec; secure; discard; HttpOnly; version=0",
+    content="dslang=US-EN; path=/; path_spec; secure; discard; version=0",
 )
 
 SITE = Cookie(
     header="Set-Cookie",
-    content="site=USA; path=/; domain=.apple.com; path_spec; secure; discard; HttpOnly; version=0",
+    content="site=USA; path=/; path_spec; secure; discard; version=0",
 )
 
 AASP = Cookie(
     header="Set-Cookie",
-    content="aasp=login_aasp; path=/; domain=idmsa.apple.com; path_spec; secure; discard; HttpOnly; version=0",
+    content="aasp=login_aasp; path=/; path_spec; secure; discard; version=0",
 )
 
 ACN01 = Cookie(
     header="Set-Cookie",
-    content="acn01=acn01_value; path=/; domain=.apple.com; path_spec; secure; " "HttpOnly; version=0",
+    content="acn01=acn01_value; path=/; path_spec; secure; version=0",
 )
 
 X_APPLE_UNIQUE_CLIENT_ID = Cookie(
@@ -94,52 +94,93 @@ X_APPLE_UNIQUE_CLIENT_ID = Cookie(
 
 X_APPLE_WEBAUTH_LOGIN = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-LOGIN=v=1:webauth_login_value; path=/;  path_spec; secure; discard; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-LOGIN=webauth_login_value; path=/; path_spec; secure; discard; version=0",
 )
 
 X_APPLE_WEBAUTH_VALIDATE = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-VALIDATE=v=1:webauth_login_value; path=/;  path_spec; secure; discard; version=0",
+    content="X-APPLE-WEBAUTH-VALIDATE=webauth_login_value; path=/; path_spec; secure; discard; version=0",
 )
 
 X_APPLE_WEBAUTH_HSA_LOGIN = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-HSA-LOGIN=webauth_login_value; path=/;  path_spec; secure; discard; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-HSA-LOGIN=webauth_login_value; path=/; path_spec; secure; discard; version=0",
 )
 
 X_APPLE_WEBAUTH_USER = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-USER=webauth_user_value; path=/; path_spec; secure; expires=2024-03-31; "
-    "HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-USER=webauth_user_value; path=/; path_spec; secure; expires=; version=0",
 )
+
 X_APPLE_WEBAUTH_FMIP = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-FMIP=webauth_fmip_value; path=/;  "
-    "path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-FMIP=webauth_fmip_value; path=/; path_spec; secure; expires=; version=0",
 )
 
 X_APPLE_WEBAUTH_HSA_TRUST = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-HSA-TRUST=webauth_hsa_trust_value; path=/;  "
-    "path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-HSA-TRUST=hsa_trust_value; path=/; ath_spec; secure; expires=; version=0",
 )
 
 X_APPLE_WEBAUTH_TOKEN = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-TOKEN=v=webauth_token_value; path=/;  "
-    "path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
+    content="X-APPLE-WEBAUTH-TOKEN=webauth_token_value; path=/; path_spec; secure; expires=; version=0",
 )
 
 X_APPLE_DS_WEB_SESSION_TOKEN = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-DS-WEB-SESSION-TOKEN=session_token; path=/;  path_spec; "
-    "secure; expires=2029-03-31; HttpOnly; version=0",
-)
-DES_COOKIE = Cookie(
-    header="Set-Cookie",
-    content="DESXXXXXX=1; path=/; domain=.idmsa.apple.com; path_spec; secure; expires=2024-03-31; HttpOnly; version=0",
+    content="X-APPLE-DS-WEB-SESSION-TOKEN=session_token; path=/; path_spec; secure; expires=; version=0",
 )
 
+DES_COOKIE = Cookie(
+    header="Set-Cookie",
+    content="DESXXXXXX=1; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_DOCUMENTS = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Documents=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_PHOTOS = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Photos=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_CLOUDKIT = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Cloudkit=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_SAFARI = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Safari=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_MAIL = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Mail=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_NOTES = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Notes=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_NEWS = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-News=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+X_APPLE_WEBAUTH_PCS_SHARING = Cookie(
+    header="Set-Cookie",
+    content="X-APPLE-WEBAUTH-PCS-Sharing=pcs_token; path=/; path_spec; secure; expires=; version=0",
+)
+
+WEB_KB_COOKIE = Cookie(
+    header="Set-Cookie",
+    content="X_APPLE_WEB_KB-XXXXXX=1; path=/; path_spec; secure; expires=; version=0",
+)
 ##
 # SignIn
 ##
@@ -246,7 +287,10 @@ TRUST_RESPONSE_KO_COOKIES = [
 ##
 
 # Headers
-ACCOUNT_LOGIN_REQUEST_HEADERS = []
+ACCOUNT_LOGIN_REQUEST_HEADERS = {
+    Header.SESSION_ID: SESSION_ID,
+    Header.SCNT: SCNT,
+}
 ACCOUNT_LOGIN_RESPONSE_HEADERS_KO = {
     Header.REQUEST_ID: REQUEST_ID,
     Header.SCNT: SCNT,
@@ -256,18 +300,28 @@ ACCOUNT_LOGIN_RESPONSE_HEADERS_OK = {
     Header.SCNT: SCNT,
 }
 # Cookies
-ACCOUNT_LOGIN_REQUEST_COOKIES = [
-    DSLANG,
-    SITE,
-]
+ACCOUNT_LOGIN_REQUEST_COOKIES = []
+
 ACCOUNT_LOGIN_RESPONSE_COOKIES_OK = [
-    DSLANG,
-    SITE,
+    X_APPLE_WEBAUTH_HSA_TRUST,
+    X_APPLE_WEBAUTH_PCS_DOCUMENTS,
+    X_APPLE_WEBAUTH_PCS_PHOTOS,
+    X_APPLE_WEBAUTH_PCS_CLOUDKIT,
+    X_APPLE_WEBAUTH_PCS_SAFARI,
+    X_APPLE_WEBAUTH_PCS_MAIL,
+    X_APPLE_WEBAUTH_PCS_NOTES,
+    X_APPLE_WEBAUTH_PCS_NEWS,
+    X_APPLE_WEBAUTH_PCS_SHARING,
+    X_APPLE_WEBAUTH_HSA_LOGIN,
+    X_APPLE_UNIQUE_CLIENT_ID,
+    X_APPLE_WEBAUTH_LOGIN,
+    X_APPLE_WEBAUTH_VALIDATE,
+    X_APPLE_WEBAUTH_TOKEN,
+    X_APPLE_WEBAUTH_USER,
+    WEB_KB_COOKIE,
+    X_APPLE_DS_WEB_SESSION_TOKEN,
 ]
-ACCOUNT_LOGIN_RESPONSE_COOKIES_KO = [
-    DSLANG,
-    SITE,
-]
+ACCOUNT_LOGIN_RESPONSE_COOKIES_KO = []
 
 # Data
 SIGNIN_RESPONSE_BODY_2FA = {"authType": "hsa2"}
@@ -302,6 +356,12 @@ TRUST_RESPONSE_BODY_KO_INVALID_SESSION = {
         }
     ],
     "hasError": True,
+}
+
+ACCOUNT_LOGIN_REQUEST_BODY = {
+    "dsWebAuthToken": VALID_TOKEN,
+    "extended_login": True,
+    "trustToken": VALID_TOKEN,
 }
 
 ACCOUNT_LOGIN_RESPONSE_BODY_OK = {
@@ -690,7 +750,15 @@ ACCOUNT_LOGIN_RESPONSE_BODY_2FA = {
         "contacts": {},
     },
 }
-ACCOUNT_LOGIN_RESPONSE_BODY_KO_INVALID_TOKEN = TRUST_RESPONSE_BODY_KO_INVALID_SESSION
+ACCOUNT_LOGIN_RESPONSE_BODY_KO_MISSING_APPLE_ID = {
+    "success": False,
+    "error": "Missing apple_id field",
+}
+ACCOUNT_LOGIN_RESPONSE_BODY_KO_INVALID_SESSION_TOKEN = {
+    "success": False,
+    "error": "Invalid Session Token",
+}
+
 TRUSTED_DEVICE_1 = {
     "deviceType": "SMS",
     "areaCode": "",

@@ -127,12 +127,18 @@ class Cookies(RootModel):
         if isinstance(data, dict):
             result = {}
             for key, value in data.items():
-                cookie = MorselModel.model_validate(value) if isinstance(value, dict) else value
-                assert isinstance(cookie, MorselModel), f"Invalid value type: {type(value)}"
-                if key != cookie.key:
-                    raise ValueError(f"Invalid cookie key: {cookie.key}, expected: {key}")
-                result[key] = cookie
+                if isinstance(value, dict):
+                    value = MorselModel.model_validate(value)
+                if not isinstance(value, MorselModel):
+                    raise ValueError(f"Invalid value type: {type(value)}")
+                # Common case. key is the same as cookie key
+                if key == value.key or re.match(key, value.key):
+                    result[value.key] = value
+                    continue
+                # This shouldn't be reached...
+                raise ValueError(f"Invalid cookie key: {value.key}, expected: {key}")
             return result
+        # Invalid data type
         raise AssertionError(f"Ivalid data type: {type(data)}")
 
     @model_serializer(mode="wrap")
@@ -161,13 +167,19 @@ class CookiesModel(LeafModel, ABC):
         assert isinstance(data, dict), f"Invalid data type for '{cls}': {type(data)}"
 
         # Accept simple key/value pairs for cookies. Convert them to MorselModel
-        for name, value in data.items():
+        for name, value in data.copy().items():
             if isinstance(value, str):
                 data[name] = MorselModel(name=name, value=value)
-            elif isinstance(value, dict):
-                data[name] = MorselModel.model_validate(value)
-            elif not isinstance(value, MorselModel):
-                raise ValidationError(f"Invalid value type: {type(value)}")
+                continue
+            if isinstance(value, dict):
+                # Convert to MorselModel
+                data[name] = MorselModel.model_validate(data.pop(name))
+            # Ensure MosrselModel keys are used as dict keys
+            if isinstance(value, MorselModel):
+                data[value.key] = data.pop(name)
+                continue
+            # Only Morsel compatible types are allowed
+            raise ValidationError(f"Invalid value type: {type(value)}")
 
         # Try to fetch cookies from context
         if isinstance(info.context, dict):
@@ -220,7 +232,7 @@ class CookiesModel(LeafModel, ABC):
                     data[field] = data.pop(key)
                     break
             else:
-                LOGGER.debug(f"Cookie pattern not found: {cookie_name}")
+                LOGGER.debug(f"Cookie not found: '{cookie_name}'")
 
         # Try to set safe defaults from settings if not set previously
         if isinstance(info.context, dict):
