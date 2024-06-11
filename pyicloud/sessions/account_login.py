@@ -11,7 +11,6 @@ from pyicloud.models.fields import (
     AcceptType,
     AppleIdType,
     ContentTypeType,
-    DesType,
     DslangCookieType,
     OriginType,
     PasswordType,
@@ -79,7 +78,6 @@ class AccountLoginServiceRequestHeaders(OAuthHeadersModel):
 class AccountLoginRequestCookies(CookiesModel):
     dslang: DslangCookieType
     site: SiteCookieType
-    des: DesType | None = None
 
 
 class AccountLoginRequestBody(BodyModel):

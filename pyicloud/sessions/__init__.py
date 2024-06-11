@@ -208,7 +208,7 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
 
     _DEFAULT = object()
 
-    def model_dump_httpx_request(self, context: dict[str, Any] | object = _DEFAULT) -> httpx.Request:
+    def model_dump_request(self, context: dict[str, Any] | object = _DEFAULT) -> httpx.Request:
         """Dump the request data."""
         # Ensure we have a valid context. Tbis method will be called from a property, so
         # threre's no way to pass context directly to it, so we use the _init_context_var
@@ -233,9 +233,15 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
         jar, cookies = CookieJar(), dict(self.cookies.model_dump(by_alias=True, **cs_info))
 
         for morsel_data in cookies.values():
-            if morsel_data is not None:
-                assert isinstance(morsel_data, dict), f"Invalid morsel type: {type(morsel_data)}"
-                jar.set_cookie(MorselModel.as_cookie(morsel_data))
+            if morsel_data is None:
+                continue
+            assert isinstance(morsel_data, dict), f"Invalid morsel type: {type(morsel_data)}"
+            host = httpx.URL(self.endpoint.url).host
+            domain = morsel_data["domain"]
+            exclude = "domain" if domain and domain not in host else None
+            if exclude:
+                LOGGER.warning(f"Cookie '{morsel_data['name']}' domain mismatch. Expected: '{host}', got: '{domain}'.")
+            jar.set_cookie(MorselModel.as_cookie(morsel_data, exclude=exclude))
 
         return httpx.Request(
             method=self.endpoint.verb,

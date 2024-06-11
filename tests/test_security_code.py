@@ -164,7 +164,7 @@ async def test_security_code_from_models(user):
 
     async with user as session:
         # Fetch httpx pure response. This is the response object returned by the httpx client.
-        response = await session.send(user.request.model_dump_httpx_request())
+        response = await session.send(user.request.model_dump_request())
 
     assert user.request.body.security_code == VALID_2FA_CODE
     # Test the response_cls property

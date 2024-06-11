@@ -124,7 +124,7 @@ class SetupModelTree(ModelTree):
         # Context manager will load and save config and cookies for us
         async with session as client:
             LOGGER.debug(f"Login as '{self.settings.account.username}'")
-            await client.send(session.request.model_dump_httpx_request())
+            await client.send(session.request.model_dump_request())
         # If Sucess, Response will eval to True.
         return session.response
 
@@ -183,7 +183,7 @@ class SetupModelTree(ModelTree):
         )
         async with session as complete:
             LOGGER.debug(f"Verifing HSA2 code: '{session.request.body.security_code}'")
-            await complete.send(session.request.model_dump_httpx_request())
+            await complete.send(session.request.model_dump_request())
         return session.response
 
     async def trust(self) -> BaseResponse:
@@ -191,7 +191,7 @@ class SetupModelTree(ModelTree):
         session = Trust(settings=self.settings, cookies=self.cookies, client=self.client)
         async with session as complete:
             LOGGER.debug(f"Trust session with: '{self.settings.token.session[:7]}...'")
-            await complete.send(session.request.model_dump_httpx_request())
+            await complete.send(session.request.model_dump_request())
         return session.response
 
     async def account_login(self, require_trust_token=True) -> BaseResponse:
@@ -201,7 +201,7 @@ class SetupModelTree(ModelTree):
         session = AccountLogin(settings=self.settings, cookies=self.cookies, client=self.client)
         async with session as complete:
             LOGGER.debug(f"Fetch account details for: '{self.settings.account.username}'")
-            await complete.send(session.request.model_dump_httpx_request())
+            await complete.send(session.request.model_dump_request())
         return session.response
 
 

@@ -217,7 +217,7 @@ class MorselModel(BaseModel):
     key: str = Field(..., alias="name")
     value: str = Field(...)
     expires: int | None = None
-    path: str = Field(default="/")
+    path: str = Field(default="")
     comment: str | None = None
     domain: str = Field(default="")
     max_age: float | None = Field(default=None, alias="max-age")
@@ -312,7 +312,7 @@ class MorselModel(BaseModel):
         morsel.update(values)
         return morsel.output(attrs, header)
 
-    def model_dump_cookie(self) -> Cookie:
+    def model_dump_cookie(self, *, exclude: Sequence | None = None) -> Cookie:
         kwargs = {
             "version": self.version,
             "name": self.key,
@@ -332,11 +332,26 @@ class MorselModel(BaseModel):
             "rest": {"HttpOnly": self.httponly},
             "rfc2109": False,
         }
+        # Allow to purge some attributes
+        for key in [exclude] if isinstance(exclude, str) else exclude or []:
+            if key in ("name", "value"):  # Required attributes
+                continue
+            if key == "domain":
+                kwargs[key] = ""
+                kwargs["domain_specified"] = False
+                kwargs["domain_initial_dot"] = False
+                continue
+            if key == "path":
+                kwargs[key] = ""
+                kwargs["path_specified"] = False
+                continue
+            kwargs.pop(key, None)
+
         return Cookie(**kwargs)
 
     @classmethod
-    def as_cookie(cls, data: dict[str, Any]) -> Cookie:
-        return cls(**data).model_dump_cookie()
+    def as_cookie(cls, data: dict[str, Any], *, exclude: Sequence | None = None) -> Cookie:
+        return cls(**data).model_dump_cookie(exclude=exclude)
 
     @classmethod
     def from_jar(cls, cookie_name: str, jar: JarTypes) -> MorselModel | None:

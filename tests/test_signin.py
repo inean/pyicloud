@@ -199,7 +199,7 @@ async def test_events(user: SignIn, mock: Mock):
         # Pre call.
         assert cast(SignIn, user)._settings.token.session is None
         mock.assert_not_called()
-        await session.send(user.request.model_dump_httpx_request())
+        await session.send(user.request.model_dump_request())
         # Post call
         assert user._settings.token.session is None
         mock.assert_not_called()
@@ -401,7 +401,7 @@ async def test_signin_response_cookies(signin_user, cookies, response_factory):
 
 async def test_signin_response_user(user: SignIn):
     async with user as session:
-        _ = await session.send(user.request.model_dump_httpx_request())
+        _ = await session.send(user.request.model_dump_request())
 
     assert bool(user.response) is True
     assert user.response.headers.country_code == APPLE_ID_COUNTRY_CODE
@@ -414,7 +414,7 @@ async def test_signin_response_user(user: SignIn):
 
 async def test_signin_response_user_secure(user_secure: SignIn):
     async with user_secure as session:
-        _ = await session.send(user_secure.request.model_dump_httpx_request())
+        _ = await session.send(user_secure.request.model_dump_request())
 
     assert bool(user_secure.response) is True
     assert user_secure.response.headers.country_code == APPLE_ID_COUNTRY_CODE
@@ -428,7 +428,7 @@ async def test_signin_response_user_secure(user_secure: SignIn):
 async def test_signin_bad_credentials(user_bad_credentials: SignIn):
     async with user_bad_credentials as session:
         # Fetch httpx pure response. This is the response object returned by the httpx client.
-        _ = await session.send(user_bad_credentials.request.model_dump_httpx_request())
+        _ = await session.send(user_bad_credentials.request.model_dump_request())
 
     assert bool(user_bad_credentials.response) is False
     assert user_bad_credentials.response.headers.country_code is None
