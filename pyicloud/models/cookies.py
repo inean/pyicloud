@@ -47,16 +47,19 @@ class Cookies(RootModel):
         # Suggar case. constant
         if name in self.root:
             return self.root[name]
+        # Try constants but with morsel keys
+        for cookie in self.root.values():
+            if name == cookie.key:
+                return cookie
         # Try to match name as a pattern
-        for morsel in self.root.values():
-            if morsel.key == name:
-                return morsel
-            try:
-                pattern = re.compile(morsel.key)
-                if pattern.match(name):
-                    return morsel
-            except re.error:
-                continue
+        try:
+            pattern = re.compile(name)
+            for candidate, cookie in self.root.items():
+                if pattern.match(candidate):
+                    return cookie
+        except re.error:
+            pass
+
         raise KeyError(name)
 
     def __setitem__(self, name: str, value: dict | MorselModel | str):
@@ -112,8 +115,8 @@ class Cookies(RootModel):
     def model_validate_jartypes(cls, data: JarTypes) -> dict[str, Any]:
         if isinstance(data, Sequence):
             result = {}
-            for cookie_value in data:
-                cookie = MorselModel.model_validate(cookie_value)
+            for cookie_name in data:
+                cookie = MorselModel.model_validate(cookie_name)
                 result[cookie.key] = cookie
             return result
         if hasattr(data, "jar") or hasattr(data, "extract_cookies"):  # httpx.Cookies or CookieJar
@@ -133,7 +136,7 @@ class Cookies(RootModel):
                     raise ValueError(f"Invalid value type: {type(value)}")
                 # Common case. key is the same as cookie key
                 if key == value.key or re.match(key, value.key):
-                    result[value.key] = value
+                    result[key] = value
                     continue
                 # This shouldn't be reached...
                 raise ValueError(f"Invalid cookie key: {value.key}, expected: {key}")

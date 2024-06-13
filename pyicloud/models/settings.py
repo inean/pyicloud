@@ -64,14 +64,8 @@ class Account(LeafModel, validate_assignment=True):
 class Token(LeafModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    session: SessionTokenType = Field(
-        default=None,
-        serialization_alias="sessionToken",
-    )
-    trust: TrustTokensType = Field(
-        default=None,
-        serialization_alias="trustToken",
-    )
+    session: SessionTokenType | None = None
+    trust: TrustTokensType | None = None
 
 
 class ClientSettings(LeafModel):

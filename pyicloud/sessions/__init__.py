@@ -34,7 +34,7 @@ from pyicloud.models import LeafModel, MetaFields, _init_context_var
 from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import Cookies, CookiesModel, MorselModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
-from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
+from pyicloud.models.headers import HeadersModel
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
 

@@ -128,6 +128,22 @@ class Meta:
                         data[target] = current
         return data
 
+    @staticmethod
+    def get_fields(klass: type[BaseModel], field: MetaFields) -> Iterator:
+        for name, info in klass.model_fields.items():
+            if not (metadata := info.metadata):
+                try:
+                    metadata = cast(Any, info.annotation).__args__[0].__metadata__
+                except AttributeError:
+                    metadata = []
+            if (meta := next((x for x in metadata if isinstance(x, Meta)), None)) is None:
+                child = getattr(klass, name)
+                if hasattr(child, "model_fields"):
+                    yield from Meta.get_fields(child, field)
+                continue
+            if target := getattr(meta, field):
+                yield target
+
 
 class ContextModel(BaseModel):
     def __init__(_model_self_, **data: Any) -> None:

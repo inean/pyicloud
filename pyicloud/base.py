@@ -35,32 +35,6 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
         "X-Apple-TwoSV-Trust-Token": "token.trust",
         "scnt": "client_settings.scnt",
     }
-    BASE_COOKIES: list[str] = ["dslang", "site"]
-    LOGIN_COOKIES: list[str] = ["aasp"]
-    LOGGED_COOKIES: list[str] = [
-        "acn01",
-        "X-APPLE-DS-WEB-SESSION-TOKEN",
-        "X-APPLE-UNIQUE-CLIENT-ID",
-        "X-APPLE-WEBAUTH-LOGIN",
-        "X-APPLE-WEBAUTH-USER",
-        "X-APPLE-WEBAUTH-VALIDATE",
-        *BASE_COOKIES,
-        *LOGIN_COOKIES,
-    ]
-
-    VERIFY_COOKIES: list[str] = [
-        "X-APPLE-WEBAUTH-HSA-LOGIN",
-        *BASE_COOKIES,
-        *LOGGED_COOKIES,
-    ]
-
-    VERIFIED_COOKIES: list[str] = [
-        "X-APPLE-WEBAUTH-FMIP",
-        "X-APPLE-WEBAUTH-HSA-TRUST",
-        "X-APPLE-WEBAUTH-TOKEN",
-        *BASE_COOKIES,
-        *LOGGED_COOKIES,
-    ]
 
     JSON_MIMETYPES = ["application/json", "text/json"]
 
