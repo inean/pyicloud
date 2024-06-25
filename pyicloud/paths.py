@@ -24,13 +24,21 @@ class PathConfigDict(TypedDict):
 
     file_origins: OrderedDict[Literal["env_file", "env_dir", "workspace_dir", "system_dir"], str]
     """
-    An ordered dictionary mapping the origin of a file to its location.
-    The order of the keys determines the priority of the locations when searching for a file.
-    The keys can be:
-    - "env_file": An env path to a file. If the file exists, its path is returned.
-    - "env_dir": A env with a path to a directory. If `_file` exists in this directory, its path is returned.
-    - "workspace_dir": A string path to a directory. If `_file` exists in this directory or any of its parent directories, its path is returned.
-    - "system_dir": A string path to a directory. If `_file` exists in this directory, its path is returned.
+    This is an ordered dictionary mapping the origin of a file to its actual location. The order of
+    the keys is significant as it determines the priority of the locations during a file search. The
+    keys can be one of the following:
+
+    - "env_file": Represents an environment variable holding the path to a file. If the file exists
+        at this path, the path is returned.
+
+    - "env_dir": Represents an environment variable holding the path to a directory. If the file,
+        denoted by `_file`, exists in this directory, its path is returned.
+
+    - "workspace_dir": Represents a string path to a directory. If the file, denoted by `_file`,
+        exists in this directory or any of its parent directories, its path is returned.
+
+    - "system_dir": Represents a string path to a directory. If the file, denoted by `_file`, exists
+        in this directory, its path is returned.
     """
 
     file_sub_dir: str

@@ -2,25 +2,65 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any, override
+
 import async_btree as bt
 
-from . import BehaveTree, ModelTree
+from pyicloud.trees import TreeState, TreeTransitionExtra
+from pyicloud.trees.session import SessionModelTree
+from pyicloud.trees.setup import SetupModelTree
 
 
-class RenewModelTree(ModelTree):
-    async def _session_is_logged_in(self): ...
-    async def _session_is_2fa_pending(self): ...
-    async def _session_is_expired(self): ...
-    async def _session_renew(self): ...
+class RenewModelTree(SessionModelTree):
+    def __init__(
+        self,
+        *,
+        setup_model: SetupModelTree,
+        context: dict[str, Any] | None = None,
+    ):
+        super().__init__(
+            settings=setup_model.settings,
+            cookies=setup_model.cookies,
+            context=context,
+        )
+        # FIXME: May be call to setup_model.context.update(context) ?
+        self._setup_model: SetupModelTree = setup_model
 
+    @property
+    def setup_model(self) -> SetupModelTree:
+        return self._setup_model
 
-class iRenewTree(BehaveTree[RenewModelTree]):
-    def _setup(self):
-        return bt.sequence(
+    @property
+    def transitions(self) -> Sequence[TreeTransitionExtra]:
+        return [
+            {
+                "trigger": "renew",
+                "source": TreeState.SESSION_CLOSED,
+                "dest": TreeState.SESSION_ACTIVE,
+                "action": self.run,
+                "result": "api",
+                "on_result": lambda results: results[-1],
+            },
+        ]
+
+    @property
+    @override
+    def bhtree(self) -> bt.AsyncInnerFunction:
+        renew_subtree = bt.sequence(
             children=[
-                bt.condition(self._model._session_is_logged_in),
-                bt.condition(bt.inverter(self._model._session_is_2fa_pending)),
-                bt.condition(bt.inverter(self._model._session_is_expired)),
-                bt.always_success(child=self._model._session_renew),
+                # Check if a previos loggin attempt was successfull.
+                # Even if session is no longer valid, presence of serssion
+                # token will allow us to omit 2FA if needed
+                self._session_is_logged,
+                bt.retry(
+                    child=bt.decision(
+                        condition=self._session_is_valid,
+                        success_tree=bt.action(self.session_validate),
+                        failure_tree=bt.action(self._setup_model.bhtree),
+                    ),
+                    max_retry=1,
+                ),
             ]
         )
+        return renew_subtree

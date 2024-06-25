@@ -38,15 +38,15 @@ from tests.const import (
 from tests.const_auth import (
     ACCOUNT_LOGIN_REQUEST_COOKIES,
     ACCOUNT_LOGIN_REQUEST_HEADERS,
-    ACCOUNT_LOGIN_RESPONSE_BODY_2FA,
     ACCOUNT_LOGIN_RESPONSE_BODY_KO_INVALID_SESSION_TOKEN,
     ACCOUNT_LOGIN_RESPONSE_BODY_KO_MISSING_APPLE_ID,
-    ACCOUNT_LOGIN_RESPONSE_BODY_OK,
     ACCOUNT_LOGIN_RESPONSE_COOKIES_KO,
     ACCOUNT_LOGIN_RESPONSE_COOKIES_OK,
     ACCOUNT_LOGIN_RESPONSE_HEADERS_KO,
     ACCOUNT_LOGIN_RESPONSE_HEADERS_OK,
     DES_COOKIE,
+    SESSION_RESPONSE_BODY_2FA,
+    SESSION_RESPONSE_BODY_OK,
 )
 
 if TYPE_CHECKING:
@@ -92,10 +92,10 @@ def account_login_handler(request: Request | httpx.Request) -> httpx.Response:
 
         if "dsWebAuthToken" in data:
             if data["dsWebAuthToken"] == REQUIRES_2FA_TOKEN and data.get("trustToken") in VALID_TOKENS:
-                content = ACCOUNT_LOGIN_RESPONSE_BODY_2FA
+                content = SESSION_RESPONSE_BODY_2FA
                 break
             if data["dsWebAuthToken"] in VALID_TOKENS:
-                content = ACCOUNT_LOGIN_RESPONSE_BODY_OK
+                content = SESSION_RESPONSE_BODY_OK
                 break
 
             # Error Path
@@ -106,7 +106,7 @@ def account_login_handler(request: Request | httpx.Request) -> httpx.Response:
             break
 
         if data.get("apple_id") in VALID_USERS and data.get("password") == VALID_PASSWORD:
-            content = ACCOUNT_LOGIN_RESPONSE_BODY_OK
+            content = SESSION_RESPONSE_BODY_OK
             break
 
         # Error Path

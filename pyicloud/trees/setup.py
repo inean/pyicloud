@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import re
 from abc import abstractmethod
-from typing import Any
+from collections.abc import Sequence
+from typing import Any, cast
 
 import async_btree as bt
 
@@ -13,16 +14,16 @@ from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.exceptions import PyiCloudUserCancelledError
 from pyicloud.log import LOGGER
-from pyicloud.models import Meta
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
 from pyicloud.models.settings import Settings
 from pyicloud.sessions import BaseResponse
-from pyicloud.sessions.account_login import AccountLogin, AccountLoginResponseCookies
+from pyicloud.sessions.account_login import AccountLogin
 from pyicloud.sessions.security_code import SecurityCode
 from pyicloud.sessions.signin import FreshSignIn, SignIn
 from pyicloud.sessions.trust import Trust
-from pyicloud.trees import BehaveTree, ModelTree, TreeAction
+from pyicloud.trees import TreeState, TreeTransitionExtra, blackboard, use_blackboard
+from pyicloud.trees.session import SessionModelTree
 
 
 class SetupHooks:
@@ -41,51 +42,21 @@ class SetupHooks:
     def on_security_code_error(self, error: Error): ...
 
 
-class SetupModelTree(ModelTree):
+class SetupModelTree(SessionModelTree):
     hooks: SetupHooks
 
-    def __init__(self, *, settings: Settings, cookies: Cookies | None = None, hooks: SetupHooks):
-        super().__init__(settings=settings, cookies=cookies)
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        cookies: Cookies | None = None,
+        hooks: SetupHooks,
+        context: dict[str, Any] | None = None,
+    ):
+        super().__init__(settings=settings, cookies=cookies, context=context)
         self.hooks = hooks
 
-    async def session_is_valid(self):
-        """Test that we have required session data to operate services without the need to re-authenticate."""
-        # Check if we have a valid username
-        if not self.settings.account.username:
-            LOGGER.debug("No account info found")
-            return False
-        # Check if we have a valid session token
-        if not self.settings.token.trust:
-            LOGGER.debug("No trust token found")
-            return False
-        # Verify Cookies are still valid
-        for cookie in Meta.get_fields(AccountLoginResponseCookies, "cookie"):
-            if cookie not in self.cookies:
-                LOGGER.debug(f"Cookie {cookie.key} is missing")
-                return False
-            # Cookie data is too old
-            if self.cookies[cookie].is_expired():
-                LOGGER.debug(f"Cookie {cookie.key} is expired")
-                return False
-        return True
-
-    async def session_reset_config(self):
-        """Reset config."""
-        LOGGER.debug("Config is in an inconsistent state. Resetting ...")
-        self.settings.client_settings.reset_field("scnt")
-        self.settings.token.reset_field("session")
-        self.settings.token.reset_field("trust")
-
-    @ModelTree.set_context(name="refresh_signin")
-    async def session_reset_cookies(self) -> bool:
-        """Reset cookies. Set refresh_sigin to True to force a new session."""
-        LOGGER.debug("Cookies are in an inconsistent state. Resetting ...")
-        self.cookies.pop("aasp", None)
-        self.cookies.pop("acn01", None)
-        return False
-
-    @ModelTree.with_context
-    @ModelTree.set_context(name="response")
+    @blackboard(fetch=True, store="response")
     async def password_reset_if_needed(self, response: BaseResponse | None = None):
         """
         Check porrevious response and reset password if needed. If no previous
@@ -105,7 +76,7 @@ class SetupModelTree(ModelTree):
         LOGGER.debug(f"Password is needed?: password: '{self.password}'")
         return self.password is None or self.password == ""
 
-    @ModelTree.with_context
+    @use_blackboard
     async def password_ask(self):
         # and ask for a new password
         try:
@@ -117,8 +88,7 @@ class SetupModelTree(ModelTree):
             LOGGER.debug("Password entry operation stopped by user")
             raise PyiCloudUserCancelledError("Password entry operation stopped by user") from err
 
-    @ModelTree.set_context(name="response")
-    @ModelTree.with_context
+    @blackboard(fetch=True, store="response")
     async def signin(self, refresh_signin=True) -> BaseResponse:
         """Fetch a valid session token."""
 
@@ -164,7 +134,7 @@ class SetupModelTree(ModelTree):
             return False
         return True
 
-    @ModelTree.with_context
+    @use_blackboard
     async def is_security_code_required(self, response: BaseResponse | None = None) -> int:
         """Return False if a trust token is not present or is not valid anymore."""
         if response and Header.TRUST_TOKEN_ELIGIBLE in response.headers:
@@ -175,28 +145,33 @@ class SetupModelTree(ModelTree):
             return True
         return False
 
-    @ModelTree.set_context(name="response")
-    @ModelTree.with_context
+    @blackboard(fetch=True, remove="response")
     async def security_code_reset(self, response: BaseResponse | None = None):
         if response is None or bool(response):
-            return
+            # No error -> No need to reset
+            return False
         # If a previous attempt failed, show error...
         error = response.errors.pop(0)
+        # Pop security code from blackboard if exists
         LOGGER.debug(f"Resetting security code: '{error.message}' ({error.code})")
+        self.blackboard.pop("security_code", None)
+        # Call error hook
         self.hooks.on_security_code_error(error)
+        return True
 
-    @ModelTree.set_context(name="security_code")
-    async def security_code_ask(self) -> str:
-        # and ask for a new password
-        while True:
-            code = await asyncio.to_thread(self.hooks.get_security_code)
-            code = re.sub(r"[-_\s]", "", code)
-            if re.fullmatch(r"\d{6}", code):
-                LOGGER.debug(f"Set security_code to: '{code}'")
-                return code
+    @blackboard(fetch=True, store="security_code")
+    async def security_code_ask(self, security_code: str = "") -> str:
+        # Validate
+        while not re.fullmatch(r"\d{6}", security_code):
+            # and ask for a new password
+            security_code = await asyncio.to_thread(self.hooks.get_security_code)
+            security_code = re.sub(r"[-_\s]", "", security_code)
+        # Store on blackboard
+        LOGGER.debug(f"Set security_code to: '{security_code}'")
+        return security_code
 
-    @ModelTree.with_context
-    async def security_code(self, security_code: str | None = None) -> BaseResponse:
+    @blackboard(fetch=True)
+    async def security_code(self, security_code: str) -> BaseResponse:
         """Compomete 2FA verification with a valid code"""
         data = {"security_code": security_code}
         session = SecurityCode(settings=self.settings, cookies=self.cookies, data=data, client=self.client)
@@ -224,34 +199,42 @@ class SetupModelTree(ModelTree):
             await complete.send(session.request.model_dump_request())
         return session.response
 
+    @property
+    def transitions(self) -> Sequence[TreeTransitionExtra]:
+        return [
+            cast(
+                TreeTransitionExtra,
+                {
+                    "trigger": "signin",
+                    "source": TreeState.SESSION_CLOSED,
+                    "dest": TreeState.SESSION_LOGGED,
+                    "action": self.run,
+                },
+            )
+        ] + list(super().transitions)
 
-class SetupTree(BehaveTree[SetupModelTree]):
-    def _on_error(self, err: Exception) -> tuple[TreeAction, Exception | Any | None]:
-        if isinstance(err, PyiCloudUserCancelledError):
-            return TreeAction.EXIT, str(err)
-        return super()._on_error(err)
-
-    def _setup(self) -> bt.AsyncInnerFunction:
+    @property
+    def bhtree(self) -> bt.AsyncInnerFunction:
         signin_subtree = bt.sequence(
             children=[
                 # If response is present and False, there is an error. Show it and
                 # reset password and response context
-                bt.always_success(self._model.password_reset_if_needed),
+                bt.always_success(self.password_reset_if_needed),
                 bt.fallback(
                     children=[
                         # Check if password is defined. If not, ask for it
-                        bt.inverter(self._model.password_is_needed),
-                        self._model.password_ask,
+                        bt.inverter(self.password_is_needed),
+                        self.password_ask,
                     ]
                 ),
                 # Try to login
                 bt.fallback(
                     children=[
-                        bt.condition(target=self._model.signin),
+                        bt.condition(target=self.signin),
                         bt.sequence(
                             children=[
-                                bt.always_success(self._model.session_reset_config),
-                                bt.always_success(self._model.session_reset_cookies),
+                                bt.always_success(self._session_reset_config),
+                                bt.always_success(self._session_reset_cookies),
                             ],
                         ),
                     ]
@@ -262,18 +245,18 @@ class SetupTree(BehaveTree[SetupModelTree]):
         security_code_subtree = bt.fallback(
             children=[
                 # Check response to see if 2FA is needed. A non 0 code is interpreted as False
-                bt.inverter(self._model.is_security_code_required),
+                bt.inverter(self.is_security_code_required),
                 bt.sequence(
                     children=[
-                        self._model.security_code_are_preconditions_met,
+                        self.security_code_are_preconditions_met,
                         # If response is False, there is an error. Show it
                         # and reset response context
-                        bt.always_success(self._model.security_code_reset),
-                        bt.always_success(self._model.security_code_ask),
+                        bt.always_success(self.security_code_reset),
+                        bt.always_success(self.security_code_ask),
                         # If 2FA is needed, verify code
-                        self._model.security_code,
+                        self.security_code,
                         # Trust session code,
-                        self._model.trust,
+                        self.trust,
                     ],
                 ),
             ]
@@ -282,15 +265,15 @@ class SetupTree(BehaveTree[SetupModelTree]):
         account_login_subtree = bt.sequence(
             children=[
                 # Get Account Login,
-                bt.action(self._model.account_login, require_trust_token=True),
+                bt.action(self.account_login, require_trust_token=True),
                 # Validate response to ensure we are logged in
-                self._model.session_is_valid,
+                self._session_is_valid,
             ]
         )
 
         return bt.fallback(
             children=[
-                self._model.session_is_valid,
+                self._session_is_valid,
                 bt.sequence(
                     children=[
                         # Login step

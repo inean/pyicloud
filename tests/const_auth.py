@@ -99,7 +99,7 @@ X_APPLE_WEBAUTH_LOGIN = Cookie(
 
 X_APPLE_WEBAUTH_VALIDATE = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-VALIDATE=webauth_login_value; path=/; path_spec; secure; discard; version=0",
+    content=f"X-APPLE-WEBAUTH-VALIDATE={VALID_TOKEN}; path=/; path_spec; secure; discard; version=0",
 )
 
 X_APPLE_WEBAUTH_HSA_LOGIN = Cookie(
@@ -119,7 +119,7 @@ X_APPLE_WEBAUTH_FMIP = Cookie(
 
 X_APPLE_WEBAUTH_HSA_TRUST = Cookie(
     header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-HSA-TRUST=hsa_trust_value; path=/; ath_spec; secure; expires=; version=0",
+    content=f"X-APPLE-WEBAUTH-HSA-TRUST={VALID_TOKEN}; path=/; ath_spec; secure; expires=; version=0",
 )
 
 X_APPLE_WEBAUTH_TOKEN = Cookie(
@@ -323,6 +323,18 @@ ACCOUNT_LOGIN_RESPONSE_COOKIES_OK = [
 ]
 ACCOUNT_LOGIN_RESPONSE_COOKIES_KO = []
 
+##
+# Validate
+##
+VALIDATE_REQUEST_HEADERS = ACCOUNT_LOGIN_REQUEST_HEADERS
+VALIDATE_RESPONSE_HEADERS_OK = ACCOUNT_LOGIN_RESPONSE_HEADERS_OK
+VALIDATE_RESPONSE_HEADERS_KO = {}
+
+# Cookies
+VALIDATE_REQUEST_COOKIES = ACCOUNT_LOGIN_REQUEST_COOKIES + ACCOUNT_LOGIN_RESPONSE_COOKIES_OK
+VALIDATE_RESPONSE_COOKIES_OK = ACCOUNT_LOGIN_RESPONSE_COOKIES_OK
+VALIDATE_RESPONSE_COOKIES_KO = []
+
 # Data
 SIGNIN_RESPONSE_BODY_2FA = {"authType": "hsa2"}
 SIGNIN_RESPONSE_BODY_KO_BAD_PASSWORD = {
@@ -364,7 +376,7 @@ ACCOUNT_LOGIN_REQUEST_BODY = {
     "trustToken": VALID_TOKEN,
 }
 
-ACCOUNT_LOGIN_RESPONSE_BODY_OK = {
+SESSION_RESPONSE_BODY_OK = {
     "dsInfo": {
         "lastName": LAST_NAME,
         "iCDPEnabled": False,
@@ -557,7 +569,7 @@ ACCOUNT_LOGIN_RESPONSE_BODY_OK = {
         "contacts": {},
     },
 }
-ACCOUNT_LOGIN_RESPONSE_BODY_2FA = {
+SESSION_RESPONSE_BODY_2FA = {
     "dsInfo": {
         "lastName": LAST_NAME,
         "iCDPEnabled": False,

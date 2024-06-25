@@ -68,6 +68,12 @@ class EmptyModel(BodyModel):
         return b""
 
 
+class NullModel(BodyModel):
+    @property
+    def content(self) -> bytes:
+        return b"null"
+
+
 class DynamicBodyModel(BodyModel):
     pattern_1: ClassVar[re.Pattern] = re.compile(r"(.)([A-Z][a-z]+)")
     pattern_2: ClassVar[re.Pattern] = re.compile("([a-z0-9])([A-Z])")

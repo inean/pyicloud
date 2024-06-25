@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Protocol, runtime_checkable
-from weakref import ReferenceType, ref
+from weakref import ReferenceType
 
 # Use the package name as the logger name
 __package_name__ = __name__.partition(".")[0]
@@ -31,22 +31,25 @@ def hide_sensitive_data(value: str, logger: logging.Logger | str = "") -> str:
 class PyiCloudPasswordFilter(logging.Filter):
     """Password log hider."""
 
-    _ACTIVE_FILTERS: dict[logging.Logger, dict[ref, logging.Filter | None]] = {}
+    _ACTIVE_FILTERS: dict[logging.Logger, dict[ReferenceType, logging.Filter | None]] = {}
 
     @classmethod
     def register(cls, instance: object, logger: logging.Logger = LOGGER):
         """Register the object to the active filters."""
         if logger not in cls._ACTIVE_FILTERS:
             cls._ACTIVE_FILTERS[logger] = {}
+        # Check if the instance is already registered
+        for weak_ref in cls._ACTIVE_FILTERS[logger]:
+            if weak_ref() == instance:
+                return
         # Store a weak reference to the instance
-        instance = ref(instance, cls.unregister)
-        assert instance not in cls._ACTIVE_FILTERS[logger]
+        instance = ReferenceType(instance, cls.unregister)
         cls._ACTIVE_FILTERS[logger][instance] = None
 
     @classmethod
     def unregister(cls, instance: object):
         """Remove the object from the active filters."""
-        weak_ref = instance if isinstance(instance, ReferenceType) else ref(instance)
+        weak_ref = instance if isinstance(instance, ReferenceType) else ReferenceType(instance)
         for logger in cls._ACTIVE_FILTERS:
             if weak_ref in cls._ACTIVE_FILTERS[logger]:
                 if password_filter := cls._ACTIVE_FILTERS[logger].pop(weak_ref):

@@ -29,8 +29,8 @@ from .const import (
 from .const_account import ACCOUNT_DEVICES_WORKING, ACCOUNT_STORAGE_WORKING
 from .const_account_family import ACCOUNT_FAMILY_WORKING
 from .const_auth import (
-    ACCOUNT_LOGIN_RESPONSE_BODY_2FA,
-    ACCOUNT_LOGIN_RESPONSE_BODY_OK,
+    SESSION_RESPONSE_BODY_2FA,
+    SESSION_RESPONSE_BODY_OK,
     SIGNIN_RESPONSE_BODY_2FA,
     TRUSTED_DEVICE_1,
     TRUSTED_DEVICES,
@@ -90,8 +90,8 @@ class PyiCloudSessionMock(PyiCloudSession):
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._error_callback(None, "Unknown reason")
                 if data.get("dsWebAuthToken") == REQUIRES_2FA_TOKEN:
-                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_2FA)
-                return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
+                    return ResponseMock(SESSION_RESPONSE_BODY_2FA)
+                return ResponseMock(SESSION_RESPONSE_BODY_OK)
 
             if "listDevices" in url and method == "GET":
                 return ResponseMock(TRUSTED_DEVICES)
@@ -110,7 +110,7 @@ class PyiCloudSessionMock(PyiCloudSession):
 
             if "validate" in url and method == "POST":
                 if headers.get("X-APPLE-WEBAUTH-TOKEN") == VALID_COOKIE:
-                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
+                    return ResponseMock(SESSION_RESPONSE_BODY_OK)
                 self._error_callback(None, "Session expired")
 
         if Endpoints.AUTH in url:
@@ -194,8 +194,8 @@ class PyiCloudTransportMock(httpx.MockTransport):
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
                     self._error_callback(None, "Unknown reason")
                 if data.get("dsWebAuthToken") == REQUIRES_2FA_TOKEN:
-                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_2FA)
-                return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
+                    return ResponseMock(SESSION_RESPONSE_BODY_2FA)
+                return ResponseMock(SESSION_RESPONSE_BODY_OK)
 
             if "listDevices" in url and method == "GET":
                 return ResponseMock(TRUSTED_DEVICES)
@@ -214,7 +214,7 @@ class PyiCloudTransportMock(httpx.MockTransport):
 
             if "validate" in url and method == "POST":
                 if headers.get("X-APPLE-WEBAUTH-TOKEN") == VALID_COOKIE:
-                    return ResponseMock(ACCOUNT_LOGIN_RESPONSE_BODY_OK)
+                    return ResponseMock(SESSION_RESPONSE_BODY_OK)
                 self._error_callback(None, "Session expired")
 
         if Endpoints.AUTH in url:

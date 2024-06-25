@@ -31,7 +31,7 @@ from tests.const_account_family import (
 )
 
 from .const_auth import (
-    ACCOUNT_LOGIN_RESPONSE_BODY_OK,
+    SESSION_RESPONSE_BODY_OK,
     SIGNIN_REQUEST_COOKIES,
     SIGNIN_RESPONSE_2FA_COOKIES,
     SIGNIN_RESPONSE_BODY_2FA,
@@ -61,7 +61,7 @@ def signin_handler(request: httpx.Request) -> httpx.Response:
             }
         )
         cookies = SIGNIN_RESPONSE_OK_COOKIES
-        content = ACCOUNT_LOGIN_RESPONSE_BODY_OK
+        content = SESSION_RESPONSE_BODY_OK
         # 2FA path
         if data.get("accountName") == REQUIRES_2FA_USER:
             status_code = 409
