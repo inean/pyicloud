@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import re
 from abc import abstractmethod
 from collections.abc import Sequence
@@ -28,7 +29,7 @@ from pyicloud.trees.session import SessionModelTree
 
 class SetupHooks:
     @abstractmethod
-    def get_password(self) -> str: ...
+    def get_password(self, username: str) -> str: ...
 
     @abstractmethod
     def get_security_code(self, device: Any = None) -> str: ...
@@ -81,7 +82,7 @@ class SetupModelTree(SessionModelTree):
         # and ask for a new password
         try:
             while not self.password:
-                self.password = await asyncio.to_thread(self.hooks.get_password)
+                self.password = await asyncio.to_thread(partial(self.hooks.get_password, self.username))
                 LOGGER.debug(f"Set password to '{self.password}'")
             return True
         except asyncio.exceptions.CancelledError as err:
@@ -107,7 +108,7 @@ class SetupModelTree(SessionModelTree):
         # Context manager will load and save config and cookies for us
         async with session as client:
             LOGGER.debug(f"Login as '{self.settings.account.username}'")
-            await client.send(session.request.model_dump_request())
+            await client.send(session.request.create_request())
         # If Sucess, Response will eval to True.
         return session.response
 
@@ -177,7 +178,7 @@ class SetupModelTree(SessionModelTree):
         session = SecurityCode(settings=self.settings, cookies=self.cookies, data=data, client=self.client)
         async with session as complete:
             LOGGER.debug(f"Verifing HSA2 code: '{session.request.body.security_code}'")
-            await complete.send(session.request.model_dump_request())
+            await complete.send(session.request.create_request())
         return session.response
 
     async def trust(self) -> BaseResponse:
@@ -186,7 +187,7 @@ class SetupModelTree(SessionModelTree):
         session = Trust(settings=self.settings, cookies=self.cookies, client=self.client)
         async with session as complete:
             LOGGER.debug(f"Trust session with: '{self.settings.token.session[:7]}...'")
-            await complete.send(session.request.model_dump_request())
+            await complete.send(session.request.create_request())
         return session.response
 
     async def account_login(self, require_trust_token=True) -> BaseResponse:
@@ -196,7 +197,7 @@ class SetupModelTree(SessionModelTree):
         session = AccountLogin(settings=self.settings, cookies=self.cookies, client=self.client)
         async with session as complete:
             LOGGER.debug(f"Fetch account details for: '{self.settings.account.username}'")
-            await complete.send(session.request.model_dump_request())
+            await complete.send(session.request.create_request())
         return session.response
 
     @property

@@ -79,7 +79,7 @@ class SessionModelTree(Tree):
         session = Validate(settings=self.settings, cookies=self.cookies, client=self.client)
         async with session as complete:
             LOGGER.debug("Renewing session using cookies")
-            await complete.send(session.request.model_dump_request())
+            await complete.send(session.request.create_request())
         return session.response
 
     @property

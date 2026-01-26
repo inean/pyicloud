@@ -45,27 +45,6 @@ class Endpoint(LeafModel, ABC):
     verb: ClassVar[Literal["GET", "POST", "DELETE", "PUT"]] = "GET"
     content_type: ClassVar[str] = "application/json"
 
-    @model_validator(mode="wrap")
-    @classmethod
-    def model_validate_from_settings(cls, data: dict[str, Any], handler: Callable, info: ValidationInfo) -> Self:
-        settings: Settings | None = None
-
-        if isinstance(data, cls):
-            return handler(data)
-
-        assert isinstance(data, dict), f"Invalid data type for '{cls}': {type(data)}"
-
-        if isinstance(info.context, dict):
-            settings = info.context.get("settings", None)
-
-            if isinstance(settings, Settings):
-                by_meta: MetaFields = info.context.get("by_meta", "config")
-                assert by_meta in get_args(MetaFields), f"Invalid by_meta value: {by_meta}"
-                for field, meta_config, _ in cls.model_fields_from_meta(by_meta=by_meta):
-                    data.setdefault(field, settings[meta_config])
-
-        return handler(data)
-
     @property
     def params(self) -> dict[str, Any]:
         return self.model_dump(mode="json", by_alias=True, context=dict(by_meta="params"))
@@ -123,7 +102,7 @@ class BaseResponse(BaseModel, Generic[H, C, B]):
         return status_code >= 400
 
     @classmethod
-    def model_validate_response(cls, response: httpx.Response, *, data: Any = None) -> Self:
+    def create(cls, response: httpx.Response, *, data: Any = None) -> Self:
         """Create a response from a httpx response."""
         data = data or {}
         # Parse status code
@@ -154,7 +133,7 @@ class BaseResponse(BaseModel, Generic[H, C, B]):
             response = info.context.get("response", None)
 
             if isinstance(response, httpx.Response):
-                return cls.model_validate_response(response, data=data)
+                return cls.create(response, data=data)
 
         return handler(data)
 
@@ -208,7 +187,7 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
 
     _DEFAULT = object()
 
-    def model_dump_request(self, context: dict[str, Any] | object = _DEFAULT) -> httpx.Request:
+    def create_request(self, context: dict[str, Any] | object = _DEFAULT) -> httpx.Request:
         """Dump the request data."""
         # Ensure we have a valid context. Tbis method will be called from a property, so
         # threre's no way to pass context directly to it, so we use the _init_context_var

@@ -432,7 +432,7 @@ async def test_account_login_response_cookies(user, cookies, response_factory):
 
 async def test_account_login_response_user(account_login_user: AccountLogin):
     async with account_login_user as session:
-        _ = await session.send(account_login_user.request.model_dump_request())
+        _ = await session.send(account_login_user.request.create_request())
 
     assert bool(account_login_user.response) is True
     assert cast(AccountLoginResponseCookies, account_login_user.response.cookies).webauth_hsa_trust
@@ -442,7 +442,7 @@ async def test_account_login_response_user(account_login_user: AccountLogin):
 async def test_account_login_invalid_token(account_login_invalid_token: AccountLogin):
     async with account_login_invalid_token as session:
         # Fetch httpx pure response. This is the response object returned by the httpx client.
-        _ = await session.send(account_login_invalid_token.request.model_dump_request())
+        _ = await session.send(account_login_invalid_token.request.create_request())
 
     assert bool(account_login_invalid_token.response) is False
 

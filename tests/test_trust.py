@@ -196,7 +196,7 @@ async def test_events(user: Trust, mock: Mock):
         # Pre call.
         assert cast(Trust, user)._settings.token.trust is None
         mock.assert_not_called()
-        await session.send(user.request.model_dump_request())
+        await session.send(user.request.create_request())
         # Post call
         assert user._settings.token.trust is None
         mock.assert_not_called()
@@ -390,7 +390,7 @@ async def test_trust_response_cookies(trust_user, cookies, response_factory):
 
 async def test_trust_response_user(user: Trust):
     async with user as session:
-        _ = await session.send(user.request.model_dump_request())
+        _ = await session.send(user.request.create_request())
 
     assert bool(user.response) is True
     assert user.response.cookies.des is not None
@@ -406,7 +406,7 @@ async def test_trust_response_user(user: Trust):
 async def test_trust_invalid_token(user_invalid_token: Trust):
     async with user_invalid_token as session:
         # Fetch httpx pure response. This is the response object returned by the httpx client.
-        _ = await session.send(user_invalid_token.request.model_dump_request())
+        _ = await session.send(user_invalid_token.request.create_request())
 
     assert bool(user_invalid_token.response) is False
     assert user_invalid_token.response.cookies.des is None
