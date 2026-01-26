@@ -42,7 +42,7 @@ from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
-    Endpoint,
+    StaticEndpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
@@ -53,8 +53,8 @@ from pyicloud.sessions import (
 ##
 # Request
 ##
-class AccountLoginEndpoint(Endpoint):
-    url = Endpoints.ACCOUNT_LOGIN
+class AccountLoginEndpoint(StaticEndpoint):
+    endpoint = Endpoints.ACCOUNT_LOGIN
     verb = "POST"
     content_type = "application/json"
 

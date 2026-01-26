@@ -5,20 +5,18 @@ from typing import Type
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import NullModel
 from pyicloud.models.fields import (
-    AcceptType,
     ContentTypeType,
     DslangCookieType,
-    OriginType,
     SiteCookieType,
 )
 from pyicloud.models.headers import HeadersModel
 from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
-    Endpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
+    StaticEndpoint,
     serialize,
 )
 from pyicloud.sessions.session import SessionBody, SessionCookies, SessionHeaders
@@ -27,15 +25,13 @@ from pyicloud.sessions.session import SessionBody, SessionCookies, SessionHeader
 ##
 # Request
 ##
-class ValidateEndpoint(Endpoint):
-    url = Endpoints.VALIDATE
+class ValidateEndpoint(StaticEndpoint):
+    endpoint = Endpoints.VALIDATE
     verb = "POST"
     content_type = "application/json"
 
 
 class ValidateRequestHeaders(SessionHeaders):
-    accept: AcceptType = "application/json"
-    origin: OriginType = Endpoints.HOME
     content_type: ContentTypeType = "application/json"
 
 

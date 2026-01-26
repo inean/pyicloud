@@ -5,15 +5,16 @@ from __future__ import annotations
 import asyncio
 import random
 import string
-from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Iterable, Iterator
 from itertools import chain
-from typing import Any, Awaitable, Callable, ClassVar, Literal, TypedDict, cast, overload
+from typing import Annotated, Any, Callable, ClassVar, Literal, TypedDict, cast, overload
 
 from httpx import AsyncClient
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from pyicloud.log import LOGGER
+from pyicloud.models import Meta
+from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar
@@ -25,7 +26,8 @@ from pyicloud.services.findmyiphone import FindMyiPhoneServiceManager
 from pyicloud.services.photos import PhotosService
 from pyicloud.services.reminders import RemindersService
 from pyicloud.services.ubiquity import UbiquityService
-from pyicloud.trees import BehaveTree
+from pyicloud.sessions import DynamicEndpoint
+from pyicloud.sessions.session import create_session
 
 
 class PyiCloudServices:
@@ -253,6 +255,41 @@ class FindMyiPhone(Service):
 
             await asyncio.sleep(0.1)
             return self._info
+
+    async def __aiter__(self) -> AsyncIterator[FindMyiPhone.Device]:
+        async with self._application.client as client:
+            async with client.stream("GET", self._url) as response:
+                while chunk := await response.aread():
+                    yield self.Device()
+
+    async def refresh_client(self, application: Application):
+        """Refreshes the FindMyiPhoneService endpoint,
+
+        This ensures that the location data is up-to-date.
+
+        """
+
+        class Endpoint(DynamicEndpoint):
+            verb = "POST"
+            path = "fmipservice/client/web/refreshClient"
+            content_type = "application/json"
+
+        class Request(BodyModel):
+            model_config = ConfigDict(populate_by_name=True)
+
+            class Ctx(BaseModel):
+                locate: Annotated[bool, Field(True, alias="shouldLocate")]
+                device: Annotated[Literal["all"], Field("all", alias="selectedDevice")]
+                version: Annotated[int, Field(1, alias="deviceListVersion")]
+                with_family: Annotated[bool, Meta(config="account.with_family", body="fmly")]
+
+            clientContext: Ctx
+
+            clientContext: Ctx
+
+        RefreshClient = create_session(Endpoint, request=Request)
+        async with RefreshClient(application, data={"endpoint": dict(root=self._url)}) as session:
+            raise NotImplementedError
 
     def __iter__(self) -> Iterator[Device]:
         # Application controls http session, so we pass a Endpoint + Params + Body, and optionally a Schema Response

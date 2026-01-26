@@ -1,184 +1,192 @@
 
 [project]
-    authors = [
-        { name = "Carlos Martín", email = "inean.es@gmail.com" },
-        { name = "Peter Evans", email = "evans.peter@gmail.com" },
-    ]
-    description = " PyiCloud is a module that allows Python developers to interact with iCloud web services asynchronously."
-    name = "aio-pyicloud"
+authors = [
+    { name = "Carlos Martín", email = "inean.es@gmail.com" },
+    { name = "Peter Evans", email = "evans.peter@gmail.com" },
+]
+description = " PyiCloud is a module that allows Python developers to interact with iCloud web services asynchronously."
+name = "aio-pyicloud"
 
-    # Project metadata
-    keywords = ["async", "find-my-iphone", "icloud"]
-    license  = { text = "MIT" }
-    readme   = "README.md"
+# Project metadata
+keywords = ["async", "find-my-iphone", "icloud"]
+license  = { text = "MIT" }
+readme   = "README.md"
 
-    # Assume python 3.10 or later, but allow for later versions.
-    requires-python = ">=3.11"
+# Assume python 3.10 or later, but allow for later versions.
+requires-python = ">=3.11"
 
-    # Project dependencies.
-    dependencies = [
-        "async-btree @ git+https://github.com/inean/async-btree.git",
-        "asyncclick>=8.1.7",
-        "httpx>=0.27.0",
-        "psygnal>=0.11.0",
-        "pydantic-settings>=2.2.1",
-        "pydantic>=2.6.4",
-        "tzlocal>=5.2",
-    ]
+# Project dependencies.
+dependencies = [
+    "async-btree @ git+https://github.com/inean/async-btree.git",
+    "asyncclick>=8.1.7",
+    "httpx>=0.27.0",
+    "psygnal>=0.11.0",
+    "pydantic-settings>=2.2.1",
+    "pydantic>=2.6.4",
+    "tzlocal>=5.2",
+]
 
 
-    # Dyamic metadata provided by PDM
-    dynamic = ["version"]
+# Dyamic metadata provided by PDM
+dynamic = ["version"]
 
-    classifiers = [
-        "Development Status :: 5 - Production/Stable",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python",
-        "Topic :: Software Development :: Libraries",
-    ]
-    maintainers = [{ name = "The PyiCloud Authors" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python",
+    "Topic :: Software Development :: Libraries",
+]
+maintainers = [{ name = "The PyiCloud Authors" }]
 
-    [project.urls]
-        Changelog = "https://github.com/inean/releases"
-        Homepage  = "https://github.com/inean/pyicloud"
+[project.urls]
+Changelog = "https://github.com/inean/releases"
+Homepage  = "https://github.com/inean/pyicloud"
 
-    [project.scripts]
-        icloud = "pyicloud.cmdline:main"
+[project.scripts]
+icloud = "pyicloud.cmdline:main"
 
-    [project.optional-dependencies]
-        all  = ["aio-pyicloud[rich]"]
-        rich = ["rich>=13.7.1"]
+[project.optional-dependencies]
+all  = ["aio-pyicloud[rich]"]
+rich = ["rich>=13.7.1"]
 
 [build-system]
-    # Build backend
-    build-backend = "pdm.backend"
-    requires      = ["pdm-backend"]
+# Build backend
+build-backend = "pdm.backend"
+requires      = ["pdm-backend"]
 
 [tool.pdm]
-    # Whether the project is a package or not.
-    distribution = true
+# Whether the project is a package or not.
+distribution = true
 
-    [tool.pdm.version]
-        source         = "scm"
-        write_template = "version = '{}'"
-        write_to       = "pyicloud/_version.py"
+[tool.pdm.version]
+source         = "scm"
+write_template = "version = '{}'"
+write_to       = "pyicloud/_version.py"
 
-    [tool.pdm.dev-dependencies]
-        dev = [
-            "pre-commit>=3.6.2",
-            #asd
-        ]
-        lint = [
-            "ruff>=0.3.0",
-            #asd
-        ]
-        test = [
-            "coverage[toml]>=5.5,<6.4",
-            "hypothesis>=6.100.0",
-            "pytest-asyncio>=0.15.1",
-            "pytest-cov>=4.1",
-            "pytest-httpx>=0.3.0",
-            "pytest>=8.0.1",
-            "tox-pdm>=0.7.2",
-            #asd
-        ]
+[tool.pdm.dev-dependencies]
+dev = [
+    "pre-commit>=3.6.2",
+    "datamodel-code-generator>=0.25.6",
+    "inquirerpy>=0.3.4",
+    #asd
+    "keyring>=25.2.1",
+]
+lint = [
+    "ruff>=0.3.0",
+    #asd
+]
+test = [
+    "coverage[toml]>=5.5,<6.4",
+    "hypothesis>=6.100.0",
+    "pytest-asyncio>=0.17",
+    "pytest-cov>=4.1",
+    "pytest-lazy-fixtures>=1.0.7",
+    "pytest>=8.0.1",
+    "tox-pdm>=0.7.2",
+    #asd
+]
 
-    [tool.pdm.scripts]
-        coverage = { shell = "coverage run -m pytest -v {args} && coverage xml && coverage report" }
-        format   = { shell = "ruff format ." }
-        lint     = { shell = "ruff check ." }
-        tests    = { shell = "pytest -v tests/" }
+[tool.pdm.scripts]
+coverage = { shell = "coverage run --omit='*/tests/*' -m pytest -v {args} && coverage xml && coverage report" }
+format   = { shell = "ruff format ." }
+lint     = { shell = "ruff check ." }
+tests    = { shell = "pytest -v tests/" }
+
+[tool.pytest.ini_options]
+addopts      = "-ra -q"
+asyncio_mode = "auto"
+testpaths    = "tests"
 
 [tool.ruff]
-    # Exclude common directories and files from linting and formatting.
-    exclude = [
-        ".git",
-        ".tox",
-        ".venv",
-        # asd
-    ]
-    indent-width = 4
-    line-length = 120
+# Exclude common directories and files from linting and formatting.
+exclude = [
+    ".git",
+    ".tox",
+    ".venv",
+    # asd
+]
+indent-width = 4
+line-length = 120
 
-    [tool.ruff.format]
-        # Like Black, use double quotes for strings.
-        quote-style = "double"
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
 
-        # Like Black, indent with spaces, rather than tabs.
-        indent-style = "space"
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
 
-        # Like Black, respect magic trailing commas.
-        skip-magic-trailing-comma = false
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
 
-        # Like Black, automatically detect the appropriate line ending.
-        line-ending = "auto"
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
 
-        # Enable auto-formatting of code examples in docstrings. Markdown,
-        # reStructuredText code/literal blocks and doctests are all supported.
-        #
-        # This is currently disabled by default, but it is planned for this
-        # to be opt-out in the future.
-        docstring-code-format = true
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = true
 
-        # Set the line length limit used when formatting code snippets in
-        # docstrings.
-        #
-        # This only has an effect when the `docstring-code-format` setting is
-        # enabled.
-        docstring-code-line-length = "dynamic"
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
 
-    [tool.ruff.lint]
-        # Enable Pyflakes (`F`) and pycodestyle (`E`) codes by default.
-        # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-        # McCabe complexity (`C901`) by default.
-        # Also enable `B` codes from pycodestyle.
-        ignore = []
-        # Ruff uses the "highest-priority" select as the basis for the rule set,
-        # and then applies extend-select and ignore adjustments
-        extend-select = ["I"]
-        select = [
-            # flake8-bugbear
-            "B",
-            # pycode style
-            "E",
-            # pyflakes
-            "F",
-            # isort
-            "I",
-            # flake8-pie
-            "PIE",
-        ]
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and pycodestyle (`E`) codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+# Also enable `B` codes from pycodestyle.
+ignore = []
+# Ruff uses the "highest-priority" select as the basis for the rule set,
+# and then applies extend-select and ignore adjustments
+extend-select = ["I"]
+select = [
+    # flake8-bugbear
+    "B",
+    # pycode style
+    "E",
+    # pyflakes
+    "F",
+    # isort
+    "I",
+    # flake8-pie
+    "PIE",
+]
 
-        # Allow fix for all enabled rules (when `--fix`) is provided.
-        fixable = ["ALL"]
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
 
-        # Avoid trying to fix flake8-bugbear (`B`) violations.
-        unfixable = ["B"]
+# Avoid trying to fix flake8-bugbear (`B`) violations.
+unfixable = ["B"]
 
-        # Allow unused variables when underscore-prefixed.
-        dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-        # Allow import module level import not at top of file
-        [tool.ruff.lint.per-file-ignores]
-            "**/__init__.py" = ["E402", "F401"]
+# Allow import module level import not at top of file
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["E402", "F401"]
 
 [tool.mypy]
-    ignore_missing_imports = true
-    strict                 = true
+ignore_missing_imports = true
+strict                 = true
 
-    [[tool.mypy.overrides]]
-        check_untyped_defs    = true
-        disallow_untyped_defs = false
-        module                = "tests.*"
+[[tool.mypy.overrides]]
+check_untyped_defs    = true
+disallow_untyped_defs = false
+module                = "tests.*"
 
 [tool.tox]
-    legacy_tox_ini = """
+legacy_tox_ini = """
 
 [tox]
     # Project details

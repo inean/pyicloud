@@ -34,6 +34,7 @@ from pyicloud.models import LeafModel, MetaFields, _init_context_var
 from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import Cookies, CookiesModel, MorselModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
+from pyicloud.models.fields import ContentTypeType
 from pyicloud.models.headers import HeadersModel
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
@@ -41,13 +42,35 @@ from pyicloud.paths import CookiesJar, SettingsFile
 
 class Endpoint(LeafModel, ABC):
     # Constants
-    url: ClassVar[str]
     verb: ClassVar[Literal["GET", "POST", "DELETE", "PUT"]] = "GET"
-    content_type: ClassVar[str] = "application/json"
+    content_type: ClassVar[ContentTypeType | None] = None
 
     @property
     def params(self) -> dict[str, Any]:
         return self.model_dump(mode="json", by_alias=True, context=dict(by_meta="params"))
+
+    @property
+    @abstractmethod
+    def url(self) -> httpx.URL: ...
+
+
+class DynamicEndpoint(Endpoint):
+    path: ClassVar[str]
+    root: str
+
+    @property
+    def url(self) -> httpx.URL:
+        path = self.path if self.path.startswith("/") else f"/{self.path}"
+        root = self.root if self.root.endswith("/") else f"{self.root}/"
+        return httpx.URL(f"{root[:-1]}{path}")
+
+
+class StaticEndpoint(Endpoint):
+    endpoint: ClassVar[str]
+
+    @property
+    def url(self) -> httpx.URL:
+        return httpx.URL(self.endpoint)
 
 
 H = TypeVar("H", bound=HeadersModel)
@@ -238,8 +261,6 @@ K = TypeVar("K", bound="BaseResponse")
 
 
 class BaseTransport(Generic[T, K], ABC):
-    ENDPOINT: str
-
     _cookies: Cookies
     _settings: Settings
 

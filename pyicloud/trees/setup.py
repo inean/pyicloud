@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from functools import partial
 import re
 from abc import abstractmethod
 from collections.abc import Sequence
+from functools import partial
 from typing import Any, cast
 
 import async_btree as bt

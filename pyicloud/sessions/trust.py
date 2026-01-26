@@ -30,7 +30,7 @@ from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
-    Endpoint,
+    StaticEndpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
@@ -41,7 +41,7 @@ from pyicloud.sessions import (
 ##
 # Request
 ##
-class TrustEndpoint(Endpoint):
+class TrustEndpoint(StaticEndpoint):
     url = Endpoints.TRUST
     verb = "GET"
     content_type = "application/json"

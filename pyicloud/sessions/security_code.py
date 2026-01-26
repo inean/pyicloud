@@ -29,7 +29,7 @@ from pyicloud.models.fields import (
 from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
-    Endpoint,
+    StaticEndpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
@@ -41,8 +41,8 @@ from pyicloud.models.headers import OAuthHeadersModel
 ##
 # Request
 ##
-class SecurityCodeRequestEndpoint(Endpoint):
-    url = Endpoints.SECURITY_CODE
+class SecurityCodeRequestEndpoint(StaticEndpoint):
+    endpoint = Endpoints.SECURITY_CODE
     verb = "POST"
     content_type = "application/json"
 
