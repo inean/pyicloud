@@ -1,7 +1,5 @@
 """Drive service."""
 
-import http
-import io
 import json
 import logging
 import mimetypes
@@ -12,7 +10,7 @@ from re import search
 
 import httpx
 
-from pyicloud.exceptions import PyiCloudAPIResponseException
+from pyicloud.exceptions import PyiCloudAPIResponseError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -231,7 +229,7 @@ class DriveService:
 
     def _raise_if_error(self, response: httpx.Response):  # pylint: disable=no-self-use
         if not response.is_success:
-            api_error = PyiCloudAPIResponseException(response.reason_phrase, response.status_code)
+            api_error = PyiCloudAPIResponseError(response.reason_phrase, response.status_code)
             LOGGER.error(api_error)
             raise api_error
 

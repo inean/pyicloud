@@ -1,6 +1,5 @@
 """Drive test constants."""
 
-
 # Data
 DRIVE_ROOT_WORKING = [
     {
@@ -567,9 +566,7 @@ DRIVE_ROOT_WORKING = [
 ]
 
 # App specific folder (Keynote, Numbers, Pages, Preview ...) type=APP_LIBRARY
-DRIVE_ROOT_INVALID = [
-    {"drivewsid": "FOLDER::com.apple.CloudDocs::documents", "status": "ID_INVALID"}
-]
+DRIVE_ROOT_INVALID = [{"drivewsid": "FOLDER::com.apple.CloudDocs::documents", "status": "ID_INVALID"}]
 
 DRIVE_FOLDER_WORKING = [
     {

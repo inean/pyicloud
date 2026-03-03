@@ -10,6 +10,20 @@
             "justMyCode": false
         },
         {
+            "name": "Pytest: [Unit Tests] (Current File)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-vvv",
+                "--no-cov",
+                "-W error::UserWarning",
+                "${file}",
+            ]
+        },
+        {
             "name": "Python: [CLI]",
             "type": "debugpy",
             "request": "launch",
@@ -20,13 +34,14 @@
             "env": {
                 "PYDEVD_DISABLE_FILE_VALIDATION": "1"
             },
-            "args": "run icloud ${input:cli_args}"
+            "args": [ "run", "${input:cli}", "${input:cli_args}" ]
         },
         {
-            "name": "Python: [Unit Tests]",
+            "name": "Pytest: [Unit Tests]",
             "type": "debugpy",
             "request": "launch",
             "module": "pytest",
+            "console": "integratedTerminal",
             "justMyCode": false,
             "args": [
                 "-vvv",
@@ -37,6 +52,13 @@
         }
     ],
     "inputs": [
+        {
+            "id": "cli",
+            "type": "pickString",
+            "options": [ "icloud" ],
+            "description": "Enter command to run",
+            "default": "icloud"
+        },
         {
             "id": "cli_args",
             "type": "promptString",

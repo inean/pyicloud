@@ -6,8 +6,10 @@
         ".venv": true,
     },
     "python.testing.pytestArgs": [
+        "--asyncio-mode=auto",
         "tests"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "python.analysis.typeCheckingMode": "basic"
 }

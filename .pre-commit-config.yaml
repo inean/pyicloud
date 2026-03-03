@@ -12,8 +12,18 @@ repos:
         pass_filenames: false
         additional_dependencies: [pdm]
 
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.2
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format
+
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.6.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -25,12 +35,3 @@ repos:
       - id: mixed-line-ending
       - id: requirements-txt-fixer
       - id: trailing-whitespace
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.2
-    hooks:
-      # Run the linter.
-      - id: ruff
-        args: [ --fix ]
-      # Run the formatter.
-      - id: ruff-format

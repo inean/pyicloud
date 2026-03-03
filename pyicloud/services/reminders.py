@@ -1,8 +1,9 @@
 """Reminders service."""
-from datetime import datetime
+
+import json
 import time
 import uuid
-import json
+from datetime import datetime
 
 from tzlocal import get_localzone_name
 
@@ -23,14 +24,10 @@ class RemindersService:
     def refresh(self):
         """Refresh data."""
         params_reminders = dict(self._params)
-        params_reminders.update(
-            {"clientVersion": "4.0", "lang": "en-us", "usertz": get_localzone_name()}
-        )
+        params_reminders.update({"clientVersion": "4.0", "lang": "en-us", "usertz": get_localzone_name()})
 
         # Open reminders
-        req = self.session.get(
-            self._service_root + "/rd/startup", params=params_reminders
-        )
+        req = self.session.get(self._service_root + "/rd/startup", params=params_reminders)
 
         data = req.json()
 
@@ -43,7 +40,6 @@ class RemindersService:
                 "ctag": collection["ctag"],
             }
             for reminder in data["Reminders"]:
-
                 if reminder["pGuid"] != collection["guid"]:
                     continue
 
@@ -75,9 +71,7 @@ class RemindersService:
                 pguid = self.collections[collection]["guid"]
 
         params_reminders = dict(self._params)
-        params_reminders.update(
-            {"clientVersion": "4.0", "lang": "en-us", "usertz": get_localzone_name()}
-        )
+        params_reminders.update({"clientVersion": "4.0", "lang": "en-us", "usertz": get_localzone_name()})
 
         due_dates = None
         if due_date:

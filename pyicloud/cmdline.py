@@ -13,8 +13,9 @@ import sys
 
 import asyncclick as click
 
-from pyicloud.base import PyiCloud, PyiCloudServices
-from pyicloud.exceptions import PyiCloudFailedLoginException
+from pyicloud.base import PyiCloud
+from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
+from pyicloud.services import PyiCloudServices
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
 
@@ -42,13 +43,10 @@ class _DictProxy:
         return self._dict.get(name, self._default)
 
 
-# fmt: off
 @click.command(name="icloud", help="Find My iPhone CommandLine Tool")
 @click.option("-u", "--username", required=True, help="Apple ID to Use")
 @click.option("-p", "--password", default="", help="Apple ID Password to Use")
 @click.option("--non-interactive", "interactive", is_flag=True, default=True, help="Disable interactive prompts.")
-@click.option("--list", "list", is_flag=True, default=False, help="Short Listings for Device(s) associated with account")
-@click.option("--llist", "longlist", is_flag=True, default=False, help="Detailed Listings for Device(s) associated with account")
 @click.option("--locate", is_flag=True, default=False, help="Retrieve Location for the iDevice (non-exclusive).")
 @click.option("--device", "device_id", default=False, help="Only effect this device")
 @click.option("--sound", is_flag=True, default=False, help="Play a sound on the device")
@@ -58,11 +56,20 @@ class _DictProxy:
 @click.option("--lostphone", default=False, help="Phone Number allowed to call when lost mode is enabled")
 @click.option("--lostpassword", default=False, help="Forcibly active this passcode on the idevice")
 @click.option("--lostmessage", default="", help="Forcibly display this message when activating lost mode.")
-@click.option("-v","verbose", count=True, help="Increase output verbosity")
-@click.option("--outputfile", "output_to_file", is_flag=True, default=False, help="Save device data to a file in the current directory.")
-# fmt: on
-
-
+@click.option("-v", "verbose", count=True, help="Increase output verbosity")
+@click.option(
+    "--list", "list", is_flag=True, default=False, help="Short Listings for Device(s) associated with account"
+)
+@click.option(
+    "--llist", "longlist", is_flag=True, default=False, help="Detailed Listings for Device(s) associated with account"
+)
+@click.option(
+    "--outputfile",
+    "output_to_file",
+    is_flag=True,
+    default=False,
+    help="Save device data to a file in the current directory.",
+)
 async def main(**kwargs):
     """Main commandline entrypoint."""
 
@@ -80,7 +87,11 @@ async def main(**kwargs):
     password = str.strip(command_line.password)
 
     failure_count = 0
-    api = PyiCloud(username=username, password=password)
+    try:
+        api = PyiCloud(username=username, password=password)
+    except PyiCloudValidationError as err:
+        response = [error.get("msg") for error in err.errors() if error.get("msg")]
+        raise ValueError("\n".join(response)) from err
     while True:
         # Which password we use is determined by your username, so we
         # do need to check for this first and separately.
@@ -88,7 +99,7 @@ async def main(**kwargs):
             raise click.ClickException("No username supplied")
 
         try:
-            #await api.login(until_complete=True)
+            # await api.login(until_complete=True)
             api.authenticate()
 
             if api.requires_password:
@@ -96,22 +107,7 @@ async def main(**kwargs):
                     api.password = getpass.getpass("Password: ")
                     continue
 
-            if api.requires_2fa:
-                # fmt: off
-                print(
-                    "\nTwo-step authentication required.",
-                    "\nPlease enter validation code"
-                )
-                # fmt: on
-
-                code = input("(string) --> ")
-                if not api.validate_2fa_code(code):
-                    print("Failed to verify verification code")
-                    sys.exit(1)
-
-                print("")
-
-            elif api.requires_2sa:
+            if api.requires_2sa:
                 # fmt: off
                 print(
                     "\nTwo-step authentication required.",
@@ -143,6 +139,21 @@ async def main(**kwargs):
                     sys.exit(1)
 
                 print("")
+            elif api.requires_2fa:
+                # fmt: off
+                print(
+                    "\nTwo-step authentication required.",
+                    "\nPlease enter validation code"
+                )
+                # fmt: on
+
+                code = input("(string) --> ")
+                if not api.validate_2fa_code(code):
+                    print("Failed to verify verification code")
+                    sys.exit(1)
+
+                print("")
+
             break
         except PyiCloudFailedLoginException as err:
             message = f"Bad username or password for {username}"
@@ -150,8 +161,6 @@ async def main(**kwargs):
 
             if (failure_count := failure_count + 1) >= 1:
                 raise RuntimeError(message) from err
-
-            print(message, file=sys.stderr)
 
     for dev in PyiCloudServices(endpoint=api).devices:
         if not command_line.device_id or (command_line.device_id.strip().lower() == dev.content["id"].strip().lower()):
@@ -244,4 +253,4 @@ async def main(**kwargs):
 
 
 if __name__ == "__main__":
-    main(_anyio_backend="asyncio")
+    main()
