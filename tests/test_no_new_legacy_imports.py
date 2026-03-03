@@ -6,7 +6,6 @@ from pathlib import Path
 ALLOWED_LEGACY_IMPORTS = {
     "pyicloud/legacy.py",
     "pyicloud/adapters/auth/legacy_cli_auth.py",
-    "tests/legacy_mock.py",
     "tests/mock.py",
     "tests/test_legacy_imports.py",
     "tests/test_no_new_legacy_imports.py",

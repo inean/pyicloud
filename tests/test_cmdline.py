@@ -11,9 +11,9 @@ from asyncclick.testing import CliRunner
 
 from pyicloud import cmdline
 
-from .const import AUTHENTICATED_USER, REQUIRES_2FA_USER, VALID_2FA_CODE, VALID_PASSWORD
+from .const import AUTHENTICATED_USER, REQUIRES_2FA_USER, VALID_PASSWORD
 from .const_findmyiphone import FMI_FAMILY_WORKING
-from .legacy_mock import PyiCloudMock
+from .mock import ServiceEndpointMock
 
 
 class TestCmdline(IsolatedAsyncioTestCase):
@@ -21,7 +21,6 @@ class TestCmdline(IsolatedAsyncioTestCase):
 
     def setUp(self):
         """Set up tests."""
-        cmdline.PyiCloud = PyiCloudMock
         self.main = cmdline.main
 
     async def test_no_arg(self):
@@ -65,19 +64,23 @@ class TestCmdline(IsolatedAsyncioTestCase):
     async def test_bootstrap_engine_with_device_output(self, mock_bootstrap):
         runner = CliRunner()
 
-        result = await runner.invoke(
-            self.main,
-            [
-                "--username",
-                AUTHENTICATED_USER,
-                "--password",
-                VALID_PASSWORD,
-                "--non-interactive",
-                "--auth-engine",
-                "bootstrap",
-                "--outputfile",
-            ],
-        )
+        with patch(
+            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            return_value=ServiceEndpointMock(AUTHENTICATED_USER, VALID_PASSWORD),
+        ):
+            result = await runner.invoke(
+                self.main,
+                [
+                    "--username",
+                    AUTHENTICATED_USER,
+                    "--password",
+                    VALID_PASSWORD,
+                    "--non-interactive",
+                    "--auth-engine",
+                    "bootstrap",
+                    "--outputfile",
+                ],
+            )
 
         assert result.exit_code == 0
         mock_bootstrap.assert_awaited_once()
@@ -128,30 +131,38 @@ class TestCmdline(IsolatedAsyncioTestCase):
         # Bad username or password
         runner = CliRunner()
 
-        result = await runner.invoke(self.main, ["--username", "invalid_user"])
+        with patch(
+            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            side_effect=ValueError("Invalid email address. Got 'invalid_user'"),
+        ):
+            result = await runner.invoke(self.main, ["--username", "invalid_user"])
         assert "Invalid email address. Got 'invalid_user'" in str(result.exception)
 
-        # We should not use getpass for this one, but we reset the password at login fail
-        result = await runner.invoke(self.main, ["--username", "invalid_user", "--password", "invalid_pass"])
+        with patch(
+            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            side_effect=ValueError("Invalid email address. Got 'invalid_user'"),
+        ):
+            result = await runner.invoke(self.main, ["--username", "invalid_user", "--password", "invalid_pass"])
         assert "Invalid email address. Got 'invalid_user'" in str(result.exception)
 
-    @patch("pyicloud.cmdline.input")
-    async def test_username_password_requires_2fa(self, mock_input):  # pylint: disable=unused-argument
+    async def test_username_password_requires_2fa(self):
         """Test username and password commands."""
-        # Valid connection for the first time
-        mock_input.return_value = VALID_2FA_CODE
         runner = CliRunner()
 
-        result = await runner.invoke(
-            self.main,
-            [
-                "--username",
-                REQUIRES_2FA_USER,
-                "--password",
-                VALID_PASSWORD,
-                "--non-interactive",
-            ],
-        )
+        with patch(
+            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            return_value=ServiceEndpointMock(REQUIRES_2FA_USER, VALID_PASSWORD),
+        ):
+            result = await runner.invoke(
+                self.main,
+                [
+                    "--username",
+                    REQUIRES_2FA_USER,
+                    "--password",
+                    VALID_PASSWORD,
+                    "--non-interactive",
+                ],
+            )
         assert result.exit_code == 0
 
     @patch("pyicloud.paths.AbstractPath.loads")
@@ -162,10 +173,14 @@ class TestCmdline(IsolatedAsyncioTestCase):
         mock_loads.side_effect = lambda: None
         runner = CliRunner()
 
-        result = await runner.invoke(
-            self.main,
-            ["--username", AUTHENTICATED_USER, "--password", VALID_PASSWORD, "--non-interactive", "--outputfile"],
-        )
+        with patch(
+            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            return_value=ServiceEndpointMock(AUTHENTICATED_USER, VALID_PASSWORD),
+        ):
+            result = await runner.invoke(
+                self.main,
+                ["--username", AUTHENTICATED_USER, "--password", VALID_PASSWORD, "--non-interactive", "--outputfile"],
+            )
         assert result.exit_code == 0
 
         devices = FMI_FAMILY_WORKING.get("content")
@@ -191,15 +206,19 @@ class TestCmdline(IsolatedAsyncioTestCase):
     async def test_auth_only_legacy(self):
         runner = CliRunner()
 
-        result = await runner.invoke(
-            self.main,
-            [
-                "--username",
-                AUTHENTICATED_USER,
-                "--password",
-                VALID_PASSWORD,
-                "--non-interactive",
-                "--auth-only",
-            ],
-        )
+        with patch(
+            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            return_value=ServiceEndpointMock(AUTHENTICATED_USER, VALID_PASSWORD),
+        ):
+            result = await runner.invoke(
+                self.main,
+                [
+                    "--username",
+                    AUTHENTICATED_USER,
+                    "--password",
+                    VALID_PASSWORD,
+                    "--non-interactive",
+                    "--auth-only",
+                ],
+            )
         assert result.exit_code == 0
