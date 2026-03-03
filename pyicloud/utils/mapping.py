@@ -83,7 +83,7 @@ def compare(
     *,
     ignore: set[str] | None = None,
     require: set[str] | None = None,
-    exclude_values: bool = False,
+    exclude_values: bool = True,
 ) -> bool:
     subset_keys = {key for key in subset.keys() if key not in (ignore or set())}
 

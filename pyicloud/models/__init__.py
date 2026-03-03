@@ -213,8 +213,12 @@ class LeafModel(EventedModel):
             if info.metadata:
                 metadata = info.metadata
                 assert isinstance(metadata, Collection)
-            elif get_args(info.annotation) and issubclass(get_origin(get_args(info.annotation)[0]), Annotated):
-                metadata = get_args(info.annotation)[0].__metadata__
+            elif get_args(info.annotation):
+                annotated = next((arg for arg in get_args(info.annotation) if get_origin(arg) is Annotated), None)
+                if annotated is None:
+                    LOGGER.debug(f"Skipping {field} due to missing metadata")
+                    continue
+                metadata = get_args(annotated)[1:]
             else:
                 LOGGER.debug(f"Skipping {field} due to missing metadata")
                 continue

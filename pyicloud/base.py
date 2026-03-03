@@ -98,6 +98,12 @@ class PyiCloudSession(httpx.Client, metaclass=Deprecated):
 
         # Update session
         content_type = self._update_session(response)
+        if not content_type and response.content:
+            try:
+                response.json()
+                content_type = "application/json"
+            except Exception:
+                pass
 
         LOGGER.debug("Response Code: %s", response.status_code)
 
@@ -336,24 +342,22 @@ class PyiCloudUser(metaclass=Deprecated):
 
     def send_verification_code(self, device):
         """Requests that a verification code is sent to the given device."""
-        data = json.dumps(device)
         request = self._client.post(
             f"{Endpoints.INIT}/sendVerificationCode",
             params=self._params,
-            json=data,
+            json=device,
         )
         return request.json().get("success", False)
 
     def validate_verification_code(self, device, code):
         """Verifies a verification code received on a trusted device."""
         device.update({"verificationCode": code, "trustBrowser": True})
-        data = json.dumps(device)
 
         try:
             self._client.post(
                 f"{Endpoints.INIT}/validateVerificationCode",
                 params=self._params,
-                json=data,
+                json=device,
             )
         except PyiCloudAPIResponseError as error:
             if error.code == -21669:
@@ -495,14 +499,14 @@ class PyiCloudUser(metaclass=Deprecated):
     @property
     def requires_2sa(self):
         """Returns True if two-step authentication is required."""
-        return self._session.get("dsInfo", {}).get("hsaVersion", 0) >= 1 and (
+        return self._session.get("dsInfo", {}).get("hsaVersion", 0) == 1 and (
             self._session.get("hsaChallengeRequired", False) or not self.is_trusted_session
         )
 
     @property
     def requires_2fa(self):
         """Returns True if two-factor authentication is required."""
-        return self._session["dsInfo"].get("hsaVersion", 0) == 2 and (
+        return self._session.get("dsInfo", {}).get("hsaVersion", 0) == 2 and (
             self._session.get("hsaChallengeRequired", False) or not self.is_trusted_session
         )
 
@@ -535,3 +539,5 @@ class PyiCloud(PyiCloudUser):
         if password:
             settings.account.password = password  # type: ignore
         PyiCloudUser.__init__(self, settings)
+        if password:
+            self.password = password

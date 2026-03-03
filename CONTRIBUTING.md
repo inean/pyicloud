@@ -51,6 +51,7 @@ make format
 make lint
 make typecheck
 make test
+make test-ratchet
 make build-check
 
 # autofix helpers
@@ -60,6 +61,13 @@ make lint-fix
 # or run the full local gate
 make ci
 ```
+
+Ratchet notes:
+
+- `make test-ratchet` enforces a no-regression policy against
+  `tests/ratchet_baseline_failures.txt`.
+- Existing baseline failures may decrease over time, but new failures outside
+  the baseline fail the gate.
 
 ## Run GitHub Actions locally (act + Podman)
 
