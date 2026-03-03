@@ -103,7 +103,6 @@ async def main(**kwargs):
         )
         if command_line.auth_only:
             return
-        raise click.ClickException("--auth-engine=bootstrap currently supports only --auth-only.")
 
     failure_count = 0
     try:

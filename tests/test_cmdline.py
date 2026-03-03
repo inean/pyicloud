@@ -61,6 +61,27 @@ class TestCmdline(IsolatedAsyncioTestCase):
         assert result.exit_code == 0
         mock_bootstrap.assert_awaited_once()
 
+    @patch("pyicloud.cmdline.run_bootstrap_auth", new_callable=AsyncMock)
+    async def test_bootstrap_engine_with_device_output(self, mock_bootstrap):
+        runner = CliRunner()
+
+        result = await runner.invoke(
+            self.main,
+            [
+                "--username",
+                AUTHENTICATED_USER,
+                "--password",
+                VALID_PASSWORD,
+                "--non-interactive",
+                "--auth-engine",
+                "bootstrap",
+                "--outputfile",
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_bootstrap.assert_awaited_once()
+
     async def test_username(self):
         """Test the username command."""
         # No username supplied
