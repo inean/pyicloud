@@ -21,8 +21,6 @@ def read_baseline(path: Path) -> set[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.strip().startswith("#")
     }
-    if not entries:
-        raise ValueError(f"Baseline file is empty: {path}")
     return entries
 
 

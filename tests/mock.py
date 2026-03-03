@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import contextmanager
 from collections import OrderedDict
 from typing import Callable
 
@@ -166,6 +167,13 @@ class PyiCloudSessionMock(PyiCloudSession):
             return ResponseMock(FMI_FAMILY_WORKING)
 
         return None
+
+    @contextmanager
+    def stream(self, method, url, **kwargs):
+        """Route stream calls through the local request mock to avoid network I/O."""
+        response = self.request(method, url, **kwargs)
+        assert response is not None, f"Unhandled request: {method} {url}"
+        yield response
 
 
 class PyiCloudTransportMock(httpx.MockTransport):
