@@ -23,6 +23,12 @@ webservices. It\'s powered by the fantastic
 At its core, PyiCloud connects to iCloud using your username and
 password, then performs calendar and iPhone queries against their API.
 
+# Project Status
+
+This repository is currently maintained as legacy code from an older fork.
+Not all modules have been migrated to the newer architecture yet, so both
+legacy and newer patterns may coexist while migration continues.
+
 # Authentication
 
 Authentication without using a saved password is as simple as passing
@@ -433,3 +439,8 @@ with open(photo.versions['thumb']['filename'], 'wb') as thumb_file:
 
 If you wanna see some code samples see the [code samples
 file](/CODE_SAMPLES.md).
+
+# Contributing
+
+If you want to work on the project, see [CONTRIBUTING.md](/CONTRIBUTING.md) for local setup,
+quality checks, local CI with Podman + `act`, and an overview of the code structure.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, overload
 from unittest.mock import patch
 
 import httpx
@@ -34,19 +34,12 @@ else:
     Request = httpx.Request
 
 
-def _build_response(
-    *,
-    status_code: int,
-    headers: dict[str, str],
-    cookies: list,
-    content: dict | bytes,
-) -> httpx.Response:
-    response_headers = list(headers.items()) + [cookie.items() for cookie in cookies]
-    return httpx.Response(
-        headers=response_headers,
-        status_code=status_code,
-        json=content if content else None,
-    )
+@overload
+def validate_handler(request: httpx.Request) -> httpx.Response: ...
+
+
+@overload
+def validate_handler(request: Request) -> httpx.Response: ...
 
 
 @process_cookies
@@ -54,49 +47,39 @@ def validate_handler(request: Request | httpx.Request) -> httpx.Response:
     assert request.method == "POST"
     assert str(request.url).startswith(Endpoints.VALIDATE)
 
-    if not mapping.compare(dict(VALIDATE_REQUEST_HEADERS), dict(request.headers), exclude_values=True):
-        return _build_response(
-            status_code=400,
-            headers=VALIDATE_RESPONSE_HEADERS_KO,
-            cookies=VALIDATE_RESPONSE_COOKIES_KO,
-            content=b"",
-        )
+    status_code = 500  # Internal error
+    while True:
+        # Malformed request
+        if not mapping.compare(dict(VALIDATE_REQUEST_HEADERS), dict(request.headers)):
+            content = b""
+            break
+        if not mapping.compare(dict(map(tuple, VALIDATE_REQUEST_COOKIES)), cast(Request, request).cookies):
+            content = b""
+            break
 
-    expected_cookie_names = {cookie.name for cookie in VALIDATE_REQUEST_COOKIES}
-    if not expected_cookie_names.issubset(cast(Request, request).cookies.keys()):
-        return _build_response(
-            status_code=400,
-            headers=VALIDATE_RESPONSE_HEADERS_KO,
-            cookies=VALIDATE_RESPONSE_COOKIES_KO,
-            content=b"",
-        )
+        # Success path
+        status_code = 200
+        headers = VALIDATE_RESPONSE_HEADERS_OK
+        cookies = VALIDATE_RESPONSE_COOKIES_OK
 
-    headers = VALIDATE_RESPONSE_HEADERS_OK
-    cookies = VALIDATE_RESPONSE_COOKIES_OK
-    request_cookies = cast(Request, request).cookies
+        if cast(Request, request).cookies.get(Jar.WEBAUTH_HSA_TRUST) == VALID_TOKEN:
+            content = SESSION_RESPONSE_BODY_2FA
+            break
+        if cast(Request, request).cookies.get(Jar.WEBAUTH_TOKEN) == VALID_TOKEN:
+            content = SESSION_RESPONSE_BODY_OK
+            break
 
-    if request_cookies.get(Jar.WEBAUTH_HSA_TRUST) == VALID_TOKEN:
-        return _build_response(
-            status_code=200,
-            headers=headers,
-            cookies=cookies,
-            content=SESSION_RESPONSE_BODY_2FA,
-        )
+        # Error Path
+        status_code = 404
+        headers = VALIDATE_RESPONSE_HEADERS_KO
+        cookies = VALIDATE_RESPONSE_COOKIES_KO
+        content = b""
+        break
 
-    if request_cookies.get(Jar.WEBAUTH_TOKEN) == VALID_TOKEN:
-        return _build_response(
-            status_code=200,
-            headers=headers,
-            cookies=cookies,
-            content=SESSION_RESPONSE_BODY_OK,
-        )
-
-    return _build_response(
-        status_code=404,
-        headers=VALIDATE_RESPONSE_HEADERS_KO,
-        cookies=VALIDATE_RESPONSE_COOKIES_KO,
-        content=b"",
-    )
+    # If status_code is 500, test will fail
+    assert status_code != 500
+    headers = list(headers.items()) + list(map(lambda o: o.items(), cookies))
+    return httpx.Response(headers=headers, status_code=status_code, json=content if content else None)
 
 
 @pytest.fixture
