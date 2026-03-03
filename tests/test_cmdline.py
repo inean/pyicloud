@@ -13,7 +13,7 @@ from pyicloud import cmdline
 
 from .const import AUTHENTICATED_USER, REQUIRES_2FA_USER, VALID_2FA_CODE, VALID_PASSWORD
 from .const_findmyiphone import FMI_FAMILY_WORKING
-from .mock import PyiCloudMock
+from .legacy_mock import PyiCloudMock
 
 
 class TestCmdline(IsolatedAsyncioTestCase):

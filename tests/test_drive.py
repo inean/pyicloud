@@ -1,12 +1,11 @@
 """Drive service tests."""
 
 import re
-from unittest.mock import patch
 
 import pytest
 
 from .const import AUTHENTICATED_USER, VALID_PASSWORD
-from .mock import PyiCloudMock, PyiCloudServicesMock
+from .mock import PyiCloudServicesMock, ServiceEndpointMock
 
 
 @pytest.fixture
@@ -22,12 +21,9 @@ def config_file(tmp_path, username):
 @pytest.fixture
 def service(username, config_file, monkeypatch):
     """Set up tests."""
-    with patch("pyicloud.paths.AbstractPath.loads") as monkey_loads:
-        monkey_loads.return_value = None
-        monkeypatch.setenv("TEST_CONFIG_FILE", str(config_file))
-        api = PyiCloudMock(username, VALID_PASSWORD)
-        api.authenticate()
-        yield PyiCloudServicesMock(api)
+    monkeypatch.setenv("TEST_CONFIG_FILE", str(config_file))
+    endpoint = ServiceEndpointMock(username, VALID_PASSWORD)
+    yield PyiCloudServicesMock(endpoint)
 
 
 def test_root(service):

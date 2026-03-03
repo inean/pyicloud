@@ -1,22 +1,15 @@
-"""Library tests."""
+"""Legacy pyicloud.base-dependent test doubles."""
 
 from __future__ import annotations
 
 import json
-import re
-from collections import OrderedDict
-from typing import Callable
+from contextlib import contextmanager
 
-import httpx
-
-from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
-from pyicloud.models.settings import Settings
-from pyicloud.services import PyiCloudServices
+from pyicloud.legacy import PyiCloud, PyiCloudSession
 
 from .const import (
     AUTHENTICATED_USER,
-    REQUEST_ID,
     REQUIRES_2FA_TOKEN,
     REQUIRES_2FA_USER,
     VALID_2FA_CODE,
@@ -45,51 +38,23 @@ from .const_drive import (
     DRIVE_SUBFOLDER_WORKING,
 )
 from .const_findmyiphone import FMI_FAMILY_WORKING
+from .mock import ResponseMock
 
 
-class ResponseMock(httpx.Response):
-    """Mocked Response."""
+class PyiCloudSessionMock(PyiCloudSession):
+    """Mocked PyiCloudSession."""
 
-    def __init__(self, result, status_code=200, **kwargs):
-        """Set up response mock."""
-        super().__init__(
-            status_code,
-            headers=kwargs.get("headers", {Header.REQUEST_ID: REQUEST_ID}),
-            json=result,
-        )
-        self.result = result
+    def request(self, method, url, **kwargs):
+        """Make the request."""
+        params = kwargs.get("params") or {}
+        headers = kwargs.get("headers") or {}
+        if "json" in kwargs and kwargs["data"] is None:
+            try:
+                kwargs["data"] = json.dumps(kwargs["json"])
+            except json.JSONDecodeError:
+                kwargs["data"] = kwargs["json"]
+        data = json.loads(kwargs.get("data", "{}"))
 
-    @property
-    def text(self):
-        """Return text."""
-        return json.dumps(self.result)
-
-    def json(self):
-        """Return json."""
-        return json.loads(self.text)
-
-
-class PyiCloudTransportMock(httpx.MockTransport):
-    username: str
-    token: str
-
-    def __init__(self) -> None:
-        super().__init__(handler=self.handler)
-
-    def _error_callback(self, request: httpx.Request | None, message: str) -> None:
-        raise Exception(message)
-
-    def handler(self, request: httpx.Request) -> httpx.Response:
-        url = str(request.url)
-        method = request.method
-        params = request.url.params
-        headers = request.headers
-        try:
-            data = json.loads(request.content.decode("utf-8"))
-        except json.JSONDecodeError:
-            data = json.loads("{}")
-
-        # Login
         if Endpoints.INIT in url:
             if "accountLogin" in url and method == "POST":
                 if data.get("dsWebAuthToken") not in VALID_TOKENS:
@@ -109,7 +74,7 @@ class PyiCloudTransportMock(httpx.MockTransport):
             if "validateVerificationCode" in url and method == "POST":
                 TRUSTED_DEVICE_1.update({"verificationCode": "0", "trustBrowser": True})  # type: ignore
                 if data == TRUSTED_DEVICE_1:
-                    self.username = AUTHENTICATED_USER
+                    self._owner.user["apple_id"] = AUTHENTICATED_USER
                     return ResponseMock(VERIFICATION_CODE_OK)
                 self._error_callback(None, "FOUND_CODE")
 
@@ -123,23 +88,22 @@ class PyiCloudTransportMock(httpx.MockTransport):
                 if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
                     self._error_callback(None, "Unknown reason")
                 if data.get("accountName") == REQUIRES_2FA_USER:
-                    self.token = REQUIRES_2FA_TOKEN
-                    return ResponseMock(SIGNIN_RESPONSE_BODY_2FA)
+                    self._settings.token.session = REQUIRES_2FA_TOKEN
+                    return ResponseMock(SIGNIN_RESPONSE_BODY_2FA, 409)
 
-                self.token = VALID_TOKEN
+                self._settings.token.session = VALID_TOKEN
                 return ResponseMock(SIGNIN_RESPONSE_BODY_2FA)
 
             if "securitycode" in url and method == "POST":
                 if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
                     self._error_callback(None, "Incorrect code")
 
-                self.token = VALID_TOKEN
+                self._settings.token.session = VALID_TOKEN
                 return ResponseMock("", status_code=204)
 
             if "trust" in url and method == "GET":
                 return ResponseMock("", status_code=204)
 
-        # Account
         if "device/getDevices" in url and method == "GET":
             return ResponseMock(ACCOUNT_DEVICES_WORKING)
         if "family/getFamilyDetails" in url and method == "GET":
@@ -147,7 +111,6 @@ class PyiCloudTransportMock(httpx.MockTransport):
         if "setup/ws/1/storageUsageInfo" in url and method == "GET":
             return ResponseMock(ACCOUNT_STORAGE_WORKING)
 
-        # Drive
         if "retrieveItemDetailsInFolders" in url and method == "POST" and data[0].get("drivewsid"):
             if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::root":
                 return ResponseMock(DRIVE_ROOT_WORKING)
@@ -158,7 +121,6 @@ class PyiCloudTransportMock(httpx.MockTransport):
             if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::D5AA0425-E84F-4501-AF5D-60F1D92648CF":
                 return ResponseMock(DRIVE_SUBFOLDER_WORKING)
 
-        # Drive download
         if "com.apple.CloudDocs/download/by_id" in url and method == "GET":
             if params.get("document_id") == "516C896C-6AA5-4A30-B30E-5502C2333DAE":
                 return ResponseMock(DRIVE_FILE_DOWNLOAD_WORKING)
@@ -166,61 +128,24 @@ class PyiCloudTransportMock(httpx.MockTransport):
             if "Scanned+document+1.pdf" in url:
                 return ResponseMock({}, raw=open(".gitignore", "rb"))
 
-        # Find My iPhone
         if "fmi" in url and method == "POST":
             return ResponseMock(FMI_FAMILY_WORKING)
 
-        raise AssertionError(f"Unhandled request: {url}")
+        return None
+
+    @contextmanager
+    def stream(self, method, url, **kwargs):
+        """Route stream calls through local request mock to avoid network I/O."""
+        response = self.request(method, url, **kwargs)
+        assert response is not None, f"Unhandled request: {method} {url}"
+        yield response
 
 
-class PyiCloudServicesMock(PyiCloudServices):
+class PyiCloudMock(PyiCloud):
     """Mocked PyiCloudService."""
 
-    def __init__(self, endpoint):
-        """Set up pyicloud service mock."""
-        PyiCloudServices.__init__(self, endpoint)
-
-
-class ServiceEndpointMock:
-    """Legacy service endpoint contract mock without pyicloud.base dependency."""
+    session_cls = PyiCloudSessionMock
 
     def __init__(self, username: str, password: str | None = None):
-        self.config = Settings.create(username=username, password=password)
-        self.params = {"clientId": self.config.client_settings.client_id}
-        self.apple_id = username
-        self._ws = SESSION_RESPONSE_BODY_OK["webservices"]
-        self.session = httpx.Client(transport=PyiCloudTransportMock())
-
-    def authenticate(self, service: str | None = None):
-        if service is not None and service not in self._ws:
-            raise KeyError(service)
-
-    def __contains__(self, ws_key):
-        return ws_key in self._ws
-
-    def __getitem__(self, ws_key):
-        return self._ws[ws_key]["url"]
-
-
-class PyiCloudMockTransport(httpx.MockTransport):
-    def __init__(
-        self, *, routes: list[tuple[str | re.Pattern, Callable[[httpx.Request], httpx.Response]]] | None = None
-    ):
-        self.routes = OrderedDict()
-        if routes is not None:
-            for route, handler in routes:
-                self.add_route(route=route, handler=handler)
-
-        super().__init__(handler=self.handler)
-
-    def add_route(self, *, route: str | re.Pattern, handler: Callable[[httpx.Request], httpx.Response]) -> None:
-        self.routes[route] = handler
-
-    def handler(self, request: httpx.Request) -> httpx.Response:
-        for route, handler in self.routes.items():
-            if isinstance(route, re.Pattern) and route.match(str(request.url)):
-                return handler(request)
-            if isinstance(route, str) and str(request.url).startswith(route):
-                return handler(request)
-        # Not found
-        return httpx.Response(404)
+        """Set up pyicloud service mock."""
+        PyiCloud.__init__(self, username, password)
