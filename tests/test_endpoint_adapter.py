@@ -55,8 +55,8 @@ def test_build_endpoint_from_payload_uses_legacy_session(monkeypatch):
             self.jar = FakeJar()
 
     class FakeSession:
-        def __init__(self, owner, auth_callback=None, error_callback=None):
-            self.owner = owner
+        def __init__(self, *, settings, auth_callback=None, error_callback=None):
+            self.settings = settings
             self.auth_callback = auth_callback
             self.error_callback = error_callback
             self.headers = {}
@@ -73,7 +73,7 @@ def test_build_endpoint_from_payload_uses_legacy_session(monkeypatch):
 
     monkeypatch.setattr(endpoint_adapter.SettingsFile, "loads", fake_settings_load)
     monkeypatch.setattr(endpoint_adapter.CookiesJar, "loads", fake_cookies_load)
-    monkeypatch.setattr(endpoint_adapter, "PyiCloudSession", FakeSession)
+    monkeypatch.setattr(endpoint_adapter, "LegacyServiceSessionAdapter", FakeSession)
 
     adapter = build_endpoint_from_payload(
         username="user@example.com",

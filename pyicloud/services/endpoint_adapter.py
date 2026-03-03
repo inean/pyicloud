@@ -5,11 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from pyicloud.constants import Endpoints
-from pyicloud.exceptions import PyiCloudAPIResponseError
-from pyicloud.legacy import PyiCloudSession
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
+from pyicloud.services.session_adapter import LegacyServiceSessionAdapter
 
 
 class LegacyServiceEndpointAdapter:
@@ -53,19 +52,6 @@ class LegacyServiceEndpointAdapter:
         return str(item["url"])
 
 
-class _LegacySessionOwner:
-    """Minimal owner object required by ``PyiCloudSession``."""
-
-    __slots__ = ("config",)
-
-    def __init__(self, settings: Settings):
-        self.config = settings
-
-
-def _raise_api_error(code: str | int | None, reason: str) -> None:
-    raise PyiCloudAPIResponseError(reason, code)
-
-
 def build_endpoint_from_payload(
     *,
     username: str,
@@ -85,11 +71,9 @@ def build_endpoint_from_payload(
     cookies = Cookies({})
     CookiesJar(cookies).loads(username=username)
 
-    owner = _LegacySessionOwner(settings)
-    session = PyiCloudSession(
-        owner,
+    session = LegacyServiceSessionAdapter(
+        settings=settings,
         auth_callback=lambda *_, **__: None,
-        error_callback=_raise_api_error,
     )
     session.headers.update({"Origin": Endpoints.HOME, "Referer": f"{Endpoints.HOME}/"})
     for cookie in cookies:
