@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import pickle
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from asyncclick.testing import CliRunner
 
@@ -40,6 +40,26 @@ class TestCmdline(IsolatedAsyncioTestCase):
 
         result = await runner.invoke(self.main, ["--help"])
         assert result.exit_code == 0
+
+    @patch("pyicloud.cmdline.run_bootstrap_auth", new_callable=AsyncMock)
+    async def test_auth_only_bootstrap(self, mock_bootstrap):
+        runner = CliRunner()
+
+        result = await runner.invoke(
+            self.main,
+            [
+                "--username",
+                AUTHENTICATED_USER,
+                "--password",
+                VALID_PASSWORD,
+                "--auth-engine",
+                "bootstrap",
+                "--auth-only",
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_bootstrap.assert_awaited_once()
 
     async def test_username(self):
         """Test the username command."""
@@ -113,3 +133,19 @@ class TestCmdline(IsolatedAsyncioTestCase):
 
                 pickle_file.close()
                 os.remove(file_name)
+
+    async def test_auth_only_legacy(self):
+        runner = CliRunner()
+
+        result = await runner.invoke(
+            self.main,
+            [
+                "--username",
+                AUTHENTICATED_USER,
+                "--password",
+                VALID_PASSWORD,
+                "--non-interactive",
+                "--auth-only",
+            ],
+        )
+        assert result.exit_code == 0

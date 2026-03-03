@@ -13,6 +13,7 @@ import sys
 
 import asyncclick as click
 
+from pyicloud.cli_auth import run_bootstrap_auth
 from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
 from pyicloud.legacy import PyiCloud
 from pyicloud.services import PyiCloudServices
@@ -58,6 +59,14 @@ class _DictProxy:
 @click.option("--lostmessage", default="", help="Forcibly display this message when activating lost mode.")
 @click.option("-v", "verbose", count=True, help="Increase output verbosity")
 @click.option(
+    "--auth-engine",
+    type=click.Choice(["legacy", "bootstrap"]),
+    default="legacy",
+    show_default=True,
+    help="Authentication backend to use.",
+)
+@click.option("--auth-only", is_flag=True, default=False, help="Authenticate and exit without device actions.")
+@click.option(
     "--list", "list", is_flag=True, default=False, help="Short Listings for Device(s) associated with account"
 )
 @click.option(
@@ -85,6 +94,16 @@ async def main(**kwargs):
 
     username = str.strip(command_line.username)
     password = str.strip(command_line.password)
+
+    if command_line.auth_engine == "bootstrap":
+        await run_bootstrap_auth(
+            username=username,
+            password=password,
+            interactive=command_line.interactive,
+        )
+        if command_line.auth_only:
+            return
+        raise click.ClickException("--auth-engine=bootstrap currently supports only --auth-only.")
 
     failure_count = 0
     try:
@@ -161,6 +180,9 @@ async def main(**kwargs):
 
             if (failure_count := failure_count + 1) >= 1:
                 raise RuntimeError(message) from err
+
+    if command_line.auth_only:
+        return
 
     for dev in PyiCloudServices(endpoint=api).devices:
         if not command_line.device_id or (command_line.device_id.strip().lower() == dev.content["id"].strip().lower()):
