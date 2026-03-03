@@ -16,7 +16,9 @@ import asyncclick as click
 from pyicloud.cli_auth import run_bootstrap_auth
 from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
 from pyicloud.legacy import PyiCloud
+from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.services import PyiCloudServices
+from pyicloud.services.endpoint_adapter import LegacyServiceEndpointAdapter
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
 
@@ -42,6 +44,92 @@ class _DictProxy:
 
     def __getattr__(self, name):
         return self._dict.get(name, self._default)
+
+
+def _legacy_authenticate(username: str, password: str, *, interactive: bool):
+    failure_count = 0
+    try:
+        api = PyiCloud(username=username, password=password)
+    except PyiCloudValidationError as err:
+        response = [error.get("msg") for error in err.errors() if error.get("msg")]
+        raise ValueError("\n".join(response)) from err
+
+    while True:
+        if not username:
+            raise click.ClickException("No username supplied")
+
+        try:
+            api.authenticate()
+
+            if api.requires_password and interactive:
+                api.password = getpass.getpass("Password: ")
+                continue
+
+            if api.requires_2sa:
+                print(
+                    "\nTwo-step authentication required.",
+                    "\nYour trusted devices are:",
+                )
+
+                devices = api.trusted_devices
+                for i, device in enumerate(devices):
+                    print(
+                        "    %s: %s"
+                        % (
+                            i,
+                            device.get("deviceName", "SMS to %s" % device.get("phoneNumber")),
+                        )
+                    )
+
+                print("\nWhich device would you like to use?")
+                device = int(input("(number) --> "))
+                device = devices[device]
+                if not api.send_verification_code(device):
+                    print("Failed to send verification code")
+                    sys.exit(1)
+
+                print("\nPlease enter validation code")
+                code = input("(string) --> ")
+                if not api.validate_verification_code(device, code):
+                    print("Failed to verify verification code")
+                    sys.exit(1)
+
+                print("")
+            elif api.requires_2fa:
+                print(
+                    "\nTwo-step authentication required.",
+                    "\nPlease enter validation code",
+                )
+
+                code = input("(string) --> ")
+                if not api.validate_2fa_code(code):
+                    print("Failed to verify verification code")
+                    sys.exit(1)
+
+                print("")
+
+            break
+        except PyiCloudFailedLoginException as err:
+            message = f"Bad username or password for {username}"
+            password = ""
+
+            if (failure_count := failure_count + 1) >= 1:
+                raise RuntimeError(message) from err
+
+    return api
+
+
+def _bootstrap_endpoint(username: str, password: str):
+    payload = FileSessionStoreAdapter().load(username)
+    if payload is None:
+        return None
+    api = PyiCloud(username=username, password=password)
+    return LegacyServiceEndpointAdapter(
+        payload,
+        settings=api.config,
+        session=api._client,  # Transitional: reuse existing legacy client transport/cookies.
+        params=api._params,
+    )
 
 
 @click.command(name="icloud", help="Find My iPhone CommandLine Tool")
@@ -94,6 +182,7 @@ async def main(**kwargs):
 
     username = str.strip(command_line.username)
     password = str.strip(command_line.password)
+    endpoint = None
 
     if command_line.auth_engine == "bootstrap":
         await run_bootstrap_auth(
@@ -103,87 +192,19 @@ async def main(**kwargs):
         )
         if command_line.auth_only:
             return
-
-    failure_count = 0
-    try:
-        api = PyiCloud(username=username, password=password)
-    except PyiCloudValidationError as err:
-        response = [error.get("msg") for error in err.errors() if error.get("msg")]
-        raise ValueError("\n".join(response)) from err
-    while True:
-        # Which password we use is determined by your username, so we
-        # do need to check for this first and separately.
-        if not username:
-            raise click.ClickException("No username supplied")
-
-        try:
-            # await api.login(until_complete=True)
-            api.authenticate()
-
-            if api.requires_password:
-                if command_line.interactive:
-                    api.password = getpass.getpass("Password: ")
-                    continue
-
-            if api.requires_2sa:
-                # fmt: off
-                print(
-                    "\nTwo-step authentication required.",
-                    "\nYour trusted devices are:"
-                )
-                # fmt: on
-
-                devices = api.trusted_devices
-                for i, device in enumerate(devices):
-                    print(
-                        "    %s: %s"
-                        % (
-                            i,
-                            device.get("deviceName", "SMS to %s" % device.get("phoneNumber")),
-                        )
-                    )
-
-                print("\nWhich device would you like to use?")
-                device = int(input("(number) --> "))
-                device = devices[device]
-                if not api.send_verification_code(device):
-                    print("Failed to send verification code")
-                    sys.exit(1)
-
-                print("\nPlease enter validation code")
-                code = input("(string) --> ")
-                if not api.validate_verification_code(device, code):
-                    print("Failed to verify verification code")
-                    sys.exit(1)
-
-                print("")
-            elif api.requires_2fa:
-                # fmt: off
-                print(
-                    "\nTwo-step authentication required.",
-                    "\nPlease enter validation code"
-                )
-                # fmt: on
-
-                code = input("(string) --> ")
-                if not api.validate_2fa_code(code):
-                    print("Failed to verify verification code")
-                    sys.exit(1)
-
-                print("")
-
-            break
-        except PyiCloudFailedLoginException as err:
-            message = f"Bad username or password for {username}"
-            password = None
-
-            if (failure_count := failure_count + 1) >= 1:
-                raise RuntimeError(message) from err
+        endpoint = _bootstrap_endpoint(username=username, password=password)
 
     if command_line.auth_only:
         return
 
-    for dev in PyiCloudServices(endpoint=api).devices:
+    if endpoint is None:
+        endpoint = _legacy_authenticate(
+            username=username,
+            password=password,
+            interactive=command_line.interactive,
+        )
+
+    for dev in PyiCloudServices(endpoint=endpoint).devices:
         if not command_line.device_id or (command_line.device_id.strip().lower() == dev.content["id"].strip().lower()):
             # List device(s)
             if command_line.locate:
