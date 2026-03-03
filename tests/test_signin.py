@@ -295,11 +295,6 @@ async def test_signin_request_from_models_body(user: SignIn, expected_body: dict
 # Response Tests
 ##
 @pytest.fixture
-def mock():
-    return Mock()
-
-
-@pytest.fixture
 async def response_factory():
     async def _response(user: SignIn):
         async with user as session:

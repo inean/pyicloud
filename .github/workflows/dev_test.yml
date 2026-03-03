@@ -1,17 +1,16 @@
 name: "Test Dev Environment"
-# Checks that the dev environment (tox -e dev) can be set up.
-# This might not work, if different linting/testing envs refer to different versions of the same lib (e.g. typing-extensions).
-# Different versions of the same package might work for isolated specific envs (only linting, only testing...) but the dev environment inherits from all of them.
+
 on:
   push:
     branches: [main]
   pull_request: {}
+
 jobs:
   check:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.13", "3.14"]
         os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
@@ -19,10 +18,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Dependencies
+      - name: Install Dev Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install tox
-      - name: Create a Dev Environment
+          pip install -e ".[dev]"
+      - name: Validate Dev Environment
         run: |
-          tox -e dev
+          python -m pip check
+          python -c "import pyicloud"

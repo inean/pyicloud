@@ -4,12 +4,13 @@ on:
   push:
     branches: [main]
   pull_request: {}
+
 jobs:
   pytest:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.13", "3.14"]
         os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +21,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install tox
-      - name: Run the Unit Tests via Tox
+          pip install -e ".[test]"
+      - name: Run Unit Tests
         run: |
-          tox -e tests
+          python -m pytest -q
