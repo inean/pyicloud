@@ -10,9 +10,9 @@ from typing import Callable
 
 import httpx
 
-from pyicloud.base import PyiCloud, PyiCloudSession
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
+from pyicloud.legacy import PyiCloud, PyiCloudSession
 from pyicloud.services import PyiCloudServices
 
 from .const import (
