@@ -152,3 +152,30 @@ class DeviceServicePort(Protocol):
         Raises:
             RuntimeError: Device retrieval fails or returns invalid payloads.
         """
+
+
+class ServiceEndpointPort(Protocol):
+    """
+    Direction: outbound
+
+    Purpose:
+        This port isolates restoration of service endpoints from persisted
+        auth/session payloads and local settings/cookies state.
+
+        Adapters map stored payloads plus local transport/session details into
+        endpoint objects consumable by runtime service clients.
+
+    Implemented by: LegacyServiceEndpointFactoryAdapter
+    """
+
+    def from_payload(self, *, username: str, password: str, payload: Mapping[str, Any]) -> Any:
+        """
+        ServiceEndpointRestoreService calls this method to rebuild a runtime endpoint.
+
+        The adapter translates persisted auth payloads and local session/config files
+        into an endpoint object while hiding transport-specific wiring details.
+
+        Raises:
+            RuntimeError: Endpoint restoration fails due to invalid local/session data.
+            ValueError: Payload does not contain required service endpoint structure.
+        """

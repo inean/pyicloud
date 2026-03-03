@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
+from pyicloud.ports import ServiceEndpointPort
 from pyicloud.paths import CookiesJar, SettingsFile
 from pyicloud.services.session_adapter import LegacyServiceSessionAdapter
 
@@ -52,31 +54,44 @@ class LegacyServiceEndpointAdapter:
         return str(item["url"])
 
 
+class LegacyServiceEndpointFactoryAdapter(ServiceEndpointPort):
+    """Build legacy-compatible service endpoints from persisted auth payload data."""
+
+    def from_payload(
+        self,
+        *,
+        username: str,
+        password: str,
+        payload: Mapping[str, Any],
+    ) -> LegacyServiceEndpointAdapter:
+        settings = Settings.model_validate({"account": {"username": username}})
+        SettingsFile(settings).loads()
+        if password:
+            settings.account.password = password  # type: ignore[assignment]
+
+        cookies = Cookies({})
+        CookiesJar(cookies).loads(username=username)
+
+        session = LegacyServiceSessionAdapter(
+            settings=settings,
+            auth_callback=lambda *_, **__: None,
+        )
+        session.headers.update({"Origin": Endpoints.HOME, "Referer": f"{Endpoints.HOME}/"})
+        for cookie in cookies:
+            session.cookies.jar.set_cookie(cookie.model_dump_cookie())
+
+        return LegacyServiceEndpointAdapter(dict(payload), settings=settings, session=session)
+
+
 def build_endpoint_from_payload(
     *,
     username: str,
     password: str,
     payload: dict[str, Any],
 ) -> LegacyServiceEndpointAdapter:
-    """
-    Build a legacy-compatible endpoint from persisted auth payload + local session files.
-
-    This avoids direct ``PyiCloud(...)`` construction in bootstrap consumer paths.
-    """
-    settings = Settings.model_validate({"account": {"username": username}})
-    SettingsFile(settings).loads()
-    if password:
-        settings.account.password = password  # type: ignore[assignment]
-
-    cookies = Cookies({})
-    CookiesJar(cookies).loads(username=username)
-
-    session = LegacyServiceSessionAdapter(
-        settings=settings,
-        auth_callback=lambda *_, **__: None,
+    """Backward-compatible helper used by existing call sites and tests."""
+    return LegacyServiceEndpointFactoryAdapter().from_payload(
+        username=username,
+        password=password,
+        payload=payload,
     )
-    session.headers.update({"Origin": Endpoints.HOME, "Referer": f"{Endpoints.HOME}/"})
-    for cookie in cookies:
-        session.cookies.jar.set_cookie(cookie.model_dump_cookie())
-
-    return LegacyServiceEndpointAdapter(payload, settings=settings, session=session)

@@ -14,11 +14,10 @@ import sys
 import asyncclick as click
 
 from pyicloud.cli_auth import run_bootstrap_auth
+from pyicloud.bootstrap import build_service_endpoint_restore
 from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
 from pyicloud.legacy import PyiCloud
-from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.services import PyiCloudServices
-from pyicloud.services.endpoint_adapter import build_endpoint_from_payload
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
 
@@ -120,13 +119,10 @@ def _legacy_authenticate(username: str, password: str, *, interactive: bool):
 
 
 def _bootstrap_endpoint(username: str, password: str):
-    payload = FileSessionStoreAdapter().load(username)
-    if payload is None:
-        return None
-    return build_endpoint_from_payload(
-        username=username,
+    restore = build_service_endpoint_restore()
+    return restore.restore(
+        account_id=username,
         password=password,
-        payload=payload,
     )
 
 
