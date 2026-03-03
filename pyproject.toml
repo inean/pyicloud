@@ -6,13 +6,14 @@ authors = [
 ]
 description = " PyiCloud is a module that allows Python developers to interact with iCloud web services asynchronously."
 name = "aio-pyicloud"
+version = "0.1.dev319+ga990ba6.d20240605"
 
 # Project metadata
 keywords = ["async", "find-my-iphone", "icloud"]
 license  = { text = "MIT" }
 readme   = "README.md"
 
-# Assume python 3.10 or later, but allow for later versions.
+# Python versions supported by this package.
 requires-python = ">=3.13"
 
 # Project dependencies.
@@ -23,26 +24,10 @@ dependencies = [
     "psygnal>=0.11.0",
     "pydantic-settings>=2.2.1",
     "pydantic>=2.6.4",
+    "rich>=13.7.1",
     "tzlocal>=5.2",
 ]
 
-
-# Dyamic metadata provided by PDM
-dynamic = ["version"]
-
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python",
-    "Topic :: Software Development :: Libraries",
-]
-maintainers = [{ name = "The PyiCloud Authors" }]
 
 [project.urls]
 Changelog = "https://github.com/inean/releases"
@@ -52,19 +37,44 @@ Homepage  = "https://github.com/inean/pyicloud"
 icloud = "pyicloud.cmdline:main"
 
 [project.optional-dependencies]
-all  = ["rich"]
+all = [
+    "hypothesis>=6.103.0",
+    "mypy>=1.10.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-lazy-fixtures>=1.1.1",
+    "pytest>=8.0.0",
+    "ruff>=0.4.2",
+]
+dev = [
+    "hypothesis>=6.103.0",
+    "mypy>=1.10.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-lazy-fixtures>=1.1.1",
+    "pytest>=8.0.0",
+    "ruff>=0.4.2",
+]
+lint = [
+    "mypy>=1.10.0",
+    "ruff>=0.4.2",
+]
 rich = ["rich>=13.7.1"]
+test = [
+    "hypothesis>=6.103.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-lazy-fixtures>=1.1.1",
+    "pytest>=8.0.0",
+]
 
 [build-system]
 # Build backend
 build-backend = "hatchling.build"
 requires      = ["hatchling"]
 
-[tool.uv.scripts]
-coverage = { shell = "coverage run --omit='*/tests/*' -m pytest -v {args} && coverage xml && coverage report" }
-format   = { shell = "ruff format ." }
-lint     = { shell = "ruff check ." }
-tests    = { shell = "pytest -v tests/" }
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["pyicloud"]
 
 [tool.pytest.ini_options]
 addopts      = "-ra -q"
@@ -81,6 +91,7 @@ exclude = [
 ]
 indent-width = 4
 line-length = 120
+target-version = "py313"
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
@@ -129,6 +140,8 @@ select = [
     "I",
     # flake8-pie
     "PIE",
+    # pyupgrade
+    "UP",
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
@@ -144,6 +157,9 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["E402", "F401"]
 
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = false
+
 [tool.mypy]
 ignore_missing_imports = true
 strict                 = true
@@ -152,50 +168,3 @@ strict                 = true
 check_untyped_defs    = true
 disallow_untyped_defs = false
 module                = "tests.*"
-
-[tool.tox]
-legacy_tox_ini = """
-
-[tox]
-    # Project details
-    min_version = 4.0
-    isolated_build = True
-    envlist =
-        py3{11,12},
-        lint,
-        mypy,
-
-
-[testenv]
-    groups = test
-    commands =
-        tox --version
-        uv run tests {posargs}
-
-[testenv:py3{11,12}-rich]
-    labels = rich
-    groups =
-        {[testenv]groups}
-        rich
-
-[testenv:py3{11,12}-all]
-    labels = all
-    groups =
-        {[testenv]groups}
-        all
-
-[testenv:lint]
-    groups = lint
-    skip_install = true
-    commands = lint
-
-[testenv:mypy]
-    deps = mypy
-    commands = mypy .
-
-[gh-actions]
-    python =
-        3.11: py311, py311-rich, py311-all, mypy
-        3.12: py312, py312-all, py312-all, lint, mypy
-
-"""

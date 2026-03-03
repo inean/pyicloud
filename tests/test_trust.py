@@ -96,7 +96,7 @@ def trust_handler(request: httpx.Request) -> httpx.Response:
 @pytest.fixture
 def trust_client() -> httpx.AsyncClient:
     matchers = {
-        "url": Endpoints.SIGNIN,
+        "url": Endpoints.TRUST,
         "method": "GET",
     }
     return httpx.AsyncClient(mounts={matchers["url"]: httpx.MockTransport(trust_handler)})
@@ -303,11 +303,6 @@ async def test_trust_request_from_models_body(user: Trust):
 ##
 # Response Tests
 ##
-@pytest.fixture
-def mock():
-    return Mock()
-
-
 @pytest.fixture
 async def response_factory(expected_cookies):
     async def _response(user: Trust):

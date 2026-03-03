@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Sequence, Type, override
+from typing import Type
 
-import httpx
-from pydantic import Field
-
-from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import EmptyModel
 from pyicloud.models.cookies import CookiesModel
@@ -30,10 +26,10 @@ from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
-    StaticEndpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
+    StaticEndpoint,
     serialize,
 )
 
@@ -42,7 +38,7 @@ from pyicloud.sessions import (
 # Request
 ##
 class TrustEndpoint(StaticEndpoint):
-    url = Endpoints.TRUST
+    endpoint = Endpoints.TRUST
     verb = "GET"
     content_type = "application/json"
 

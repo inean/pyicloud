@@ -4,12 +4,13 @@ on:
   push:
     branches: [main]
   pull_request: {}
+
 jobs:
   pytest:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.13"]
         os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
@@ -17,10 +18,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
       - name: Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
-      - name: Run the Unit Tests via Tox
+          uv sync --extra test
+      - name: Run Unit Tests
         run: |
-          tox -e tests
+          uv run pytest -q
