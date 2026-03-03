@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyicloud.constants import Endpoints
+from pyicloud.exceptions import PyiCloudAPIResponseError
+from pyicloud.legacy import PyiCloudSession
+from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
+from pyicloud.paths import CookiesJar, SettingsFile
 
 
 class LegacyServiceEndpointAdapter:
@@ -46,3 +51,48 @@ class LegacyServiceEndpointAdapter:
         if not isinstance(item, dict) or "url" not in item:
             raise KeyError(f"Service entry has no url: {service}")
         return str(item["url"])
+
+
+class _LegacySessionOwner:
+    """Minimal owner object required by ``PyiCloudSession``."""
+
+    __slots__ = ("config",)
+
+    def __init__(self, settings: Settings):
+        self.config = settings
+
+
+def _raise_api_error(code: str | int | None, reason: str) -> None:
+    raise PyiCloudAPIResponseError(reason, code)
+
+
+def build_endpoint_from_payload(
+    *,
+    username: str,
+    password: str,
+    payload: dict[str, Any],
+) -> LegacyServiceEndpointAdapter:
+    """
+    Build a legacy-compatible endpoint from persisted auth payload + local session files.
+
+    This avoids direct ``PyiCloud(...)`` construction in bootstrap consumer paths.
+    """
+    settings = Settings.model_validate({"account": {"username": username}})
+    SettingsFile(settings).loads()
+    if password:
+        settings.account.password = password  # type: ignore[assignment]
+
+    cookies = Cookies({})
+    CookiesJar(cookies).loads(username=username)
+
+    owner = _LegacySessionOwner(settings)
+    session = PyiCloudSession(
+        owner,
+        auth_callback=lambda *_, **__: None,
+        error_callback=_raise_api_error,
+    )
+    session.headers.update({"Origin": Endpoints.HOME, "Referer": f"{Endpoints.HOME}/"})
+    for cookie in cookies:
+        session.cookies.jar.set_cookie(cookie.model_dump_cookie())
+
+    return LegacyServiceEndpointAdapter(payload, settings=settings, session=session)

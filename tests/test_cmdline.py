@@ -82,6 +82,42 @@ class TestCmdline(IsolatedAsyncioTestCase):
         assert result.exit_code == 0
         mock_bootstrap.assert_awaited_once()
 
+    async def test_bootstrap_engine_prefers_stored_endpoint(self):
+        runner = CliRunner()
+
+        with (
+            patch("pyicloud.cmdline.run_bootstrap_auth", new_callable=AsyncMock) as mock_bootstrap,
+            patch("pyicloud.cmdline.FileSessionStoreAdapter") as mock_store_adapter,
+            patch("pyicloud.cmdline.build_endpoint_from_payload") as mock_build_endpoint,
+            patch("pyicloud.cmdline._legacy_authenticate") as mock_legacy_auth,
+            patch("pyicloud.cmdline.PyiCloudServices") as mock_services,
+        ):
+            mock_store_adapter.return_value.load.return_value = {
+                "webservices": {"findme": {"url": "https://findme.test"}}
+            }
+            endpoint = object()
+            mock_build_endpoint.return_value = endpoint
+            mock_services.return_value.devices = []
+
+            result = await runner.invoke(
+                self.main,
+                [
+                    "--username",
+                    AUTHENTICATED_USER,
+                    "--password",
+                    VALID_PASSWORD,
+                    "--non-interactive",
+                    "--auth-engine",
+                    "bootstrap",
+                ],
+            )
+
+            assert result.exit_code == 0
+            mock_bootstrap.assert_awaited_once()
+            mock_build_endpoint.assert_called_once()
+            mock_legacy_auth.assert_not_called()
+            mock_services.assert_called_once_with(endpoint=endpoint)
+
     async def test_username(self):
         """Test the username command."""
         # No username supplied

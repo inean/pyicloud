@@ -18,7 +18,7 @@ from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidation
 from pyicloud.legacy import PyiCloud
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.services import PyiCloudServices
-from pyicloud.services.endpoint_adapter import LegacyServiceEndpointAdapter
+from pyicloud.services.endpoint_adapter import build_endpoint_from_payload
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
 
@@ -123,12 +123,10 @@ def _bootstrap_endpoint(username: str, password: str):
     payload = FileSessionStoreAdapter().load(username)
     if payload is None:
         return None
-    api = PyiCloud(username=username, password=password)
-    return LegacyServiceEndpointAdapter(
-        payload,
-        settings=api.config,
-        session=api._client,  # Transitional: reuse existing legacy client transport/cookies.
-        params=api._params,
+    return build_endpoint_from_payload(
+        username=username,
+        password=password,
+        payload=payload,
     )
 
 
