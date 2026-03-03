@@ -13,7 +13,7 @@ license  = { text = "MIT" }
 readme   = "README.md"
 
 # Assume python 3.10 or later, but allow for later versions.
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 
 # Project dependencies.
 dependencies = [
@@ -52,47 +52,15 @@ Homepage  = "https://github.com/inean/pyicloud"
 icloud = "pyicloud.cmdline:main"
 
 [project.optional-dependencies]
-all  = ["aio-pyicloud[rich]"]
+all  = ["rich"]
 rich = ["rich>=13.7.1"]
 
 [build-system]
 # Build backend
-build-backend = "pdm.backend"
-requires      = ["pdm-backend"]
+build-backend = "hatchling.build"
+requires      = ["hatchling"]
 
-[tool.pdm]
-# Whether the project is a package or not.
-distribution = true
-
-[tool.pdm.version]
-source         = "scm"
-write_template = "version = '{}'"
-write_to       = "pyicloud/_version.py"
-
-[tool.pdm.dev-dependencies]
-dev = [
-    "pre-commit>=3.6.2",
-    "datamodel-code-generator>=0.25.6",
-    "inquirerpy>=0.3.4",
-    #asd
-    "keyring>=25.2.1",
-]
-lint = [
-    "ruff>=0.3.0",
-    #asd
-]
-test = [
-    "coverage[toml]>=5.5,<6.4",
-    "hypothesis>=6.100.0",
-    "pytest-asyncio>=0.17",
-    "pytest-cov>=4.1",
-    "pytest-lazy-fixtures>=1.0.7",
-    "pytest>=8.0.1",
-    "tox-pdm>=0.7.2",
-    #asd
-]
-
-[tool.pdm.scripts]
+[tool.uv.scripts]
 coverage = { shell = "coverage run --omit='*/tests/*' -m pytest -v {args} && coverage xml && coverage report" }
 format   = { shell = "ruff format ." }
 lint     = { shell = "ruff check ." }
@@ -202,7 +170,7 @@ legacy_tox_ini = """
     groups = test
     commands =
         tox --version
-        tests {posargs}
+        uv run tests {posargs}
 
 [testenv:py3{11,12}-rich]
     labels = rich
