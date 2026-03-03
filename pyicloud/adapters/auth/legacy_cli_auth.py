@@ -5,12 +5,12 @@ from __future__ import annotations
 import getpass
 import sys
 from collections.abc import Callable
+from importlib import import_module
 from typing import Any
 
 import asyncclick as click
 
 from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
-from pyicloud.legacy import PyiCloud
 
 
 def authenticate_legacy_endpoint(
@@ -23,7 +23,8 @@ def authenticate_legacy_endpoint(
     pyicloud_cls: Callable[..., Any] | None = None,
 ) -> Any:
     """Authenticate through legacy PyiCloud flow and return the authenticated endpoint."""
-    pyicloud_cls = pyicloud_cls or PyiCloud
+    if pyicloud_cls is None:
+        pyicloud_cls = getattr(import_module("pyicloud.legacy"), "PyiCloud")
     failure_count = 0
     try:
         api = pyicloud_cls(username=username, password=password)

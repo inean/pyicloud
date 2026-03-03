@@ -14,13 +14,11 @@ import sys
 import asyncclick as click
 
 from pyicloud.adapters.auth import authenticate_legacy_endpoint
-from pyicloud.adapters.auth.legacy_cli_auth import PyiCloud as LegacyPyiCloud
 from pyicloud.cli_auth import run_bootstrap_auth
 from pyicloud.bootstrap import build_service_endpoint_restore
 from pyicloud.services import PyiCloudServices
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
-PyiCloud = LegacyPyiCloud
 
 
 def create_pickled_data(idevice, filename):
@@ -53,7 +51,6 @@ def _legacy_authenticate(username: str, password: str, *, interactive: bool):
         interactive=interactive,
         getpass_fn=getpass.getpass,
         input_fn=input,
-        pyicloud_cls=PyiCloud,
     )
 
 
