@@ -2,9 +2,12 @@ ci:
   autoupdate_commit_msg: "chore: update pre-commit hooks"
   autofix_commit_msg: "style: pre-commit fixes"
 
+default_language_version:
+  python: python3.13
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.2
+    rev: v0.6.9
     hooks:
       # Run the linter.
       - id: ruff
