@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from pyicloud.adapters import service_endpoint
+from pyicloud.adapters.service_endpoint import LegacyServiceEndpointAdapter, build_endpoint_from_payload
 from pyicloud.constants import Endpoints
 from pyicloud.models.settings import Settings
-from pyicloud.services import endpoint_adapter
-from pyicloud.services.endpoint_adapter import LegacyServiceEndpointAdapter, build_endpoint_from_payload
 
 
 def build_settings() -> Settings:
@@ -71,9 +71,9 @@ def test_build_endpoint_from_payload_uses_legacy_session(monkeypatch):
         cookie_load_calls.append(username)
         return None
 
-    monkeypatch.setattr(endpoint_adapter.SettingsFile, "loads", fake_settings_load)
-    monkeypatch.setattr(endpoint_adapter.CookiesJar, "loads", fake_cookies_load)
-    monkeypatch.setattr(endpoint_adapter, "LegacyServiceSessionAdapter", FakeSession)
+    monkeypatch.setattr(service_endpoint.SettingsFile, "loads", fake_settings_load)
+    monkeypatch.setattr(service_endpoint.CookiesJar, "loads", fake_cookies_load)
+    monkeypatch.setattr(service_endpoint, "LegacyServiceSessionAdapter", FakeSession)
 
     adapter = build_endpoint_from_payload(
         username="user@example.com",

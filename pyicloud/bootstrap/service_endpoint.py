@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pyicloud.adapters.service_endpoint import LegacyServiceEndpointFactoryAdapter
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.application import ServiceEndpointRestoreService
-from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
 
 
 def build_service_endpoint_restore(*, store_dir: str | Path | None = None) -> ServiceEndpointRestoreService:

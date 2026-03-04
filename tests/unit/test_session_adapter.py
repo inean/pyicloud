@@ -3,9 +3,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from pyicloud.adapters.session.legacy_service_http import LegacyServiceSessionAdapter
 from pyicloud.exceptions import PyiCloudAPIResponseError
 from pyicloud.models.settings import Settings
-from pyicloud.services.session_adapter import LegacyServiceSessionAdapter
 
 
 def test_legacy_service_session_auth_headers_include_client_id():

@@ -1,4 +1,4 @@
-"""Legacy service endpoint adapter for incremental migration off pyicloud.base."""
+"""Service endpoint adapter for incremental migration away from `pyicloud.base`."""
 
 from __future__ import annotations
 
@@ -8,13 +8,14 @@ from typing import Any
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.ports import ServiceEndpointPort
 from pyicloud.paths import CookiesJar, SettingsFile
-from pyicloud.services.session_adapter import LegacyServiceSessionAdapter
+from pyicloud.ports import ServiceEndpointPort
+
+from .session.legacy_service_http import LegacyServiceSessionAdapter
 
 
 class LegacyServiceEndpointAdapter:
-    """Adapter exposing the minimal endpoint interface required by PyiCloudServices."""
+    """Adapter exposing the minimal endpoint interface required by `PyiCloudServices`."""
 
     __slots__ = ("_webservices", "session", "params", "config", "apple_id")
 
@@ -40,7 +41,7 @@ class LegacyServiceEndpointAdapter:
         self.apple_id = settings.account.username
 
     def authenticate(self, service: str | None = None) -> None:
-        """No-op compatibility hook used by PyiCloudServices lazy proxies."""
+        """No-op compatibility hook used by `PyiCloudServices` lazy proxies."""
         if service is not None and service not in self._webservices:
             raise KeyError(f"Service not available: {service}")
 

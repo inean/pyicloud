@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pyicloud.adapters.auth import legacy_cli_auth
+from pyicloud.adapters.auth import endpoint_restore
 
 
 @pytest.mark.asyncio
@@ -21,7 +21,7 @@ async def test_authenticate_legacy_endpoint_returns_restored_endpoint():
     def restore_builder():
         return restore
 
-    restored = await legacy_cli_auth.authenticate_legacy_endpoint(
+    restored = await endpoint_restore.authenticate_legacy_endpoint(
         username="user@example.com",
         password="secret",
         interactive=False,
@@ -49,7 +49,7 @@ async def test_authenticate_legacy_endpoint_loads_from_store_when_builder_not_pr
             factory_calls.append((username, password, payload))
             return endpoint
 
-    restored = await legacy_cli_auth.authenticate_legacy_endpoint(
+    restored = await endpoint_restore.authenticate_legacy_endpoint(
         username="user@example.com",
         password="secret",
         interactive=False,
@@ -80,7 +80,7 @@ async def test_authenticate_legacy_endpoint_raises_when_restore_missing():
         return restore
 
     with pytest.raises(RuntimeError, match="no endpoint payload found"):
-        await legacy_cli_auth.authenticate_legacy_endpoint(
+        await endpoint_restore.authenticate_legacy_endpoint(
             username="user@example.com",
             password="secret",
             interactive=False,

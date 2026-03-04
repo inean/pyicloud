@@ -1,8 +1,9 @@
-"""Legacy-compatible HTTP session adapter for service calls."""
+"""Compatibility HTTP client used by service endpoint adapters."""
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 
@@ -111,7 +112,9 @@ class LegacyServiceSessionAdapter(httpx.Client):
             kwargs["retried"] = True
             return self.request(method, url, **kwargs)
 
-        if not response.is_success and (content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500]):
+        if not response.is_success and (
+            content_type not in self.JSON_MIMETYPES or response.status_code in [421, 450, 500]
+        ):
             self._error_callback(response.status_code, response.reason_phrase)
 
         if content_type not in self.JSON_MIMETYPES:

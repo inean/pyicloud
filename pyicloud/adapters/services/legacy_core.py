@@ -8,6 +8,7 @@ from datetime import datetime
 from itertools import islice
 from typing import Any
 
+from pyicloud.adapters.service_endpoint import LegacyServiceEndpointFactoryAdapter
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.ports import (
     AccountServicePort,
@@ -22,7 +23,6 @@ from pyicloud.ports import (
     UbiquityServicePort,
 )
 from pyicloud.services import PyiCloudServices
-from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
 
 
 class _NamedBytesIO(io.BytesIO):

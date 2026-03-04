@@ -17,7 +17,7 @@ otherwise.
   - Structured models and validation under `pyicloud/models/`
 - Legacy/partially migrated areas:
   - Main synchronous API and auth flow in `pyicloud/base.py`
-  - CLI behavior in `pyicloud/cmdline.py`
+  - Legacy CLI compatibility shim in `pyicloud/cmdline.py`
   - Service layer behavior where legacy and newer patterns currently coexist
 - Contributor guidance:
   - Prefer incremental refactors over large rewrites
@@ -101,6 +101,12 @@ Top-level directories and files:
 
 Important package areas:
 
+- `pyicloud/api/` + `pyicloud/cli/`
+  - API-first runtime surface for refactored domain operations.
+  - `pyicloud/api/app.py` exposes `/v1/*` domain routes.
+  - `pyicloud/cli/main.py` provides subcommand-only CLI behavior over the API.
+  - `pyicloud/cmdline.py` remains a migration shim for retired flat flags.
+
 - `pyicloud/base.py`
   - Primary public entrypoint (`PyiCloud`) and legacy synchronous authentication/session orchestration.
   - Loads persisted settings/cookies and drives sign-in, 2FA, trust, and session validation.
@@ -113,6 +119,9 @@ Important package areas:
 - `pyicloud/services/`
   - Service clients for iCloud domains (`account`, `drive`, `photos`, `calendar`, `contacts`, `findmyiphone`, `reminders`, `ubiquity`).
   - Built from discovered webservice endpoints after authentication.
+- `pyicloud/adapters/service_endpoint.py` + `pyicloud/adapters/session/legacy_service_http.py`
+  - Legacy-compatible endpoint/session adapters used by compatibility facade and restore flows.
+  - These replace the older service-layer endpoint/session adapter modules.
 - `pyicloud/models/`
   - Core data models, typed fields, headers/cookies schemas, and settings models.
 - `pyicloud/paths.py`

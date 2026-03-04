@@ -1,13 +1,13 @@
-"""Legacy CLI auth adapter backed by bootstrap auth/session services."""
+"""Endpoint restoration helpers used by the compatibility `PyiCloudService` facade."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
 
+from pyicloud.adapters.service_endpoint import LegacyServiceEndpointFactoryAdapter
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.ports import ServiceEndpointPort, SessionStorePort
-from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
 
 
 def restore_legacy_endpoint_from_store(

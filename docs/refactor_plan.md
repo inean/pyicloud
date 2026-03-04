@@ -20,7 +20,7 @@
 
 ## Phase Board
 - Planned:
-  - Phase 10 Legacy Cleanup + Hardening
+  - None
 - In Progress:
   - None
 - Done:
@@ -34,6 +34,7 @@
   - Phase 7 CLI Consolidation
   - Phase 8 Secondary Services I
   - Phase 9 Secondary Services II
+  - Phase 10 Legacy Cleanup + Hardening
 - Blocked:
   - None
 
@@ -396,20 +397,56 @@ Remaining library service functionality exposed through API/CLI.
 
 ## Phase 10: Legacy Cleanup + Hardening
 ### Checklist
-- [ ] Remove legacy modules no longer needed:
-  - [ ] `pyicloud/adapters/auth/legacy_cli_auth.py`
-  - [ ] `pyicloud/services/endpoint_adapter.py`
-  - [ ] `pyicloud/services/session_adapter.py`
-- [ ] Remove dead compatibility branches while preserving supported facade.
-- [ ] Update docs/contributing architecture references.
-- [ ] Run full suite and vertical suite green.
+- [x] Remove legacy modules no longer needed:
+  - [x] `pyicloud/adapters/auth/legacy_cli_auth.py`
+  - [x] `pyicloud/services/endpoint_adapter.py`
+  - [x] `pyicloud/services/session_adapter.py`
+- [x] Remove dead compatibility branches while preserving supported facade.
+- [x] Update docs/contributing architecture references.
+- [x] Run full suite and vertical suite green.
 
 ### Exit Criteria
 Core legacy auth/session coupling removed, docs aligned, test suites green.
+
+### Handoff: Phase 10 - Legacy Cleanup + Hardening
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Removed legacy auth/session endpoint modules and replaced them with adapter-layer modules:
+    - `pyicloud/adapters/auth/endpoint_restore.py`
+    - `pyicloud/adapters/service_endpoint.py`
+    - `pyicloud/adapters/session/legacy_service_http.py`
+  - Rewired compatibility and restore composition paths to the new adapter modules while preserving `PyiCloudService` facade behavior.
+  - Updated unit tests to the new module locations and kept behavior checks intact.
+  - Updated `CONTRIBUTING.md` architecture references for API-first runtime and new compatibility adapter locations.
+- Files changed:
+  - `pyicloud/adapters/auth/legacy_cli_auth.py` (removed)
+  - `pyicloud/services/endpoint_adapter.py` (removed)
+  - `pyicloud/services/session_adapter.py` (removed)
+  - `pyicloud/adapters/auth/endpoint_restore.py`
+  - `pyicloud/adapters/service_endpoint.py`
+  - `pyicloud/adapters/session/legacy_service_http.py`
+  - `pyicloud/adapters/auth/__init__.py`
+  - `pyicloud/adapters/session/__init__.py`
+  - `pyicloud/bootstrap/service_endpoint.py`
+  - `pyicloud/adapters/services/legacy_core.py`
+  - `tests/unit/test_legacy_cli_auth_adapter.py`
+  - `tests/unit/test_endpoint_adapter.py`
+  - `tests/unit/test_session_adapter.py`
+  - `CONTRIBUTING.md`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_cli_auth_adapter.py tests/unit/test_endpoint_adapter.py tests/unit/test_session_adapter.py tests/unit/test_auth_bootstrap.py tests/unit/test_service_endpoint_restore.py tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Remaining compatibility logic still depends on legacy synchronous service client internals (`pyicloud/services/*`) through the facade and `LegacyCoreServicesAdapter`.
+  - Additional simplification of `LegacyCoreServicesAdapter` is possible in future cleanup cycles but is outside this plan.
+- Next recommended phase: None (current plan complete).
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 10 from docs/refactor_plan.md
+# All phases in docs/refactor_plan.md are complete; define a new cycle before implementation.
 ```
