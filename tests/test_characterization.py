@@ -28,12 +28,6 @@ def test_proxy_forwards_attributes_to_authenticated_target():
     assert proxy.value == "expected"
 
 
-def test_cmdline_lostmode_options_map_to_expected_fields():
-    option_names = {
-        option.name
-        for option in cmdline.main.params
-        if getattr(option, "name", None) is not None
-    }
-    assert "lost_phone" in option_names
-    assert "lost_message" in option_names
-    assert "lost_password" in option_names
+def test_cmdline_migration_guide_includes_lost_mode_mapping():
+    assert "--lostmode --device <id>" in cmdline.MIGRATION_GUIDE
+    assert "icloud devices lost-mode <id>" in cmdline.MIGRATION_GUIDE

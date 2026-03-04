@@ -24,7 +24,7 @@
   - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
 - In Progress:
-  - Phase 7 CLI Consolidation
+  - None
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -33,6 +33,7 @@
   - Phase 4 Devices Vertical Slice
   - Phase 5 Account Vertical Slice
   - Phase 6 Drive Vertical Slice
+  - Phase 7 CLI Consolidation
 - Blocked:
   - None
 
@@ -278,12 +279,31 @@ Drive parity via API/CLI with no live network calls.
 
 ## Phase 7: CLI Consolidation
 ### Checklist
-- [ ] Retire old flat CLI behavior.
+- [x] Retire old flat CLI behavior.
 - [x] Ensure `icloud` points to new subcommand CLI.
-- [ ] Add migration/help messaging.
+- [x] Add migration/help messaging.
 
 ### Exit Criteria
 Only subcommand CLI remains and is API-first.
+
+### Handoff: Phase 7 - CLI Consolidation
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Replaced `pyicloud.cmdline` runtime behavior with a compatibility shim that retires flat flags and emits explicit migration guidance.
+  - Added concrete old->new command mappings in migration text for device/account/drive workflows.
+  - Updated cmdline and characterization tests to assert deprecation and migration messaging behavior.
+- Files changed:
+  - `pyicloud/cmdline.py`
+  - `tests/test_cmdline.py`
+  - `tests/test_characterization.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest -q tests/test_cmdline.py tests/test_characterization.py tests/vertical`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Legacy Python compatibility facade (`PyiCloudService`) remains until later cleanup phases.
+- Next recommended phase: Phase 8 Secondary Services I.
 
 ---
 
