@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any, Protocol
 
 class AuthSessionPort(Protocol):
@@ -126,34 +126,6 @@ class SessionStorePort(Protocol):
         Raises:
             RuntimeError: Stored state cannot be removed reliably.
         """
-
-
-class DeviceServicePort(Protocol):
-    """
-    Direction: outbound
-
-    Purpose:
-        This port isolates device-list retrieval from concrete iCloud service
-        clients and transport payload formats.
-
-        Adapters expose a stable domain collection API while encapsulating
-        mapping from provider responses into device DTOs.
-
-    Implemented by: LegacyFindMyiPhoneAdapter, FakeDeviceServiceAdapter
-    """
-
-    async def list_devices(self) -> Sequence[Mapping[str, Any]]:
-        """
-        DeviceQueryService calls this method to retrieve account device data.
-
-        The adapter translates upstream device payloads into a stable sequence
-        of domain mappings independent of provider field naming.
-
-        Raises:
-            RuntimeError: Device retrieval fails or returns invalid payloads.
-        """
-
-
 class ServiceEndpointPort(Protocol):
     """
     Direction: outbound

@@ -69,9 +69,9 @@ def _bootstrap_endpoint(username: str, password: str):
 @click.option("--message", default=False, help="Optional Text Message to display with a sound")
 @click.option("--silentmessage", default=False, help="Optional Text Message to display with no sounds")
 @click.option("--lostmode", is_flag=True, default=False, help="Enable Lost mode for the device")
-@click.option("--lostphone", default=False, help="Phone Number allowed to call when lost mode is enabled")
-@click.option("--lostpassword", default=False, help="Forcibly active this passcode on the idevice")
-@click.option("--lostmessage", default="", help="Forcibly display this message when activating lost mode.")
+@click.option("--lostphone", "lost_phone", default=False, help="Phone Number allowed to call when lost mode is enabled")
+@click.option("--lostpassword", "lost_password", default=False, help="Forcibly active this passcode on the idevice")
+@click.option("--lostmessage", "lost_message", default="", help="Forcibly display this message when activating lost mode.")
 @click.option("-v", "verbose", count=True, help="Increase output verbosity")
 @click.option(
     "--auth-engine",
