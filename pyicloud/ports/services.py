@@ -372,3 +372,130 @@ class RemindersServicePort(Protocol):
         Raises:
             RuntimeError: Reminder creation fails in provider service.
         """
+
+
+class PhotosServicePort(Protocol):
+    """
+    Direction: outbound
+
+    Purpose:
+        This port isolates photo library operations from concrete iCloud photos
+        clients and provider-specific album/asset pagination details.
+
+        Implementations map domain photo library queries to provider calls and
+        normalize album, asset metadata, and binary content to stable outputs.
+
+    Implemented by: LegacyCoreServicesAdapter
+    """
+
+    def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        """
+        CoreServicesApi calls this method to list available photo albums for an account.
+
+        The adapter translates provider album objects into stable mappings and hides
+        provider-specific lazy-loading and count lookup behavior from the core.
+
+        Raises:
+            RuntimeError: Album data cannot be retrieved.
+        """
+
+    def list_assets(
+        self,
+        *,
+        username: str,
+        album: str = "All Photos",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Sequence[Mapping[str, Any]]:
+        """
+        CoreServicesApi calls this method to list photo assets from one album window.
+
+        The adapter translates domain pagination and album selection into provider
+        iteration behavior and returns stable asset metadata mappings.
+
+        Raises:
+            KeyError: Album name is unknown.
+            RuntimeError: Asset listing fails.
+        """
+
+    def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+        """
+        CoreServicesApi calls this method to fetch metadata for one photo asset.
+
+        The adapter translates domain asset identity into provider asset lookup and
+        returns normalized metadata independent of provider record structure.
+
+        Raises:
+            KeyError: Album or asset identifier is unknown.
+            RuntimeError: Asset metadata retrieval fails.
+        """
+
+    def asset_content(
+        self,
+        *,
+        username: str,
+        asset_id: str,
+        album: str = "All Photos",
+        version: str = "original",
+    ) -> bytes:
+        """
+        CoreServicesApi calls this method to fetch binary bytes for one photo asset version.
+
+        The adapter translates domain version selection to provider download calls and
+        converts provider streaming responses into raw bytes for API transport.
+
+        Raises:
+            KeyError: Album, asset, or version is unknown.
+            RuntimeError: Asset download fails.
+        """
+
+
+class UbiquityServicePort(Protocol):
+    """
+    Direction: outbound
+
+    Purpose:
+        This port isolates ubiquity file-library reads from concrete iCloud
+        ubiquity clients and provider-specific node traversal mechanics.
+
+        Implementations map domain path reads to provider node lookups and
+        normalize node metadata and file bytes to stable API outputs.
+
+    Implemented by: LegacyCoreServicesAdapter
+    """
+
+    def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+        """
+        CoreServicesApi calls this method to list ubiquity node metadata and children for a path.
+
+        The adapter translates domain path intent into provider node traversal and
+        maps node trees into stable mappings for API and CLI usage.
+
+        Raises:
+            KeyError: Path does not resolve to a valid ubiquity node.
+            RuntimeError: Tree retrieval fails.
+        """
+
+    def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+        """
+        CoreServicesApi calls this method to fetch metadata for one ubiquity node path.
+
+        The adapter translates provider node objects into stable metadata mappings and
+        hides provider-specific datetime parsing and node typing concerns.
+
+        Raises:
+            KeyError: Path does not resolve to a valid ubiquity node.
+            RuntimeError: Metadata retrieval fails.
+        """
+
+    def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
+        """
+        CoreServicesApi calls this method to fetch binary content for one ubiquity file path.
+
+        The adapter translates provider file download behavior into raw bytes and
+        encapsulates provider-specific streaming or buffering semantics.
+
+        Raises:
+            KeyError: Path does not resolve to a valid file node.
+            RuntimeError: File content retrieval fails.
+        """

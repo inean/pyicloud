@@ -54,6 +54,8 @@ def _build_default_core_services() -> CoreServicesApi:
         calendars=adapter,
         contacts=adapter,
         reminders=adapter,
+        photos=adapter,
+        ubiquity=adapter,
     )
 
 
@@ -308,6 +310,95 @@ def create_app(
         if not created:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Reminder creation failed")
         return SimpleOkResponse(detail="Reminder created")
+
+    @app.get("/v1/photos/albums")
+    def photos_albums(
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        return service.photos_albums(username=username)
+
+    @app.get("/v1/photos/assets")
+    def photos_assets(
+        album: str = Query(default="All Photos"),
+        limit: int = Query(default=100, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        try:
+            return service.photos_assets(username=username, album=album, limit=limit, offset=offset)
+        except KeyError as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+    @app.get("/v1/photos/asset")
+    def photos_asset(
+        asset_id: str = Query(..., min_length=1),
+        album: str = Query(default="All Photos"),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        try:
+            return service.photo_asset_metadata(username=username, asset_id=asset_id, album=album)
+        except KeyError as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+    @app.get("/v1/photos/download")
+    def photos_download(
+        asset_id: str = Query(..., min_length=1),
+        album: str = Query(default="All Photos"),
+        version: str = Query(default="original", min_length=1),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> StreamingResponse:
+        try:
+            metadata = service.photo_asset_metadata(username=username, asset_id=asset_id, album=album)
+            content = service.photo_asset_content(
+                username=username,
+                asset_id=asset_id,
+                album=album,
+                version=version,
+            )
+        except KeyError as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+        filename = str(metadata.get("filename") or f"{asset_id}.bin")
+        return StreamingResponse(
+            iter([content]),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @app.get("/v1/ubiquity/tree")
+    def ubiquity_tree(
+        path: str = Query(default="/"),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        try:
+            return service.ubiquity_tree(username=username, path=path)
+        except KeyError as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+    @app.get("/v1/ubiquity/file")
+    def ubiquity_file(
+        path: str = Query(...),
+        download: bool = Query(default=False),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        try:
+            if not download:
+                return service.ubiquity_file_metadata(username=username, path=path)
+            content = service.ubiquity_file_content(username=username, path=path)
+        except KeyError as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+        filename = path.strip("/").split("/")[-1] or "file.bin"
+        return StreamingResponse(
+            iter([content]),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @app.get("/v1/drive/tree")
     def drive_tree(

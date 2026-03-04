@@ -194,6 +194,116 @@ class _DeterministicCoreServices(CoreServicesApi):
             ],
         }
     }
+    _PHOTOS_FIXTURES = {
+        "success@example.com": {
+            "albums": [
+                {"name": "All Photos", "count": 2},
+                {"name": "Favorites", "count": 1},
+            ],
+            "assets_by_album": {
+                "All Photos": [
+                    {
+                        "id": "photo-1",
+                        "album": "All Photos",
+                        "filename": "beach.jpg",
+                        "size": 13,
+                        "created": "2026-03-04T10:00:00+00:00",
+                        "width": 2048,
+                        "height": 1536,
+                        "versions": {
+                            "original": {
+                                "filename": "beach.jpg",
+                                "width": 2048,
+                                "height": 1536,
+                                "size": 13,
+                                "type": "image/jpeg",
+                            },
+                            "thumb": {
+                                "filename": "beach.jpg",
+                                "width": 320,
+                                "height": 240,
+                                "size": 5,
+                                "type": "image/jpeg",
+                            },
+                        },
+                        "content_by_version": {"original": b"photo-1-bytes", "thumb": b"ph1-t"},
+                    },
+                    {
+                        "id": "photo-2",
+                        "album": "All Photos",
+                        "filename": "sunset.jpg",
+                        "size": 14,
+                        "created": "2026-03-04T11:00:00+00:00",
+                        "width": 1920,
+                        "height": 1080,
+                        "versions": {
+                            "original": {
+                                "filename": "sunset.jpg",
+                                "width": 1920,
+                                "height": 1080,
+                                "size": 14,
+                                "type": "image/jpeg",
+                            },
+                            "medium": {
+                                "filename": "sunset.jpg",
+                                "width": 1280,
+                                "height": 720,
+                                "size": 8,
+                                "type": "image/jpeg",
+                            },
+                        },
+                        "content_by_version": {"original": b"photo-2-bytes", "medium": b"ph2-medium"},
+                    },
+                ],
+                "Favorites": [
+                    {
+                        "id": "photo-2",
+                        "album": "Favorites",
+                        "filename": "sunset.jpg",
+                        "size": 14,
+                        "created": "2026-03-04T11:00:00+00:00",
+                        "width": 1920,
+                        "height": 1080,
+                        "versions": {
+                            "original": {
+                                "filename": "sunset.jpg",
+                                "width": 1920,
+                                "height": 1080,
+                                "size": 14,
+                                "type": "image/jpeg",
+                            },
+                        },
+                        "content_by_version": {"original": b"photo-2-bytes"},
+                    }
+                ],
+            },
+        }
+    }
+    _UBIQUITY_NODES_TEMPLATE = {
+        "/": {"item_id": 0, "name": "", "type": "folder", "size": None, "modified": None},
+        "/Documents": {
+            "item_id": 101,
+            "name": "Documents",
+            "type": "folder",
+            "size": None,
+            "modified": "2026-03-04T10:00:00+00:00",
+        },
+        "/Documents/shared.txt": {
+            "item_id": 102,
+            "name": "shared.txt",
+            "type": "file",
+            "size": 14,
+            "modified": "2026-03-04T10:05:00+00:00",
+            "content": b"shared-content",
+        },
+        "/Notes": {
+            "item_id": 103,
+            "name": "Notes",
+            "type": "folder",
+            "size": None,
+            "modified": "2026-03-04T09:00:00+00:00",
+        },
+    }
 
     def __init__(self):
         super().__init__(
@@ -203,9 +313,12 @@ class _DeterministicCoreServices(CoreServicesApi):
             calendars=self,
             contacts=self,
             reminders=self,
+            photos=self,
+            ubiquity=self,
         )
         self._drive_nodes_by_user: dict[str, dict[str, dict[str, object]]] = {}
         self._reminder_lists_by_user: dict[str, dict[str, list[dict[str, object]]]] = {}
+        self._ubiquity_nodes_by_user: dict[str, dict[str, dict[str, object]]] = {}
 
     def _device(self, *, username: str, device_id: str) -> dict:
         for device in self._DEVICE_FIXTURES.get(username, []):
@@ -333,6 +446,135 @@ class _DeterministicCoreServices(CoreServicesApi):
         reminders = lists.setdefault(list_name, [])
         reminders.append({"title": title, "desc": description, "due": due_date})
         return True
+
+    # Photos
+    @staticmethod
+    def _strip_photo_content(asset: dict[str, object]) -> dict[str, object]:
+        clean = copy.deepcopy(asset)
+        clean.pop("content_by_version", None)
+        return clean
+
+    def _photo_assets_by_album(self, *, username: str) -> dict[str, list[dict[str, object]]]:
+        fixtures = self._PHOTOS_FIXTURES.get(username, {})
+        data = fixtures.get("assets_by_album", {})
+        if not isinstance(data, dict):
+            return {}
+        return copy.deepcopy(data)
+
+    def photos_albums(self, *, username: str):
+        fixtures = self._PHOTOS_FIXTURES.get(username, {})
+        albums = fixtures.get("albums", [])
+        return copy.deepcopy(albums)
+
+    def photos_assets(
+        self,
+        *,
+        username: str,
+        album: str = "All Photos",
+        limit: int = 100,
+        offset: int = 0,
+    ):
+        assets_by_album = self._photo_assets_by_album(username=username)
+        if album not in assets_by_album:
+            raise KeyError(f"Photo album not found: {album}")
+        assets = assets_by_album[album][offset : offset + limit]
+        return [self._strip_photo_content(asset) for asset in assets]
+
+    def photo_asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos"):
+        assets = self.photos_assets(username=username, album=album, limit=10000, offset=0)
+        for asset in assets:
+            if str(asset["id"]) == asset_id:
+                return copy.deepcopy(asset)
+        raise KeyError(f"Photo asset not found: {asset_id}")
+
+    def photo_asset_content(
+        self,
+        *,
+        username: str,
+        asset_id: str,
+        album: str = "All Photos",
+        version: str = "original",
+    ):
+        assets_by_album = self._photo_assets_by_album(username=username)
+        if album not in assets_by_album:
+            raise KeyError(f"Photo album not found: {album}")
+        for asset in assets_by_album[album]:
+            if str(asset["id"]) != asset_id:
+                continue
+            raw_content = asset.get("content_by_version", {})
+            if not isinstance(raw_content, dict) or version not in raw_content:
+                raise KeyError(f"Photo version not found: {version}")
+            content = raw_content[version]
+            if isinstance(content, bytes):
+                return content
+            if isinstance(content, bytearray):
+                return bytes(content)
+            return bytes(str(content), encoding="utf-8")
+        raise KeyError(f"Photo asset not found: {asset_id}")
+
+    # Ubiquity
+    @classmethod
+    def _normalize_ubiquity_path(cls, path: str) -> str:
+        return cls._normalize_path(path)
+
+    def _ubiquity_nodes(self, *, username: str) -> dict[str, dict[str, object]]:
+        nodes = self._ubiquity_nodes_by_user.get(username)
+        if nodes is not None:
+            return nodes
+        nodes = {path: copy.deepcopy(node) for path, node in self._UBIQUITY_NODES_TEMPLATE.items()}
+        self._ubiquity_nodes_by_user[username] = nodes
+        return nodes
+
+    def _ubiquity_node(self, *, username: str, path: str) -> tuple[str, dict[str, object]]:
+        normalized_path = self._normalize_ubiquity_path(path)
+        node = self._ubiquity_nodes(username=username).get(normalized_path)
+        if node is None:
+            raise KeyError(f"Ubiquity path not found: {normalized_path}")
+        return normalized_path, node
+
+    @classmethod
+    def _ubiquity_metadata(cls, path: str, node: dict[str, object]) -> dict[str, object]:
+        return {
+            "path": path,
+            "item_id": node.get("item_id"),
+            "name": str(node.get("name", "")),
+            "type": str(node.get("type", "file")),
+            "size": node.get("size"),
+            "modified": node.get("modified"),
+        }
+
+    def _ubiquity_children(self, *, username: str, path: str) -> list[dict[str, object]]:
+        nodes = self._ubiquity_nodes(username=username)
+        parent = self._normalize_ubiquity_path(path)
+        children: list[dict[str, object]] = []
+        for child_path, node in nodes.items():
+            if child_path == parent:
+                continue
+            if self._parent_path(child_path) != parent:
+                continue
+            children.append(self._ubiquity_metadata(child_path, node))
+        return sorted(children, key=lambda item: str(item["name"]))
+
+    def ubiquity_tree(self, *, username: str, path: str):
+        normalized_path, node = self._ubiquity_node(username=username, path=path)
+        data = self._ubiquity_metadata(normalized_path, node)
+        data["children"] = self._ubiquity_children(username=username, path=normalized_path)
+        return data
+
+    def ubiquity_file_metadata(self, *, username: str, path: str):
+        normalized_path, node = self._ubiquity_node(username=username, path=path)
+        return self._ubiquity_metadata(normalized_path, node)
+
+    def ubiquity_file_content(self, *, username: str, path: str):
+        _, node = self._ubiquity_node(username=username, path=path)
+        if str(node.get("type")) != "file":
+            raise KeyError("Ubiquity path is not a file")
+        content = node.get("content", b"")
+        if isinstance(content, bytes):
+            return content
+        if isinstance(content, bytearray):
+            return bytes(content)
+        return bytes(str(content), encoding="utf-8")
 
     # Drive
     @staticmethod

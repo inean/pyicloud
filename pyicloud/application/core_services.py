@@ -12,7 +12,9 @@ from pyicloud.ports import (
     ContactsServicePort,
     DeviceServicePort,
     DriveServicePort,
+    PhotosServicePort,
     RemindersServicePort,
+    UbiquityServicePort,
 )
 
 
@@ -28,6 +30,8 @@ class CoreServicesApi:
         calendars: CalendarServicePort,
         contacts: ContactsServicePort,
         reminders: RemindersServicePort,
+        photos: PhotosServicePort,
+        ubiquity: UbiquityServicePort,
     ):
         self._devices = devices
         self._accounts = accounts
@@ -35,6 +39,8 @@ class CoreServicesApi:
         self._calendars = calendars
         self._contacts = contacts
         self._reminders = reminders
+        self._photos = photos
+        self._ubiquity = ubiquity
 
     def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         return self._devices.list_devices(username=username)
@@ -141,3 +147,38 @@ class CoreServicesApi:
             collection=collection,
             due_date=due_date,
         )
+
+    def photos_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return self._photos.list_albums(username=username)
+
+    def photos_assets(
+        self,
+        *,
+        username: str,
+        album: str = "All Photos",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Sequence[Mapping[str, Any]]:
+        return self._photos.list_assets(username=username, album=album, limit=limit, offset=offset)
+
+    def photo_asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+        return self._photos.asset_metadata(username=username, asset_id=asset_id, album=album)
+
+    def photo_asset_content(
+        self,
+        *,
+        username: str,
+        asset_id: str,
+        album: str = "All Photos",
+        version: str = "original",
+    ) -> bytes:
+        return self._photos.asset_content(username=username, asset_id=asset_id, album=album, version=version)
+
+    def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return self._ubiquity.ubiquity_tree(username=username, path=path)
+
+    def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return self._ubiquity.ubiquity_file_metadata(username=username, path=path)
+
+    def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
+        return self._ubiquity.ubiquity_file_content(username=username, path=path)

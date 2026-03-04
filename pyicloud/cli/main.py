@@ -411,6 +411,137 @@ async def reminders_add(
 
 
 @main.group()
+async def photos() -> None:
+    """Photos commands."""
+
+
+@photos.command("albums")
+@click.pass_context
+async def photos_albums(ctx: click.Context) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/photos/albums", token=token)
+    _print_json(data)
+
+
+@photos.command("assets")
+@click.option("--album", default="All Photos", show_default=True)
+@click.option("--limit", default=100, show_default=True, type=int)
+@click.option("--offset", default=0, show_default=True, type=int)
+@click.pass_context
+async def photos_assets(ctx: click.Context, album: str, limit: int, offset: int) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/photos/assets",
+        token=token,
+        params={"album": album, "limit": limit, "offset": offset},
+    )
+    _print_json(data)
+
+
+@photos.command("asset")
+@click.option("--asset-id", required=True)
+@click.option("--album", default="All Photos", show_default=True)
+@click.pass_context
+async def photos_asset(ctx: click.Context, asset_id: str, album: str) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/photos/asset",
+        token=token,
+        params={"asset_id": asset_id, "album": album},
+    )
+    _print_json(data)
+
+
+@photos.command("download")
+@click.option("--asset-id", required=True)
+@click.option("--album", default="All Photos", show_default=True)
+@click.option("--version", default="original", show_default=True)
+@click.option("--download-to", required=True, type=click.Path(dir_okay=False, path_type=Path))
+@click.pass_context
+async def photos_download(ctx: click.Context, asset_id: str, album: str, version: str, download_to: Path) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    content = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/photos/download",
+        token=token,
+        params={"asset_id": asset_id, "album": album, "version": version},
+    )
+    output = Path(download_to)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    assert isinstance(content, bytes | bytearray), "Expected binary response from download endpoint"
+    output.write_bytes(bytes(content))
+    _print_json({"ok": True, "detail": f"Downloaded to {output}"})
+
+
+@main.group()
+async def ubiquity() -> None:
+    """Ubiquity file library commands."""
+
+
+@ubiquity.command("tree")
+@click.option("--path", default="/", show_default=True)
+@click.pass_context
+async def ubiquity_tree(ctx: click.Context, path: str) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/ubiquity/tree",
+        token=token,
+        params={"path": path},
+    )
+    _print_json(data)
+
+
+@ubiquity.command("file")
+@click.option("--path", required=True)
+@click.option("--download-to", default="", help="If set, download file bytes to this path.")
+@click.pass_context
+async def ubiquity_file(ctx: click.Context, path: str, download_to: str) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    if not download_to:
+        data = await _api_request(
+            api_url=ctx.obj["api_url"],
+            method="GET",
+            route="/v1/ubiquity/file",
+            token=token,
+            params={"path": path, "download": "false"},
+        )
+        _print_json(data)
+        return
+
+    content = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/ubiquity/file",
+        token=token,
+        params={"path": path, "download": "true"},
+    )
+    output = Path(download_to)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    assert isinstance(content, bytes | bytearray), "Expected binary response from download endpoint"
+    output.write_bytes(bytes(content))
+    _print_json({"ok": True, "detail": f"Downloaded to {output}"})
+
+
+@main.group()
 async def drive() -> None:
     """Drive commands."""
 

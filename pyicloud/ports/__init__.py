@@ -7,7 +7,9 @@ from .services import (
     ContactsServicePort,
     DeviceServicePort,
     DriveServicePort,
+    PhotosServicePort,
     RemindersServicePort,
+    UbiquityServicePort,
 )
 from .session import SessionCommandPort, SessionQueryPort, TokenSignerPort
 
@@ -18,10 +20,12 @@ __all__ = [
     "ContactsServicePort",
     "DeviceServicePort",
     "DriveServicePort",
+    "PhotosServicePort",
     "RemindersServicePort",
     "SessionCommandPort",
     "SessionQueryPort",
     "ServiceEndpointPort",
     "SessionStorePort",
     "TokenSignerPort",
+    "UbiquityServicePort",
 ]

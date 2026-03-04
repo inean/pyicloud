@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from itertools import islice
 from typing import Any
 
 from pyicloud.adapters.store import FileSessionStoreAdapter
@@ -14,9 +15,11 @@ from pyicloud.ports import (
     ContactsServicePort,
     DeviceServicePort,
     DriveServicePort,
+    PhotosServicePort,
     RemindersServicePort,
     ServiceEndpointPort,
     SessionStorePort,
+    UbiquityServicePort,
 )
 from pyicloud.services import PyiCloudServices
 from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
@@ -35,6 +38,8 @@ class LegacyCoreServicesAdapter(
     CalendarServicePort,
     ContactsServicePort,
     RemindersServicePort,
+    PhotosServicePort,
+    UbiquityServicePort,
 ):
     """Use existing service classes as adapters behind new API-facing ports."""
 
@@ -262,3 +267,156 @@ class LegacyCoreServicesAdapter(
                 due_date=due_date,
             )
         )
+
+    @staticmethod
+    def _photo_asset_metadata(*, album: str, asset: Any) -> dict[str, Any]:
+        created = getattr(asset, "created", None)
+        if isinstance(created, datetime):
+            created_value: str | None = created.isoformat()
+        elif created is None:
+            created_value = None
+        else:
+            created_value = str(created)
+        width, height = asset.dimensions
+        versions = {
+            name: {
+                "filename": value.get("filename"),
+                "width": value.get("width"),
+                "height": value.get("height"),
+                "size": value.get("size"),
+                "type": value.get("type"),
+            }
+            for name, value in asset.versions.items()
+        }
+        return {
+            "id": str(asset.id),
+            "album": album,
+            "filename": str(asset.filename),
+            "size": int(asset.size),
+            "created": created_value,
+            "width": int(width),
+            "height": int(height),
+            "versions": versions,
+        }
+
+    def _photo_album(self, *, username: str, album: str):
+        photos = self._services(username=username).photos
+        albums = photos.albums
+        if album not in albums:
+            raise KeyError(f"Photo album not found: {album}")
+        return albums[album]
+
+    def _photo_asset(self, *, username: str, asset_id: str, album: str):
+        for asset in self._photo_album(username=username, album=album).photos:
+            if str(asset.id) == asset_id:
+                return asset
+        raise KeyError(f"Photo asset not found: {asset_id}")
+
+    def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        albums = self._services(username=username).photos.albums
+        return [{"name": str(name), "count": len(album)} for name, album in albums.items()]
+
+    def list_assets(
+        self,
+        *,
+        username: str,
+        album: str = "All Photos",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Sequence[Mapping[str, Any]]:
+        album_obj = self._photo_album(username=username, album=album)
+        assets = islice(album_obj.photos, offset, offset + limit)
+        return [self._photo_asset_metadata(album=album, asset=asset) for asset in assets]
+
+    def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+        asset = self._photo_asset(username=username, asset_id=asset_id, album=album)
+        return self._photo_asset_metadata(album=album, asset=asset)
+
+    def asset_content(
+        self,
+        *,
+        username: str,
+        asset_id: str,
+        album: str = "All Photos",
+        version: str = "original",
+    ) -> bytes:
+        asset = self._photo_asset(username=username, asset_id=asset_id, album=album)
+        response = asset.download(version=version, stream=True)
+        if response is None:
+            raise KeyError(f"Photo version not found: {version}")
+        chunks: list[bytes] = []
+        with response:
+            for chunk in response.iter_raw():
+                if isinstance(chunk, bytes):
+                    chunks.append(chunk)
+                else:
+                    chunks.append(bytes(chunk))
+        return b"".join(chunks)
+
+    def _resolve_ubiquity_node(self, *, username: str, path: str):
+        node = self._services(username=username).files
+        clean_path = path.strip()
+        if not clean_path or clean_path == "/":
+            return node
+        for part in [segment for segment in clean_path.strip("/").split("/") if segment]:
+            node = node[part]
+        return node
+
+    @staticmethod
+    def _ubiquity_node_metadata(path: str, node: Any) -> dict[str, Any]:
+        modified = getattr(node, "modified", None)
+        if isinstance(modified, datetime):
+            modified_value: str | None = modified.isoformat()
+        elif modified is None:
+            modified_value = None
+        else:
+            modified_value = str(modified)
+        return {
+            "path": path or "/",
+            "item_id": node.item_id,
+            "name": node.name,
+            "type": node.type,
+            "size": node.size,
+            "modified": modified_value,
+        }
+
+    @staticmethod
+    def _child_path(parent_path: str, name: str) -> str:
+        parent = parent_path or "/"
+        if parent == "/":
+            return f"/{name}"
+        return f"{parent.rstrip('/')}/{name}"
+
+    def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+        resolved_path = path or "/"
+        node = self._resolve_ubiquity_node(username=username, path=resolved_path)
+        data = self._ubiquity_node_metadata(path=resolved_path, node=node)
+        children: list[Mapping[str, Any]] = []
+        try:
+            for child in node.get_children():
+                children.append(
+                    self._ubiquity_node_metadata(
+                        path=self._child_path(resolved_path, str(child.name)),
+                        node=child,
+                    )
+                )
+        except Exception:  # noqa: BLE001
+            children = []
+        data["children"] = children
+        return data
+
+    def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return self._ubiquity_node_metadata(path=path, node=self._resolve_ubiquity_node(username=username, path=path))
+
+    def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
+        node = self._resolve_ubiquity_node(username=username, path=path)
+        if str(node.type) != "file":
+            raise KeyError("Ubiquity path is not a file")
+        chunks: list[bytes] = []
+        with node.open(stream=True) as response:
+            for chunk in response.iter_raw():
+                if isinstance(chunk, bytes):
+                    chunks.append(chunk)
+                else:
+                    chunks.append(bytes(chunk))
+        return b"".join(chunks)

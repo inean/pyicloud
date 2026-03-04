@@ -65,6 +65,14 @@ async def test_successful_auth_and_core_service_flow(app, tmp_path: Path):
         assert reminders.status_code == 200
         assert set(reminders.json().keys()) == {"Personal", "Work"}
 
+        photos = await client.get("/v1/photos/albums", headers=headers)
+        assert photos.status_code == 200
+        assert [item["name"] for item in photos.json()] == ["All Photos", "Favorites"]
+
+        ubiquity = await client.get("/v1/ubiquity/tree", params={"path": "/"}, headers=headers)
+        assert ubiquity.status_code == 200
+        assert [item["name"] for item in ubiquity.json()["children"]] == ["Documents", "Notes"]
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio

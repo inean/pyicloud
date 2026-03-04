@@ -20,7 +20,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
 - In Progress:
   - None
@@ -34,6 +33,7 @@
   - Phase 6 Drive Vertical Slice
   - Phase 7 CLI Consolidation
   - Phase 8 Secondary Services I
+  - Phase 9 Secondary Services II
 - Blocked:
   - None
 
@@ -354,11 +354,43 @@ All three domains reachable and tested via API/CLI.
 
 ## Phase 9: Secondary Services II
 ### Checklist
-- [ ] Add Photos + Ubiquity ports/adapters/routes/CLI.
-- [ ] Add deterministic vertical tests.
+- [x] Add Photos + Ubiquity ports/adapters/routes/CLI.
+- [x] Add deterministic vertical tests.
 
 ### Exit Criteria
 Remaining library service functionality exposed through API/CLI.
+
+### Handoff: Phase 9 - Secondary Services II
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Added Photos/Ubiquity outbound ports with skill-aligned method docstrings and wired them through `CoreServicesApi`.
+  - Extended legacy core adapter with photo album/asset metadata+download operations and ubiquity tree/file metadata+download operations.
+  - Added `/v1/photos/*` and `/v1/ubiquity/*` domain-first API routes plus API-first CLI command groups `icloud photos` and `icloud ubiquity`.
+  - Extended deterministic vertical fake core services with photos and ubiquity fixtures, including binary download behavior.
+  - Added vertical API/CLI suites for both domains and unit coverage for the new legacy adapter paths.
+- Files changed:
+  - `pyicloud/ports/services.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyicloud/application/core_services.py`
+  - `pyicloud/adapters/services/legacy_core.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/cli/main.py`
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/vertical/api/test_photos_api.py`
+  - `tests/vertical/api/test_ubiquity_api.py`
+  - `tests/vertical/cli/test_photos_cli.py`
+  - `tests/vertical/cli/test_ubiquity_cli.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `tests/integration/test_api_end_to_end.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py tests/vertical/cli/test_photos_cli.py tests/vertical/cli/test_ubiquity_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Photos and ubiquity endpoints currently focus on read/list/download; deeper mutation/management flows remain unmodeled.
+  - `LegacyCoreServicesAdapter` still contains broad legacy coupling slated for Phase 10 cleanup.
+- Next recommended phase: Phase 10 Legacy Cleanup + Hardening.
 
 ---
 
@@ -379,5 +411,5 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 9 from docs/refactor_plan.md
+# Continue Phase 10 from docs/refactor_plan.md
 ```
