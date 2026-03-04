@@ -12,9 +12,8 @@ import sys
 
 import asyncclick as click
 
-from pyicloud.adapters.auth import authenticate_legacy_endpoint
+from pyicloud.adapters.auth import authenticate_legacy_endpoint, restore_legacy_endpoint_from_store
 from pyicloud.cli_auth import run_bootstrap_auth
-from pyicloud.bootstrap import build_service_endpoint_restore
 from pyicloud.services import PyiCloudServices
 
 DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
@@ -52,9 +51,8 @@ async def _legacy_authenticate(username: str, password: str, *, interactive: boo
 
 
 def _bootstrap_endpoint(username: str, password: str):
-    restore = build_service_endpoint_restore()
-    return restore.restore(
-        account_id=username,
+    return restore_legacy_endpoint_from_store(
+        username=username,
         password=password,
     )
 

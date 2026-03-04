@@ -6,8 +6,9 @@ import io
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pyicloud.bootstrap import build_service_endpoint_restore
-from pyicloud.ports import AccountServicePort, DeviceServicePort, DriveServicePort
+from pyicloud.adapters.store import FileSessionStoreAdapter
+from pyicloud.ports import AccountServicePort, DeviceServicePort, DriveServicePort, ServiceEndpointPort, SessionStorePort
+from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
 from pyicloud.services import PyiCloudServices
 
 
@@ -20,11 +21,24 @@ class _NamedBytesIO(io.BytesIO):
 class LegacyCoreServicesAdapter(DeviceServicePort, AccountServicePort, DriveServicePort):
     """Use existing service classes as adapters behind new API-facing ports."""
 
-    def __init__(self, *, endpoint_restore_factory=build_service_endpoint_restore):
-        self._restore = endpoint_restore_factory()
+    def __init__(
+        self,
+        *,
+        session_store: SessionStorePort | None = None,
+        endpoint_factory: ServiceEndpointPort | None = None,
+    ):
+        self._store = session_store or FileSessionStoreAdapter()
+        self._endpoint_factory = endpoint_factory or LegacyServiceEndpointFactoryAdapter()
 
     def _services(self, *, username: str) -> PyiCloudServices:
-        endpoint = self._restore.restore(account_id=username, password="")
+        payload = self._store.load(username)
+        if payload is None:
+            raise RuntimeError(f"No stored endpoint payload found for account: {username}")
+        endpoint = self._endpoint_factory.from_payload(
+            username=username,
+            password="",
+            payload=payload,
+        )
         if endpoint is None:
             raise RuntimeError(f"No stored endpoint payload found for account: {username}")
         return PyiCloudServices(endpoint=endpoint)

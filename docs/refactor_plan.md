@@ -24,7 +24,6 @@
   - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
 - In Progress:
-  - Phase 3 Real Auth Adapter + Core Legacy Auth Replacement
   - Phase 4 Devices Vertical Slice
   - Phase 5 Account Vertical Slice
   - Phase 6 Drive Vertical Slice
@@ -33,6 +32,7 @@
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
   - Phase 2 Auth Vertical Slice (Fake First)
+  - Phase 3 Real Auth Adapter + Core Legacy Auth Replacement
 - Blocked:
   - None
 
@@ -147,7 +147,7 @@ Auth works end-to-end without any iCloud network dependency.
 ### Checklist
 - [x] Wire real auth path to existing tree auth/session sequence.
 - [x] Keep fake path for deterministic vertical tests.
-- [ ] Replace runtime dependency on legacy auth/session endpoint restoration flow where possible.
+- [x] Replace runtime dependency on legacy auth/session endpoint restoration flow where possible.
 - [x] Add/keep Python compatibility facade (`from pyicloud import PyiCloudService`).
 - [x] Add deprecation warnings for compatibility surface.
 
@@ -156,22 +156,29 @@ Real auth path preserved, fake auth path retained for tests, compatibility facad
 
 ### Handoff: Phase 3 - Real Auth Adapter + Core Legacy Auth Replacement
 - Date: 2026-03-04
-- Status: In Progress
+- Status: Done
 - Summary:
   - Real auth path is wired through `AuthApiService` default factory using tree-based auth (`build_auth_session_service`).
   - Fake auth path remains active for vertical tests.
   - Added compatibility facade `pyicloud.service.PyiCloudService` and exported it from `pyicloud.__init__`.
   - Added deprecation warning on compatibility facade initialization.
+  - Replaced default runtime endpoint restoration wiring in core adapters and legacy compatibility flows with direct session-store + endpoint-factory composition.
 - Files changed:
-  - `pyicloud/application/api_auth.py`
-  - `pyicloud/service.py`
-  - `pyicloud/__init__.py`
+  - `pyicloud/adapters/auth/legacy_cli_auth.py`
+  - `pyicloud/adapters/auth/__init__.py`
+  - `pyicloud/adapters/services/legacy_core.py`
+  - `pyicloud/cmdline.py`
+  - `tests/test_legacy_cli_auth_adapter.py`
+  - `tests/test_legacy_core_services_adapter.py`
+  - `tests/test_cmdline.py`
+  - `docs/refactor_plan.md`
 - Tests executed:
+  - `uv run --extra test pytest -q tests/test_legacy_cli_auth_adapter.py tests/test_cmdline.py tests/test_legacy_core_services_adapter.py`
   - `uv run --extra test pytest -q`
 - Risks / TBD:
-  - Core runtime still relies on legacy endpoint/session adapter stack for device/account/drive operations.
+  - Device/account/drive runtime still relies on legacy service implementation internals (`PyiCloudServices`, `LegacyServiceSessionAdapter`) pending later cleanup phases.
   - Compatibility facade currently authenticates synchronously with `asyncio.run`.
-- Next recommended phase: Finish Phase 3 legacy dependency replacement tasks, then close vertical tests for Phases 4-6.
+- Next recommended phase: Phase 4 Devices Vertical Slice (add deterministic fake builders + vertical tests).
 
 ---
 

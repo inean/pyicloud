@@ -91,13 +91,12 @@ class TestCmdline(IsolatedAsyncioTestCase):
 
         with (
             patch("pyicloud.cmdline.run_bootstrap_auth", new_callable=AsyncMock) as mock_bootstrap,
-            patch("pyicloud.cmdline.build_service_endpoint_restore") as mock_build_restore,
+            patch("pyicloud.cmdline.restore_legacy_endpoint_from_store") as mock_restore_endpoint,
             patch("pyicloud.cmdline._legacy_authenticate", new_callable=AsyncMock) as mock_legacy_auth,
             patch("pyicloud.cmdline.PyiCloudServices") as mock_services,
         ):
-            mock_restore = mock_build_restore.return_value
             endpoint = object()
-            mock_restore.restore.return_value = endpoint
+            mock_restore_endpoint.return_value = endpoint
             mock_services.return_value.devices = []
 
             result = await runner.invoke(
@@ -115,7 +114,7 @@ class TestCmdline(IsolatedAsyncioTestCase):
 
             assert result.exit_code == 0
             mock_bootstrap.assert_awaited_once()
-            mock_restore.restore.assert_called_once()
+            mock_restore_endpoint.assert_called_once()
             mock_legacy_auth.assert_not_called()
             mock_services.assert_called_once_with(endpoint=endpoint)
 
