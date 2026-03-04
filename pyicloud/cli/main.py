@@ -294,6 +294,123 @@ async def account_storage(ctx: click.Context) -> None:
 
 
 @main.group()
+async def calendar() -> None:
+    """Calendar commands."""
+
+
+@calendar.command("calendars")
+@click.pass_context
+async def calendar_calendars(ctx: click.Context) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/calendar/calendars", token=token)
+    _print_json(data)
+
+
+@calendar.command("events")
+@click.option("--from-dt", default="", help="ISO datetime start boundary.")
+@click.option("--to-dt", default="", help="ISO datetime end boundary.")
+@click.pass_context
+async def calendar_events(ctx: click.Context, from_dt: str, to_dt: str) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    params: dict[str, Any] = {}
+    if from_dt:
+        params["from_dt"] = from_dt
+    if to_dt:
+        params["to_dt"] = to_dt
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/calendar/events",
+        token=token,
+        params=params or None,
+    )
+    _print_json(data)
+
+
+@calendar.command("event-detail")
+@click.option("--calendar-guid", required=True)
+@click.option("--event-guid", required=True)
+@click.pass_context
+async def calendar_event_detail(ctx: click.Context, calendar_guid: str, event_guid: str) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="GET",
+        route="/v1/calendar/event-detail",
+        token=token,
+        params={"calendar_guid": calendar_guid, "event_guid": event_guid},
+    )
+    _print_json(data)
+
+
+@main.group()
+async def contacts() -> None:
+    """Contacts commands."""
+
+
+@contacts.command("list")
+@click.pass_context
+async def contacts_list(ctx: click.Context) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/contacts", token=token)
+    _print_json(data)
+
+
+@main.group()
+async def reminders() -> None:
+    """Reminders commands."""
+
+
+@reminders.command("list")
+@click.pass_context
+async def reminders_list(ctx: click.Context) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/reminders", token=token)
+    _print_json(data)
+
+
+@reminders.command("add")
+@click.option("--title", required=True)
+@click.option("--description", default="", show_default=True)
+@click.option("--collection", default="", show_default=False)
+@click.option("--due-date", default="", help="ISO datetime due value.")
+@click.pass_context
+async def reminders_add(
+    ctx: click.Context,
+    title: str,
+    description: str,
+    collection: str,
+    due_date: str,
+) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+    payload: dict[str, Any] = {"title": title, "description": description}
+    if collection:
+        payload["collection"] = collection
+    if due_date:
+        payload["due_date"] = due_date
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="POST",
+        route="/v1/reminders",
+        token=token,
+        json_body=payload,
+    )
+    _print_json(data)
+
+
+@main.group()
 async def drive() -> None:
     """Drive commands."""
 
@@ -344,7 +461,7 @@ async def drive_file(ctx: click.Context, path: str, download_to: str) -> None:
     )
     output = Path(download_to)
     output.parent.mkdir(parents=True, exist_ok=True)
-    assert isinstance(content, (bytes, bytearray)), "Expected binary response from download endpoint"
+    assert isinstance(content, bytes | bytearray), "Expected binary response from download endpoint"
     output.write_bytes(bytes(content))
     _print_json({"ok": True, "detail": f"Downloaded to {output}"})
 

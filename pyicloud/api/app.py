@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from typing import Any
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Path, Query, UploadFile, status
@@ -26,6 +27,7 @@ from .schemas import (
     DevicePlaySoundRequest,
     DriveCreateFolderRequest,
     DriveRenameNodeRequest,
+    ReminderCreateRequest,
     SimpleOkResponse,
 )
 
@@ -45,7 +47,14 @@ def _build_default_auth_service() -> AuthApiService:
 
 def _build_default_core_services() -> CoreServicesApi:
     adapter = LegacyCoreServicesAdapter()
-    return CoreServicesApi(devices=adapter, accounts=adapter, drive=adapter)
+    return CoreServicesApi(
+        devices=adapter,
+        accounts=adapter,
+        drive=adapter,
+        calendars=adapter,
+        contacts=adapter,
+        reminders=adapter,
+    )
 
 
 def create_app(
@@ -236,6 +245,69 @@ def create_app(
         service: CoreServicesApi = Depends(get_core_services),
     ) -> AccountStorageResponse:
         return AccountStorageResponse.model_validate(service.account_storage(username=username))
+
+    @app.get("/v1/calendar/calendars")
+    def calendar_calendars(
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        return service.calendar_calendars(username=username)
+
+    @app.get("/v1/calendar/events")
+    def calendar_events(
+        from_dt: datetime | None = Query(default=None),
+        to_dt: datetime | None = Query(default=None),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        return service.calendar_events(username=username, from_dt=from_dt, to_dt=to_dt)
+
+    @app.get("/v1/calendar/event-detail")
+    def calendar_event_detail(
+        calendar_guid: str = Query(..., min_length=1),
+        event_guid: str = Query(..., min_length=1),
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        try:
+            return service.calendar_event_detail(
+                username=username,
+                calendar_guid=calendar_guid,
+                event_guid=event_guid,
+            )
+        except KeyError as err:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
+    @app.get("/v1/contacts")
+    def contacts_list(
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        return service.contacts_all(username=username)
+
+    @app.get("/v1/reminders")
+    def reminders_list(
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> Any:
+        return service.reminders_lists(username=username)
+
+    @app.post("/v1/reminders", response_model=SimpleOkResponse)
+    def reminders_create(
+        payload: ReminderCreateRequest,
+        username: str = Depends(_get_username),
+        service: CoreServicesApi = Depends(get_core_services),
+    ) -> SimpleOkResponse:
+        created = service.reminders_create(
+            username=username,
+            title=payload.title,
+            description=payload.description,
+            collection=payload.collection,
+            due_date=payload.due_date,
+        )
+        if not created:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Reminder creation failed")
+        return SimpleOkResponse(detail="Reminder created")
 
     @app.get("/v1/drive/tree")
     def drive_tree(

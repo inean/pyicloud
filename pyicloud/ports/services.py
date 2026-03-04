@@ -1,8 +1,9 @@
-"""Ports for API-facing device, account, and drive service operations."""
+"""Ports for API-facing service operations."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any, Protocol
 
 
@@ -244,4 +245,130 @@ class DriveServicePort(Protocol):
         Raises:
             KeyError: Path does not resolve to a valid node.
             RuntimeError: Delete operation fails.
+        """
+
+
+class CalendarServicePort(Protocol):
+    """
+    Direction: outbound
+
+    Purpose:
+        This port isolates calendar query operations from concrete iCloud
+        calendar clients and upstream payload formats.
+
+        Implementations map provider calendar/event payloads into stable
+        structures that API and CLI layers can present consistently.
+
+    Implemented by: LegacyCoreServicesAdapter
+    """
+
+    def calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        """
+        CoreServicesApi calls this method to list available calendars for an account.
+
+        The adapter translates provider collection payloads into stable mappings and
+        hides endpoint/session setup details from application orchestration.
+
+        Raises:
+            RuntimeError: Calendar collection data cannot be retrieved.
+        """
+
+    def events(
+        self,
+        *,
+        username: str,
+        from_dt: datetime | None = None,
+        to_dt: datetime | None = None,
+    ) -> Sequence[Mapping[str, Any]]:
+        """
+        CoreServicesApi calls this method to fetch calendar events in a date window.
+
+        The adapter translates domain date-range intent into provider query parameters
+        and normalizes provider event payloads into domain-level mappings.
+
+        Raises:
+            RuntimeError: Event data cannot be retrieved.
+        """
+
+    def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+        """
+        CoreServicesApi calls this method to fetch one calendar event detail payload.
+
+        The adapter translates domain event identity fields into provider requests and
+        returns a stable mapping independent of provider response wrappers.
+
+        Raises:
+            KeyError: Event or calendar identifiers are unknown.
+            RuntimeError: Event detail retrieval fails.
+        """
+
+
+class ContactsServicePort(Protocol):
+    """
+    Direction: outbound
+
+    Purpose:
+        This port isolates contacts queries from concrete iCloud contacts clients
+        and provider-specific pagination or token mechanics.
+
+        Implementations map provider contact payloads into stable domain mappings
+        consumed by API responses and CLI output.
+
+    Implemented by: LegacyCoreServicesAdapter
+    """
+
+    def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        """
+        CoreServicesApi calls this method to fetch all contacts for an account.
+
+        The adapter translates provider contacts payloads and sync flows into domain
+        mappings while keeping provider tokens and endpoint sequencing internal.
+
+        Raises:
+            RuntimeError: Contact data cannot be retrieved.
+        """
+
+
+class RemindersServicePort(Protocol):
+    """
+    Direction: outbound
+
+    Purpose:
+        This port isolates reminders operations from concrete iCloud reminders
+        clients and provider request payload schemas.
+
+        Implementations map reminder list/create intents to provider calls and
+        normalize provider responses into stable domain structures.
+
+    Implemented by: LegacyCoreServicesAdapter
+    """
+
+    def reminder_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+        """
+        CoreServicesApi calls this method to fetch reminders grouped by list title.
+
+        The adapter translates provider reminder collection payloads into domain
+        list mappings and encapsulates provider refresh behaviors.
+
+        Raises:
+            RuntimeError: Reminder list data cannot be retrieved.
+        """
+
+    def create_reminder(
+        self,
+        *,
+        username: str,
+        title: str,
+        description: str = "",
+        collection: str | None = None,
+        due_date: datetime | None = None,
+    ) -> bool:
+        """
+        CoreServicesApi calls this method to create a reminder in the selected list.
+
+        The adapter translates domain reminder fields into provider mutation payloads
+        and maps provider success/failure status to a domain-level boolean result.
+
+        Raises:
+            RuntimeError: Reminder creation fails in provider service.
         """

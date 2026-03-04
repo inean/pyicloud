@@ -1,15 +1,23 @@
-"""Application façade for device/account/drive API operations."""
+"""Application façade for API-facing service operations."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
-from pyicloud.ports import AccountServicePort, DeviceServicePort, DriveServicePort
+from pyicloud.ports import (
+    AccountServicePort,
+    CalendarServicePort,
+    ContactsServicePort,
+    DeviceServicePort,
+    DriveServicePort,
+    RemindersServicePort,
+)
 
 
 class CoreServicesApi:
-    """Expose API-oriented operations over device/account/drive outbound ports."""
+    """Expose API-oriented operations over core outbound service ports."""
 
     def __init__(
         self,
@@ -17,10 +25,16 @@ class CoreServicesApi:
         devices: DeviceServicePort,
         accounts: AccountServicePort,
         drive: DriveServicePort,
+        calendars: CalendarServicePort,
+        contacts: ContactsServicePort,
+        reminders: RemindersServicePort,
     ):
         self._devices = devices
         self._accounts = accounts
         self._drive = drive
+        self._calendars = calendars
+        self._contacts = contacts
+        self._reminders = reminders
 
     def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         return self._devices.list_devices(username=username)
@@ -89,3 +103,41 @@ class CoreServicesApi:
 
     def drive_delete_node(self, *, username: str, path: str) -> None:
         self._drive.delete_node(username=username, path=path)
+
+    def calendar_calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return self._calendars.calendars(username=username)
+
+    def calendar_events(
+        self,
+        *,
+        username: str,
+        from_dt: datetime | None = None,
+        to_dt: datetime | None = None,
+    ) -> Sequence[Mapping[str, Any]]:
+        return self._calendars.events(username=username, from_dt=from_dt, to_dt=to_dt)
+
+    def calendar_event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+        return self._calendars.event_detail(username=username, calendar_guid=calendar_guid, event_guid=event_guid)
+
+    def contacts_all(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return self._contacts.all_contacts(username=username)
+
+    def reminders_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+        return self._reminders.reminder_lists(username=username)
+
+    def reminders_create(
+        self,
+        *,
+        username: str,
+        title: str,
+        description: str = "",
+        collection: str | None = None,
+        due_date: datetime | None = None,
+    ) -> bool:
+        return self._reminders.create_reminder(
+            username=username,
+            title=title,
+            description=description,
+            collection=collection,
+            due_date=due_date,
+        )

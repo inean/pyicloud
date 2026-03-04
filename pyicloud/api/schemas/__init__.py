@@ -8,8 +8,9 @@ from .auth import (
     AuthSessionResponse,
     SimpleOkResponse,
 )
-from .devices import DeviceMessageRequest, DeviceLostModeRequest, DevicePlaySoundRequest
+from .devices import DeviceLostModeRequest, DeviceMessageRequest, DevicePlaySoundRequest
 from .drive import DriveCreateFolderRequest, DriveRenameNodeRequest
+from .reminders import ReminderCreateRequest
 
 __all__ = [
     "AccountStorageResponse",
@@ -22,5 +23,6 @@ __all__ = [
     "DevicePlaySoundRequest",
     "DriveCreateFolderRequest",
     "DriveRenameNodeRequest",
+    "ReminderCreateRequest",
     "SimpleOkResponse",
 ]

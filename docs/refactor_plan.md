@@ -20,7 +20,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 8 Secondary Services I
   - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
 - In Progress:
@@ -34,6 +33,7 @@
   - Phase 5 Account Vertical Slice
   - Phase 6 Drive Vertical Slice
   - Phase 7 CLI Consolidation
+  - Phase 8 Secondary Services I
 - Blocked:
   - None
 
@@ -309,11 +309,46 @@ Only subcommand CLI remains and is API-first.
 
 ## Phase 8: Secondary Services I
 ### Checklist
-- [ ] Add Calendar, Contacts, Reminders ports/adapters/routes/CLI.
-- [ ] Add deterministic vertical tests.
+- [x] Add Calendar, Contacts, Reminders ports/adapters/routes/CLI.
+- [x] Add deterministic vertical tests.
 
 ### Exit Criteria
 All three domains reachable and tested via API/CLI.
+
+### Handoff: Phase 8 - Secondary Services I
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Added Calendar/Contacts/Reminders outbound ports, application façade wiring, and legacy-backed adapters.
+  - Added `/v1/calendar/*`, `/v1/contacts`, and `/v1/reminders` endpoints plus reminder create schema.
+  - Added API-first CLI subcommands for `icloud calendar`, `icloud contacts`, and `icloud reminders`.
+  - Extended deterministic vertical fake core services with secondary-service fixtures and reminder mutation behavior.
+  - Added vertical API/CLI coverage and extended integration flow assertions for all three domains.
+- Files changed:
+  - `pyicloud/ports/services.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyicloud/application/core_services.py`
+  - `pyicloud/adapters/services/legacy_core.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/schemas/reminders.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `pyicloud/cli/main.py`
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/vertical/api/test_calendar_api.py`
+  - `tests/vertical/api/test_contacts_api.py`
+  - `tests/vertical/api/test_reminders_api.py`
+  - `tests/vertical/cli/test_calendar_cli.py`
+  - `tests/vertical/cli/test_contacts_cli.py`
+  - `tests/vertical/cli/test_reminders_cli.py`
+  - `tests/integration/test_api_end_to_end.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/cli/test_calendar_cli.py tests/vertical/cli/test_contacts_cli.py tests/vertical/cli/test_reminders_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Photos and Ubiquity domains remain for Phase 9.
+  - Secondary-service adapter coverage is currently mostly via vertical/integration paths; unit tests are still sparse.
+- Next recommended phase: Phase 9 Secondary Services II.
 
 ---
 
@@ -344,5 +379,5 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 8 from docs/refactor_plan.md
+# Continue Phase 9 from docs/refactor_plan.md
 ```

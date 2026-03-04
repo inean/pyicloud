@@ -53,6 +53,18 @@ async def test_successful_auth_and_core_service_flow(app, tmp_path: Path):
         assert drive.status_code == 200
         assert [child["name"] for child in drive.json()["children"]] == ["Documents", "Photos"]
 
+        calendar = await client.get("/v1/calendar/calendars", headers=headers)
+        assert calendar.status_code == 200
+        assert [item["title"] for item in calendar.json()] == ["Work", "Personal"]
+
+        contacts = await client.get("/v1/contacts", headers=headers)
+        assert contacts.status_code == 200
+        assert [item["displayName"] for item in contacts.json()] == ["Inean User", "Family Member"]
+
+        reminders = await client.get("/v1/reminders", headers=headers)
+        assert reminders.status_code == 200
+        assert set(reminders.json().keys()) == {"Personal", "Work"}
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio

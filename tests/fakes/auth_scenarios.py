@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pyicloud.adapters.auth import FakeScenarioAuthSessionAdapter
@@ -113,10 +114,98 @@ class _DeterministicCoreServices(CoreServicesApi):
         "/Documents/notes.txt": {"name": "notes.txt", "type": "file", "content": b"hello from notes"},
         "/Photos": {"name": "Photos", "type": "folder"},
     }
+    _CALENDAR_FIXTURES = {
+        "success@example.com": {
+            "calendars": [
+                {"guid": "cal-work-1", "title": "Work", "isDefault": True},
+                {"guid": "cal-personal-1", "title": "Personal", "isDefault": False},
+            ],
+            "events": [
+                {
+                    "guid": "event-work-1",
+                    "pguid": "cal-work-1",
+                    "title": "Roadmap Review",
+                    "location": "Madrid Office",
+                    "startDate": "2026-03-05T09:00:00+01:00",
+                    "endDate": "2026-03-05T10:00:00+01:00",
+                },
+                {
+                    "guid": "event-personal-1",
+                    "pguid": "cal-personal-1",
+                    "title": "Gym",
+                    "location": "Local Gym",
+                    "startDate": "2026-03-06T18:00:00+01:00",
+                    "endDate": "2026-03-06T19:00:00+01:00",
+                },
+            ],
+            "details": {
+                "cal-work-1:event-work-1": {
+                    "guid": "event-work-1",
+                    "pguid": "cal-work-1",
+                    "title": "Roadmap Review",
+                    "location": "Madrid Office",
+                    "notes": "Discuss Q2 milestones",
+                    "attendeeCount": 6,
+                },
+                "cal-personal-1:event-personal-1": {
+                    "guid": "event-personal-1",
+                    "pguid": "cal-personal-1",
+                    "title": "Gym",
+                    "location": "Local Gym",
+                    "notes": "Leg day",
+                    "attendeeCount": 1,
+                },
+            },
+        }
+    }
+    _CONTACTS_FIXTURES = {
+        "success@example.com": [
+            {
+                "firstName": "Inean",
+                "lastName": "User",
+                "displayName": "Inean User",
+                "emails": [{"label": "work", "value": "success@example.com"}],
+                "phones": [{"label": "mobile", "value": "+34600123456"}],
+            },
+            {
+                "firstName": "Family",
+                "lastName": "Member",
+                "displayName": "Family Member",
+                "emails": [{"label": "home", "value": "family.member@example.com"}],
+                "phones": [{"label": "mobile", "value": "+34600987654"}],
+            },
+        ]
+    }
+    _REMINDER_LISTS_TEMPLATE = {
+        "success@example.com": {
+            "Personal": [
+                {
+                    "title": "Buy milk",
+                    "desc": "2L whole",
+                    "due": datetime(2026, 3, 5, 19, 0, tzinfo=UTC),
+                }
+            ],
+            "Work": [
+                {
+                    "title": "Send status update",
+                    "desc": "Weekly sync",
+                    "due": datetime(2026, 3, 5, 16, 0, tzinfo=UTC),
+                }
+            ],
+        }
+    }
 
     def __init__(self):
-        super().__init__(devices=self, accounts=self, drive=self)
+        super().__init__(
+            devices=self,
+            accounts=self,
+            drive=self,
+            calendars=self,
+            contacts=self,
+            reminders=self,
+        )
         self._drive_nodes_by_user: dict[str, dict[str, dict[str, object]]] = {}
+        self._reminder_lists_by_user: dict[str, dict[str, list[dict[str, object]]]] = {}
 
     def _device(self, *, username: str, device_id: str) -> dict:
         for device in self._DEVICE_FIXTURES.get(username, []):
@@ -171,9 +260,79 @@ class _DeterministicCoreServices(CoreServicesApi):
         return copy.deepcopy(self._ACCOUNT_FAMILY_FIXTURES.get(username, []))
 
     def account_storage(self, *, username: str):
-        return copy.deepcopy(
-            self._ACCOUNT_STORAGE_FIXTURES.get(username, {"usage": {}, "usages_by_media": {}})
-        )
+        return copy.deepcopy(self._ACCOUNT_STORAGE_FIXTURES.get(username, {"usage": {}, "usages_by_media": {}}))
+
+    # Calendar
+    def calendars(self, *, username: str):
+        fixtures = self._CALENDAR_FIXTURES.get(username, {})
+        return copy.deepcopy(fixtures.get("calendars", []))
+
+    def events(
+        self,
+        *,
+        username: str,
+        from_dt: datetime | None = None,
+        to_dt: datetime | None = None,
+    ):
+        fixtures = self._CALENDAR_FIXTURES.get(username, {})
+        events = copy.deepcopy(fixtures.get("events", []))
+        if from_dt is None and to_dt is None:
+            return events
+
+        filtered: list[dict[str, object]] = []
+        for event in events:
+            raw_start = str(event.get("startDate", ""))
+            try:
+                event_start = datetime.fromisoformat(raw_start)
+            except ValueError:
+                continue
+            if from_dt is not None and event_start < from_dt:
+                continue
+            if to_dt is not None and event_start > to_dt:
+                continue
+            filtered.append(event)
+        return filtered
+
+    def event_detail(self, *, username: str, calendar_guid: str, event_guid: str):
+        fixtures = self._CALENDAR_FIXTURES.get(username, {})
+        details = fixtures.get("details", {})
+        key = f"{calendar_guid}:{event_guid}"
+        if not isinstance(details, dict) or key not in details:
+            raise KeyError(f"Calendar event not found: {key}")
+        detail = details[key]
+        assert isinstance(detail, dict)
+        return copy.deepcopy(detail)
+
+    # Contacts
+    def all_contacts(self, *, username: str):
+        return copy.deepcopy(self._CONTACTS_FIXTURES.get(username, []))
+
+    # Reminders
+    def _reminder_lists(self, *, username: str) -> dict[str, list[dict[str, object]]]:
+        existing = self._reminder_lists_by_user.get(username)
+        if existing is not None:
+            return existing
+        lists = copy.deepcopy(self._REMINDER_LISTS_TEMPLATE.get(username, {}))
+        self._reminder_lists_by_user[username] = lists
+        return lists
+
+    def reminder_lists(self, *, username: str):
+        return copy.deepcopy(self._reminder_lists(username=username))
+
+    def create_reminder(
+        self,
+        *,
+        username: str,
+        title: str,
+        description: str = "",
+        collection: str | None = None,
+        due_date: datetime | None = None,
+    ) -> bool:
+        list_name = (collection or "Personal").strip() or "Personal"
+        lists = self._reminder_lists(username=username)
+        reminders = lists.setdefault(list_name, [])
+        reminders.append({"title": title, "desc": description, "due": due_date})
+        return True
 
     # Drive
     @staticmethod
@@ -200,7 +359,7 @@ class _DeterministicCoreServices(CoreServicesApi):
         size = 0
         if str(node.get("type")) == "file":
             content = node.get("content", b"")
-            if isinstance(content, (bytes, bytearray)):
+            if isinstance(content, bytes | bytearray):
                 size = len(content)
             else:
                 size = len(bytes(str(content), encoding="utf-8"))
@@ -218,10 +377,7 @@ class _DeterministicCoreServices(CoreServicesApi):
         nodes = self._drive_nodes_by_user.get(username)
         if nodes is not None:
             return nodes
-        nodes = {
-            path: copy.deepcopy(node)
-            for path, node in self._DRIVE_NODES_TEMPLATE.items()
-        }
+        nodes = {path: copy.deepcopy(node) for path, node in self._DRIVE_NODES_TEMPLATE.items()}
         self._drive_nodes_by_user[username] = nodes
         return nodes
 
@@ -306,7 +462,9 @@ class _DeterministicCoreServices(CoreServicesApi):
         if target_path in nodes:
             raise RuntimeError(f"Drive path already exists: {target_path}")
 
-        affected_paths = [node_path for node_path in nodes if node_path == source_path or node_path.startswith(f"{source_path}/")]
+        affected_paths = [
+            node_path for node_path in nodes if node_path == source_path or node_path.startswith(f"{source_path}/")
+        ]
         moved_nodes: dict[str, dict[str, object]] = {}
         for old_path in sorted(affected_paths, key=len):
             suffix = old_path[len(source_path) :]
@@ -327,7 +485,9 @@ class _DeterministicCoreServices(CoreServicesApi):
         if target_path == "/":
             raise RuntimeError("Cannot delete root node")
         nodes = self._drive_nodes(username=username)
-        to_delete = [node_path for node_path in nodes if node_path == target_path or node_path.startswith(f"{target_path}/")]
+        to_delete = [
+            node_path for node_path in nodes if node_path == target_path or node_path.startswith(f"{target_path}/")
+        ]
         for node_path in to_delete:
             del nodes[node_path]
         return None

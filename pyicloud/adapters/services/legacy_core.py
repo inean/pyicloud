@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import io
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from pyicloud.adapters.store import FileSessionStoreAdapter
-from pyicloud.ports import AccountServicePort, DeviceServicePort, DriveServicePort, ServiceEndpointPort, SessionStorePort
-from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
+from pyicloud.ports import (
+    AccountServicePort,
+    CalendarServicePort,
+    ContactsServicePort,
+    DeviceServicePort,
+    DriveServicePort,
+    RemindersServicePort,
+    ServiceEndpointPort,
+    SessionStorePort,
+)
 from pyicloud.services import PyiCloudServices
+from pyicloud.services.endpoint_adapter import LegacyServiceEndpointFactoryAdapter
 
 
 class _NamedBytesIO(io.BytesIO):
@@ -18,7 +28,14 @@ class _NamedBytesIO(io.BytesIO):
         self.name = name
 
 
-class LegacyCoreServicesAdapter(DeviceServicePort, AccountServicePort, DriveServicePort):
+class LegacyCoreServicesAdapter(
+    DeviceServicePort,
+    AccountServicePort,
+    DriveServicePort,
+    CalendarServicePort,
+    ContactsServicePort,
+    RemindersServicePort,
+):
     """Use existing service classes as adapters behind new API-facing ports."""
 
     def __init__(
@@ -198,3 +215,50 @@ class LegacyCoreServicesAdapter(DeviceServicePort, AccountServicePort, DriveServ
 
     def delete_node(self, *, username: str, path: str) -> None:
         self._resolve_drive_node(username=username, path=path).delete()
+
+    def calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        calendars = self._services(username=username).calendar.calendars()
+        return [dict(item) for item in calendars]
+
+    def events(
+        self,
+        *,
+        username: str,
+        from_dt: datetime | None = None,
+        to_dt: datetime | None = None,
+    ) -> Sequence[Mapping[str, Any]]:
+        events = self._services(username=username).calendar.events(from_dt=from_dt, to_dt=to_dt) or []
+        return [dict(item) for item in events]
+
+    def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+        event = self._services(username=username).calendar.get_event_detail(pguid=calendar_guid, guid=event_guid)
+        return dict(event)
+
+    def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        contacts = self._services(username=username).contacts.all() or []
+        return [dict(item) for item in contacts]
+
+    def reminder_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+        lists = self._services(username=username).reminders.lists
+        normalized: dict[str, list[Mapping[str, Any]]] = {}
+        for title, reminders in lists.items():
+            normalized[title] = [dict(item) for item in reminders]
+        return normalized
+
+    def create_reminder(
+        self,
+        *,
+        username: str,
+        title: str,
+        description: str = "",
+        collection: str | None = None,
+        due_date: datetime | None = None,
+    ) -> bool:
+        return bool(
+            self._services(username=username).reminders.post(
+                title=title,
+                description=description,
+                collection=collection,
+                due_date=due_date,
+            )
+        )
