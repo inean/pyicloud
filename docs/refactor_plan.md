@@ -20,7 +20,15 @@
 
 ## Phase Board
 - Planned:
-  - None
+  - Phase 11 Core Adapter Decomposition
+  - Phase 12 Typed Domain Clients I
+  - Phase 13 Typed Domain Clients II
+  - Phase 14 Compatibility Facade Migration
+  - Phase 15 Auth + Session Hardening
+  - Phase 16 API Contract Hardening
+  - Phase 17 Test Matrix + Determinism
+  - Phase 18 Documentation Realignment
+  - Phase 19 Release Readiness + Sunset Gate
 - In Progress:
   - None
 - Done:
@@ -444,9 +452,142 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
   - Additional simplification of `LegacyCoreServicesAdapter` is possible in future cleanup cycles but is outside this plan.
 - Next recommended phase: None (current plan complete).
 
+---
+
+## Phase 11: Core Adapter Decomposition
+### Checklist
+- [ ] Split `LegacyCoreServicesAdapter` into domain adapters:
+  - [ ] `DevicesServiceAdapter`
+  - [ ] `AccountServiceAdapter`
+  - [ ] `DriveServiceAdapter`
+  - [ ] `CalendarServiceAdapter`
+  - [ ] `ContactsServiceAdapter`
+  - [ ] `RemindersServiceAdapter`
+  - [ ] `PhotosServiceAdapter`
+  - [ ] `UbiquityServiceAdapter`
+- [ ] Introduce a thin composition root that wires adapters without domain logic.
+- [ ] Keep existing API/CLI behavior unchanged while replacing internals.
+- [ ] Add/expand unit tests per adapter module and shared helper coverage.
+
+### Exit Criteria
+No monolithic core adapter remains; domain adapters are independently testable and behavior parity is preserved.
+
+---
+
+## Phase 12: Typed Domain Clients I
+### Checklist
+- [ ] Implement typed outbound clients for high-traffic domains:
+  - [ ] Find My iPhone (`devices`)
+  - [ ] Account
+  - [ ] Drive
+- [ ] Move provider payload normalization from adapters into dedicated mapper modules.
+- [ ] Ensure adapters depend on typed clients/interfaces, not on broad `PyiCloudServices` objects.
+- [ ] Add contract-oriented tests for mappers and client request/response handling.
+
+### Exit Criteria
+Devices/account/drive flows run through typed clients and explicit mappers, with no direct domain logic embedded in endpoint glue.
+
+---
+
+## Phase 13: Typed Domain Clients II
+### Checklist
+- [ ] Implement typed outbound clients for secondary domains:
+  - [ ] Calendar
+  - [ ] Contacts
+  - [ ] Reminders
+  - [ ] Photos
+  - [ ] Ubiquity
+- [ ] Add explicit binary/content handling adapters for photo and file downloads.
+- [ ] Standardize paging/filter semantics across domain client APIs.
+- [ ] Add deterministic test fixtures for each secondary client and mapper.
+
+### Exit Criteria
+All service domains are backed by typed clients with deterministic coverage and consistent adapter contracts.
+
+---
+
+## Phase 14: Compatibility Facade Migration
+### Checklist
+- [ ] Refactor `PyiCloudService` compatibility facade to depend on new adapter composition paths.
+- [ ] Remove remaining direct assumptions about legacy service internals from facade bootstrapping.
+- [ ] Define and implement explicit compatibility policy:
+  - [ ] Supported Python/library surface
+  - [ ] Deprecated surface with warnings
+  - [ ] Removed/unsupported surface
+- [ ] Add focused compatibility tests for `from pyicloud import PyiCloudService`.
+
+### Exit Criteria
+Compatibility facade remains functional but no longer relies on unstable legacy internals.
+
+---
+
+## Phase 15: Auth + Session Hardening
+### Checklist
+- [ ] Add pluggable persistence strategy for API auth/session/challenge data:
+  - [ ] In-memory (tests/dev)
+  - [ ] File-backed durable store
+- [ ] Add token expiry, clock-skew, and invalidation edge-case coverage.
+- [ ] Harden secret handling for JWT signing key management (`env` + explicit failure on weak defaults in non-dev).
+- [ ] Add account-scoped isolation checks for multi-account local usage.
+
+### Exit Criteria
+Auth/session flows are reliable for long-running and multi-account usage with deterministic edge-case behavior.
+
+---
+
+## Phase 16: API Contract Hardening
+### Checklist
+- [ ] Define stable response envelopes for all `/v1/*` domains where missing.
+- [ ] Normalize error payload shape and status mapping across routes.
+- [ ] Add schema-level validation for binary/download endpoints metadata.
+- [ ] Add API contract tests asserting shape stability (golden snapshots or strict schema asserts).
+
+### Exit Criteria
+API surface is contract-stable, consistently validated, and predictable for CLI/external clients.
+
+---
+
+## Phase 17: Test Matrix + Determinism
+### Checklist
+- [ ] Add layered test matrix targets:
+  - [ ] Unit (adapters/clients/mappers)
+  - [ ] Vertical API/CLI (in-process ASGI, no network)
+  - [ ] Integration composition tests
+- [ ] Add dedicated no-network enforcement for all non-integration suites.
+- [ ] Remove fragile/time-dependent assertions and replace with deterministic fixtures.
+- [ ] Keep coverage >= 80% while improving hotspot coverage in adapters and compatibility layers.
+
+### Exit Criteria
+Test suite is deterministic, layered, and fast enough for iterative refactors without flaky regressions.
+
+---
+
+## Phase 18: Documentation Realignment
+### Checklist
+- [ ] Update `README.md` to prioritize API-first CLI and `/v1` service model.
+- [ ] Update `CODE_SAMPLES.md` with current subcommand and API examples.
+- [ ] Align `CONTRIBUTING.md` architecture sections with actual module layout after Phases 11-17.
+- [ ] Add migration notes from legacy examples to API-first equivalents.
+
+### Exit Criteria
+Public and contributor docs accurately reflect current architecture and recommended usage patterns.
+
+---
+
+## Phase 19: Release Readiness + Sunset Gate
+### Checklist
+- [ ] Run full quality gate (`format`, `lint`, `typecheck`, `tests`) green in CI/local.
+- [ ] Confirm no imports remain from retired legacy modules.
+- [ ] Validate deprecation warnings and migration guidance messaging.
+- [ ] Decide sunset milestone for compatibility shim behavior (`pyicloud/cmdline.py`) and document timeline.
+- [ ] Cut release notes for completed migration cycle.
+
+### Exit Criteria
+Project is release-ready with explicit compatibility sunset criteria and no hidden legacy module dependencies.
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# All phases in docs/refactor_plan.md are complete; define a new cycle before implementation.
+# Continue Phase 11 from docs/refactor_plan.md
 ```
