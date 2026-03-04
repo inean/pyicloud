@@ -9,9 +9,9 @@ from typing import Callable
 
 import httpx
 
-from pyicloud.base import PyiCloud, PyiCloudSession
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
+from pyicloud.models.settings import Settings
 from pyicloud.services import PyiCloudServices
 
 from .const import (
@@ -67,105 +67,6 @@ class ResponseMock(httpx.Response):
     def json(self):
         """Return json."""
         return json.loads(self.text)
-
-
-class PyiCloudSessionMock(PyiCloudSession):
-    """Mocked PyiCloudSession."""
-
-    def request(self, method, url, **kwargs):
-        """Make the request."""
-        params = kwargs.get("params") or {}
-        headers = kwargs.get("headers") or {}  # httpx set headers to None if not present
-        if "json" in kwargs and kwargs["data"] is None:
-            # try to convert to json, if fails, it's already json
-            try:
-                kwargs["data"] = json.dumps(kwargs["json"])
-            except json.JSONDecodeError:
-                kwargs["data"] = kwargs["json"]
-        data = json.loads(kwargs.get("data", "{}"))
-
-        # Login
-        if Endpoints.INIT in url:
-            if "accountLogin" in url and method == "POST":
-                if data.get("dsWebAuthToken") not in VALID_TOKENS:
-                    self._error_callback(None, "Unknown reason")
-                if data.get("dsWebAuthToken") == REQUIRES_2FA_TOKEN:
-                    return ResponseMock(SESSION_RESPONSE_BODY_2FA)
-                return ResponseMock(SESSION_RESPONSE_BODY_OK)
-
-            if "listDevices" in url and method == "GET":
-                return ResponseMock(TRUSTED_DEVICES)
-
-            if "sendVerificationCode" in url and method == "POST":
-                if data == TRUSTED_DEVICE_1:
-                    return ResponseMock(VERIFICATION_CODE_OK)
-                return ResponseMock(VERIFICATION_CODE_KO)
-
-            if "validateVerificationCode" in url and method == "POST":
-                TRUSTED_DEVICE_1.update({"verificationCode": "0", "trustBrowser": True})  # type: ignore
-                if data == TRUSTED_DEVICE_1:
-                    self._owner.user["apple_id"] = AUTHENTICATED_USER
-                    return ResponseMock(VERIFICATION_CODE_OK)
-                self._error_callback(None, "FOUND_CODE")
-
-            if "validate" in url and method == "POST":
-                if headers.get("X-APPLE-WEBAUTH-TOKEN") == VALID_COOKIE:
-                    return ResponseMock(SESSION_RESPONSE_BODY_OK)
-                self._error_callback(None, "Session expired")
-
-        if Endpoints.AUTH in url:
-            if "signin" in url and method == "POST":
-                if data.get("accountName") not in VALID_USERS or data.get("password") != VALID_PASSWORD:
-                    self._error_callback(None, "Unknown reason")
-                if data.get("accountName") == REQUIRES_2FA_USER:
-                    self._settings.token.session = REQUIRES_2FA_TOKEN
-                    return ResponseMock(SIGNIN_RESPONSE_BODY_2FA, 409)
-
-                self._settings.token.session = VALID_TOKEN
-                return ResponseMock(SIGNIN_RESPONSE_BODY_2FA)
-
-            if "securitycode" in url and method == "POST":
-                if data.get("securityCode", {}).get("code") != VALID_2FA_CODE:
-                    self._error_callback(None, "Incorrect code")
-
-                self._settings.token.session = VALID_TOKEN
-                return ResponseMock("", status_code=204)
-
-            if "trust" in url and method == "GET":
-                return ResponseMock("", status_code=204)
-
-        # Account
-        if "device/getDevices" in url and method == "GET":
-            return ResponseMock(ACCOUNT_DEVICES_WORKING)
-        if "family/getFamilyDetails" in url and method == "GET":
-            return ResponseMock(ACCOUNT_FAMILY_WORKING)
-        if "setup/ws/1/storageUsageInfo" in url and method == "GET":
-            return ResponseMock(ACCOUNT_STORAGE_WORKING)
-
-        # Drive
-        if "retrieveItemDetailsInFolders" in url and method == "POST" and data[0].get("drivewsid"):
-            if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::root":
-                return ResponseMock(DRIVE_ROOT_WORKING)
-            if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::documents":
-                return ResponseMock(DRIVE_ROOT_INVALID)
-            if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::1C7F1760-D940-480F-8C4F-005824A4E05B":
-                return ResponseMock(DRIVE_FOLDER_WORKING)
-            if data[0].get("drivewsid") == "FOLDER::com.apple.CloudDocs::D5AA0425-E84F-4501-AF5D-60F1D92648CF":
-                return ResponseMock(DRIVE_SUBFOLDER_WORKING)
-
-        # Drive download
-        if "com.apple.CloudDocs/download/by_id" in url and method == "GET":
-            if params.get("document_id") == "516C896C-6AA5-4A30-B30E-5502C2333DAE":
-                return ResponseMock(DRIVE_FILE_DOWNLOAD_WORKING)
-        if "icloud-content.com" in url and method == "GET":
-            if "Scanned+document+1.pdf" in url:
-                return ResponseMock({}, raw=open(".gitignore", "rb"))
-
-        # Find My iPhone
-        if "fmi" in url and method == "POST":
-            return ResponseMock(FMI_FAMILY_WORKING)
-
-        return None
 
 
 class PyiCloudTransportMock(httpx.MockTransport):
@@ -272,22 +173,33 @@ class PyiCloudTransportMock(httpx.MockTransport):
         raise AssertionError(f"Unhandled request: {url}")
 
 
-class PyiCloudMock(PyiCloud):
-    """Mocked PyiCloudService."""
-
-    session_cls = PyiCloudSessionMock
-
-    def __init__(self, username: str, password: str | None = None):
-        """Set up pyicloud service mock."""
-        PyiCloud.__init__(self, username, password)
-
-
 class PyiCloudServicesMock(PyiCloudServices):
     """Mocked PyiCloudService."""
 
     def __init__(self, endpoint):
         """Set up pyicloud service mock."""
         PyiCloudServices.__init__(self, endpoint)
+
+
+class ServiceEndpointMock:
+    """Legacy service endpoint contract mock without pyicloud.base dependency."""
+
+    def __init__(self, username: str, password: str | None = None):
+        self.config = Settings.create(username=username, password=password)
+        self.params = {"clientId": self.config.client_settings.client_id}
+        self.apple_id = username
+        self._ws = SESSION_RESPONSE_BODY_OK["webservices"]
+        self.session = httpx.Client(transport=PyiCloudTransportMock())
+
+    def authenticate(self, service: str | None = None):
+        if service is not None and service not in self._ws:
+            raise KeyError(service)
+
+    def __contains__(self, ws_key):
+        return ws_key in self._ws
+
+    def __getitem__(self, ws_key):
+        return self._ws[ws_key]["url"]
 
 
 class PyiCloudMockTransport(httpx.MockTransport):

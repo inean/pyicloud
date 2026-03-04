@@ -205,7 +205,7 @@ class CookiesModel(LeafModel, ABC):
             # skip field if ir's a model field
             if field in cls.model_fields:
                 continue
-            if get_origin(annotation) and issubclass(get_origin(annotation), Annotated):
+            if get_origin(annotation) is Annotated:
                 for meta in get_args(annotation)[1:]:
                     if not isinstance(meta, Meta):
                         continue

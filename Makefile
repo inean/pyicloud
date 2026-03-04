@@ -36,9 +36,9 @@ fi
 endef
 
 .PHONY: help \
-	format format-fix lint lint-fix typecheck test test-validate check ci \
-	build build-check clean clean-dist \
-	act act-validate act-dryrun-pytest act-pytest
+		format format-fix lint lint-fix typecheck test test-ratchet test-validate check ci \
+		build build-check clean clean-dist \
+		act act-validate act-dryrun-pytest act-pytest
 
 ##@ Quality
 format: ## Check formatting with Ruff
@@ -76,6 +76,12 @@ test: ## Run full test suite
 	$(call info,Running test suite)
 	$(UV_RUN) --extra test pytest -q
 	$(call ok,Tests passed)
+
+test-ratchet: ## Run tests with baseline-failure ratchet policy
+	$(call require_uv)
+	$(call info,Running test suite with ratchet baseline)
+	$(UV_RUN) --extra test python scripts/pytest_ratchet.py
+	$(call ok,Ratchet gate passed)
 
 test-validate: ## Run only validate session tests
 	$(call require_uv)

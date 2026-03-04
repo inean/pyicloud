@@ -1,6 +1,6 @@
 import functools
 import warnings
-from typing import Callable, ParamSpec, Type, TypeVar, cast, overload
+from typing import Any, Callable, ParamSpec, Type, TypeVar, cast, overload
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -58,8 +58,8 @@ class Deprecated(type):
         super().__init__(name, bases, attrs)
 
 
-R = TypeVar("R")
-
-
-def classproperty(func: Callable[..., R]) -> R:
-    return classmethod(property(func))  # type: ignore
+class classproperty(property):
+    def __get__(self, instance: Any, owner: type[Any] | None = None):
+        if owner is None:
+            owner = type(instance)
+        return cast(Callable[[type[Any]], Any], self.fget)(owner)

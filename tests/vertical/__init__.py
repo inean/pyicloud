@@ -1,0 +1,1 @@
+"""Vertical API/CLI tests."""

@@ -1,255 +1,47 @@
 #! /usr/bin/env python
-"""
-A Command Line Wrapper to allow easy use of pyicloud for
-command line scripts, and related.
-"""
+"""Legacy flat CLI compatibility shim."""
 
 from __future__ import annotations
 
-import getpass
-import logging
-import pickle
-import sys
-
 import asyncclick as click
 
-from pyicloud.base import PyiCloud
-from pyicloud.exceptions import PyiCloudFailedLoginException, PyiCloudValidationError
-from pyicloud.services import PyiCloudServices
+MIGRATION_GUIDE = """Legacy flat CLI flags are retired.
 
-DEVICE_ERROR = "Please use the --device switch to indicate which device to use."
+Use the API-first subcommand CLI instead:
+  icloud auth login --username <apple-id> --password <password>
+  icloud devices list
+  icloud devices location <device-id>
+  icloud devices play-sound <device-id>
+  icloud devices message <device-id> --message "..."
+  icloud devices lost-mode <device-id> --number <phone> --text "..." --newpasscode <code>
+  icloud account devices
+  icloud account family
+  icloud account storage
+  icloud drive tree --path /
 
-
-def create_pickled_data(idevice, filename):
-    """
-    This helper will output the idevice to a pickled file named
-    after the passed filename.
-
-    This allows the data to be used without resorting to screen / pipe
-    scrapping.
-    """
-    with open(filename, "wb") as pickle_file:
-        pickle.dump(idevice.content, pickle_file, protocol=pickle.HIGHEST_PROTOCOL)
-
-
-class _DictProxy:
-    __slots__ = ("_dict", "_default")
-
-    def __init__(self, d, default=None):
-        object.__setattr__(self, "_dict", d)
-        object.__setattr__(self, "_default", default)
-
-    def __getattr__(self, name):
-        return self._dict.get(name, self._default)
+Migration examples from old flags:
+  --list                    -> icloud devices list
+  --locate --device <id>    -> icloud devices location <id>
+  --sound --device <id>     -> icloud devices play-sound <id>
+  --message --device <id>   -> icloud devices message <id> --message "..."
+  --lostmode --device <id>  -> icloud devices lost-mode <id> --number ... --text ... --newpasscode ...
+"""
 
 
-@click.command(name="icloud", help="Find My iPhone CommandLine Tool")
-@click.option("-u", "--username", required=True, help="Apple ID to Use")
-@click.option("-p", "--password", default="", help="Apple ID Password to Use")
-@click.option("--non-interactive", "interactive", is_flag=True, default=True, help="Disable interactive prompts.")
-@click.option("--locate", is_flag=True, default=False, help="Retrieve Location for the iDevice (non-exclusive).")
-@click.option("--device", "device_id", default=False, help="Only effect this device")
-@click.option("--sound", is_flag=True, default=False, help="Play a sound on the device")
-@click.option("--message", default=False, help="Optional Text Message to display with a sound")
-@click.option("--silentmessage", default=False, help="Optional Text Message to display with no sounds")
-@click.option("--lostmode", is_flag=True, default=False, help="Enable Lost mode for the device")
-@click.option("--lostphone", default=False, help="Phone Number allowed to call when lost mode is enabled")
-@click.option("--lostpassword", default=False, help="Forcibly active this passcode on the idevice")
-@click.option("--lostmessage", default="", help="Forcibly display this message when activating lost mode.")
-@click.option("-v", "verbose", count=True, help="Increase output verbosity")
-@click.option(
-    "--list", "list", is_flag=True, default=False, help="Short Listings for Device(s) associated with account"
+@click.command(
+    name="icloud",
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    help="Deprecated legacy CLI shim. Use `icloud --help` for the new subcommand CLI.",
 )
-@click.option(
-    "--llist", "longlist", is_flag=True, default=False, help="Detailed Listings for Device(s) associated with account"
-)
-@click.option(
-    "--outputfile",
-    "output_to_file",
-    is_flag=True,
-    default=False,
-    help="Save device data to a file in the current directory.",
-)
-async def main(**kwargs):
-    """Main commandline entrypoint."""
+@click.pass_context
+async def main(ctx: click.Context) -> None:
+    """Show migration guidance for users still invoking the legacy flat CLI."""
+    if not ctx.args:
+        click.echo(MIGRATION_GUIDE)
+        return
 
-    command_line = _DictProxy(kwargs)
-
-    match command_line.verbose:
-        case 2 if command_line.verbose >= 2:
-            logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
-        case 1:
-            logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-        case _:
-            logging.basicConfig(stream=sys.stderr, level=logging.WARNING)
-
-    username = str.strip(command_line.username)
-    password = str.strip(command_line.password)
-
-    failure_count = 0
-    try:
-        api = PyiCloud(username=username, password=password)
-    except PyiCloudValidationError as err:
-        response = [error.get("msg") for error in err.errors() if error.get("msg")]
-        raise ValueError("\n".join(response)) from err
-    while True:
-        # Which password we use is determined by your username, so we
-        # do need to check for this first and separately.
-        if not username:
-            raise click.ClickException("No username supplied")
-
-        try:
-            # await api.login(until_complete=True)
-            api.authenticate()
-
-            if api.requires_password:
-                if command_line.interactive:
-                    api.password = getpass.getpass("Password: ")
-                    continue
-
-            if api.requires_2sa:
-                # fmt: off
-                print(
-                    "\nTwo-step authentication required.",
-                    "\nYour trusted devices are:"
-                )
-                # fmt: on
-
-                devices = api.trusted_devices
-                for i, device in enumerate(devices):
-                    print(
-                        "    %s: %s"
-                        % (
-                            i,
-                            device.get("deviceName", "SMS to %s" % device.get("phoneNumber")),
-                        )
-                    )
-
-                print("\nWhich device would you like to use?")
-                device = int(input("(number) --> "))
-                device = devices[device]
-                if not api.send_verification_code(device):
-                    print("Failed to send verification code")
-                    sys.exit(1)
-
-                print("\nPlease enter validation code")
-                code = input("(string) --> ")
-                if not api.validate_verification_code(device, code):
-                    print("Failed to verify verification code")
-                    sys.exit(1)
-
-                print("")
-            elif api.requires_2fa:
-                # fmt: off
-                print(
-                    "\nTwo-step authentication required.",
-                    "\nPlease enter validation code"
-                )
-                # fmt: on
-
-                code = input("(string) --> ")
-                if not api.validate_2fa_code(code):
-                    print("Failed to verify verification code")
-                    sys.exit(1)
-
-                print("")
-
-            break
-        except PyiCloudFailedLoginException as err:
-            message = f"Bad username or password for {username}"
-            password = None
-
-            if (failure_count := failure_count + 1) >= 1:
-                raise RuntimeError(message) from err
-
-    for dev in PyiCloudServices(endpoint=api).devices:
-        if not command_line.device_id or (command_line.device_id.strip().lower() == dev.content["id"].strip().lower()):
-            # List device(s)
-            if command_line.locate:
-                dev.location()
-
-            if command_line.output_to_file:
-                create_pickled_data(
-                    dev,
-                    filename=(dev.content["name"].strip().lower() + ".fmip_snapshot"),
-                )
-
-            contents = dev.content
-            if command_line.longlist:
-                print("-" * 30)
-                print(contents["name"])
-                for key in contents:
-                    print("%20s - %s" % (key, contents[key]))
-            elif command_line.list:
-                print("-" * 30)
-                print("Name - %s" % contents["name"])
-                print("Display Name  - %s" % contents["deviceDisplayName"])
-                print("Location      - %s" % contents["location"])
-                print("Battery Level - %s" % contents["batteryLevel"])
-                print("Battery Status- %s" % contents["batteryStatus"])
-                print("Device Class  - %s" % contents["deviceClass"])
-                print("Device Model  - %s" % contents["deviceModel"])
-
-            # Play a Sound on a device
-            if command_line.sound:
-                if command_line.device_id:
-                    dev.play_sound()
-                else:
-                    raise RuntimeError(
-                        "\n\n\t\t%s %s\n\n"
-                        % (
-                            "Sounds can only be played on a singular device.",
-                            DEVICE_ERROR,
-                        )
-                    )
-
-            # Display a Message on the device
-            if command_line.message:
-                if command_line.device_id:
-                    dev.display_message(subject="A Message", message=command_line.message, sounds=True)
-                else:
-                    raise RuntimeError(
-                        "%s %s"
-                        % (
-                            "Messages can only be played on a singular device.",
-                            DEVICE_ERROR,
-                        )
-                    )
-
-            # Display a Silent Message on the device
-            if command_line.silentmessage:
-                if command_line.device_id:
-                    dev.display_message(
-                        subject="A Silent Message",
-                        message=command_line.silentmessage,
-                        sounds=False,
-                    )
-                else:
-                    raise RuntimeError(
-                        "%s %s"
-                        % (
-                            "Silent Messages can only be played " "on a singular device.",
-                            DEVICE_ERROR,
-                        )
-                    )
-
-            # Enable Lost mode
-            if command_line.lostmode:
-                if command_line.device_id:
-                    dev.lost_device(
-                        number=command_line.lost_phone.strip(),
-                        text=command_line.lost_message.strip(),
-                        newpasscode=command_line.lost_password.strip(),
-                    )
-                else:
-                    raise RuntimeError(
-                        "%s %s"
-                        % (
-                            "Lost Mode can only be activated on a singular device.",
-                            DEVICE_ERROR,
-                        )
-                    )
-    sys.exit(0)
+    legacy_args = " ".join(ctx.args)
+    raise click.ClickException(f"{MIGRATION_GUIDE}\n\nReceived legacy-style args: {legacy_args}")
 
 
 if __name__ == "__main__":
