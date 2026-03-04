@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 ALLOWED_LEGACY_IMPORTS = {
     "pyicloud/legacy.py",
-    "tests/test_legacy_imports.py",
-    "tests/test_no_new_legacy_imports.py",
+    "tests/unit/test_legacy_imports.py",
+    "tests/unit/test_no_new_legacy_imports.py",
 }
 
 
 def test_no_new_pyicloud_legacy_imports_outside_approved_modules():
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     violations: list[str] = []
 
     for path in list((repo_root / "pyicloud").rglob("*.py")) + list((repo_root / "tests").rglob("*.py")):

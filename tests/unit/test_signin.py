@@ -29,8 +29,7 @@ from tests.const import (
 from tests.const_account_family import (
     APPLE_ID_COUNTRY_CODE,
 )
-
-from .const_auth import (
+from tests.const_auth import (
     SESSION_RESPONSE_BODY_OK,
     SIGNIN_REQUEST_COOKIES,
     SIGNIN_RESPONSE_2FA_COOKIES,

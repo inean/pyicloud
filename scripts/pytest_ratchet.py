@@ -44,7 +44,7 @@ def main() -> int:
     parser.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
-        help="Extra pytest arguments. Example: -- tests/test_signin.py -k request",
+        help="Extra pytest arguments. Example: -- tests/unit/test_signin.py -k request",
     )
     args = parser.parse_args()
 

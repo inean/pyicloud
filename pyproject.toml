@@ -46,6 +46,7 @@ all = [
     "hypothesis>=6.103.0",
     "mypy>=1.10.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
     "pytest-lazy-fixtures>=1.1.1",
     "pytest>=8.0.0",
     "ruff>=0.4.2",
@@ -54,6 +55,7 @@ dev = [
     "hypothesis>=6.103.0",
     "mypy>=1.10.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
     "pytest-lazy-fixtures>=1.1.1",
     "pytest>=8.0.0",
     "ruff>=0.4.2",
@@ -66,6 +68,7 @@ rich = ["rich>=13.7.1"]
 test = [
     "hypothesis>=6.103.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
     "pytest-lazy-fixtures>=1.1.1",
     "pytest>=8.0.0",
 ]
@@ -82,21 +85,24 @@ allow-direct-references = true
 packages = ["pyicloud"]
 
 [tool.pytest.ini_options]
-addopts      = "-ra -q"
+addopts      = "-ra -q --cov=pyicloud/api --cov=pyicloud/cli --cov=pyicloud/application --cov=pyicloud/adapters --cov=pyicloud/bootstrap --cov=pyicloud/ports --cov-report=term-missing --cov-fail-under=80"
 asyncio_mode = "auto"
-testpaths    = "tests"
+markers = [
+    "unit: unit-level tests for modules and adapters",
+    "integration: integration tests spanning multiple layers in-process",
+    "smoke: lightweight health and CLI smoke checks",
+    "vertical: vertical end-to-end tests through API and CLI",
+]
+testpaths = [
+    "tests/unit",
+    "tests/integration",
+    "tests/smoke",
+    "tests/vertical",
+]
 
 [tool.ruff]
-# Exclude common directories and files from linting and formatting.
-exclude = [
-    ".git",
-    ".tox",
-    ".venv",
-    # asd
-]
-indent-width = 4
 line-length = 120
-target-version = "py313"
+target-version = "py312"
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
@@ -126,41 +132,13 @@ docstring-code-format = true
 docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint]
-# Enable Pyflakes (`F`) and pycodestyle (`E`) codes by default.
-# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-# McCabe complexity (`C901`) by default.
-# Also enable `B` codes from pycodestyle.
-ignore = []
-# Ruff uses the "highest-priority" select as the basis for the rule set,
-# and then applies extend-select and ignore adjustments
-extend-select = ["I"]
-select = [
-    # flake8-bugbear
-    "B",
-    # pycode style
-    "E",
-    # pyflakes
-    "F",
-    # isort
-    "I",
-    # flake8-pie
-    "PIE",
-    # pyupgrade
-    "UP",
-]
+extend-select = ["I", "UP"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 
 # Avoid trying to fix flake8-bugbear (`B`) violations.
 unfixable = ["B"]
-
-# Allow unused variables when underscore-prefixed.
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
-# Allow import module level import not at top of file
-[tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = ["E402", "F401"]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = false

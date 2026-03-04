@@ -25,8 +25,7 @@ from tests.const import (
     VALID_TOKEN,
 )
 from tests.const_account_family import APPLE_ID_COUNTRY_CODE
-
-from .const_auth import (
+from tests.const_auth import (
     DES_COOKIE,
     TRUST_REQUEST_COOKIES,
     TRUST_REQUEST_HEADERS,

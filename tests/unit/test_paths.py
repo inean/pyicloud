@@ -1,8 +1,8 @@
 import json
 import os
 import re
+from collections import OrderedDict
 from pathlib import Path
-from typing import OrderedDict, Tuple
 
 import pytest
 from pydantic import BaseModel
@@ -70,7 +70,7 @@ def test_abstract_file_init_from_dict(contents_dict):
 
 @pytest.fixture
 def test_file_factory(tmp_path, config_file):
-    def _test_file(tmp_path=tmp_path, name=Path(config_file), *, subdirs: Tuple | str = "") -> Path:
+    def _test_file(tmp_path=tmp_path, name=Path(config_file), *, subdirs: tuple | str = "") -> Path:
         # create env file
         subdirs = subdirs if isinstance(subdirs, tuple) else (subdirs,)
         file_ = tmp_path / Path("").joinpath(*subdirs) / name
@@ -108,7 +108,7 @@ def test_abstract_file_env_file(contents_dict, json_file: Path, monkeypatch):
 
 
 @pytest.fixture
-def workspace_file(tmp_path, test_file_factory, subdir="subdir") -> Tuple[Path, Path, str]:
+def workspace_file(tmp_path, test_file_factory, subdir="subdir") -> tuple[Path, Path, str]:
     # create workspace space
     workspace = Path(tmp_path).joinpath(*[str(i) for i in range(10)])
     workspace.mkdir(parents=True)
@@ -119,7 +119,7 @@ def workspace_file(tmp_path, test_file_factory, subdir="subdir") -> Tuple[Path, 
 
 
 @pytest.fixture
-def workspace_json_file(workspace_file, contents_json) -> Tuple[Path, Path, str]:
+def workspace_json_file(workspace_file, contents_json) -> tuple[Path, Path, str]:
     # create workspace space
     [workspace, test_file, sub_dir] = workspace_file
     with test_file.open("w", encoding="utf-8") as f:
@@ -127,7 +127,7 @@ def workspace_json_file(workspace_file, contents_json) -> Tuple[Path, Path, str]
     return workspace, test_file, sub_dir
 
 
-def test_abstract_file_working_dir(contents_dict, workspace_json_file: Tuple[Path, Path, str]):
+def test_abstract_file_working_dir(contents_dict, workspace_json_file: tuple[Path, Path, str]):
     [workspace, test_file, sub_dir] = workspace_json_file
     file = SampleAbstractPath(contents_dict, file=test_file.name)
     assert file._file == test_file.name
@@ -210,4 +210,5 @@ def test_config_path_fspath(contents_dict, config_file):
     path = Path(os.fspath(settings))
     assert path.name == settings._file
     assert settings._file == config_file
-    assert path == Path(__file__).parent.parent.joinpath(settings.cls_config["file_sub_dir"], settings._file or "")
+    project_root = Path(__file__).resolve().parents[2]
+    assert path == project_root.joinpath(settings.cls_config["file_sub_dir"], settings._file or "")

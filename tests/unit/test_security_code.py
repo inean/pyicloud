@@ -18,8 +18,7 @@ from tests.const import (
     VALID_2FA_CODE,
     VALID_TOKEN,
 )
-
-from .const_auth import (
+from tests.const_auth import (
     SECURITY_CODE_REQUEST_COOKIES,
     SECURITY_CODE_REQUEST_HEADERS,
     SECURITY_CODE_RESPONSE_BODY_KO_BAD_SECURITY_CODE,
@@ -159,12 +158,9 @@ async def test_security_code_request(security_code_cookies, user: SecurityCode):
 
 
 async def test_security_code_from_models(user):
-    settings = user._settings
-    cookies = user._cookies
-
     async with user as session:
         # Fetch httpx pure response. This is the response object returned by the httpx client.
-        response = await session.send(user.request.create_request())
+        _ = await session.send(user.request.create_request())
 
     assert user.request.body.security_code == VALID_2FA_CODE
     # Test the response_cls property

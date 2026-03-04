@@ -1,6 +1,6 @@
 import locale
 from datetime import datetime
-from functools import lru_cache
+from functools import cache
 from typing import Any, cast
 from unittest.mock import Mock
 from zoneinfo import ZoneInfo, available_timezones
@@ -35,13 +35,13 @@ hours_strategy = integers(min_value=-12, max_value=12)
 timezone_strategy = sampled_from(list(available_timezones()))
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_timezone_offset(tz: str) -> int:
     offset = datetime.now(ZoneInfo(tz)).utcoffset()
     return offset.seconds if offset else 0
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_gmt_offset(offset: int | str) -> str:
     if isinstance(offset, str):
         offset = get_timezone_offset(offset)

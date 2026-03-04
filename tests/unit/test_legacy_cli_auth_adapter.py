@@ -17,7 +17,9 @@ async def test_authenticate_legacy_endpoint_returns_restored_endpoint():
         auth_runner_called.append((username, password, interactive))
 
     restore = SimpleNamespace(restore=lambda **_: endpoint)
-    restore_builder = lambda: restore
+
+    def restore_builder():
+        return restore
 
     restored = await legacy_cli_auth.authenticate_legacy_endpoint(
         username="user@example.com",
@@ -73,7 +75,9 @@ async def test_authenticate_legacy_endpoint_raises_when_restore_missing():
         return None
 
     restore = SimpleNamespace(restore=lambda **_: None)
-    restore_builder = lambda: restore
+
+    def restore_builder():
+        return restore
 
     with pytest.raises(RuntimeError, match="no endpoint payload found"):
         await legacy_cli_auth.authenticate_legacy_endpoint(

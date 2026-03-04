@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pyicloud import PyiCloudService
-from pyicloud import cmdline
+from pyicloud import PyiCloudService, cmdline
 from pyicloud.services import PyiCloudServices
 
 

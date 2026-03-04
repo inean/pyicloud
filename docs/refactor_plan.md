@@ -169,12 +169,12 @@ Real auth path preserved, fake auth path retained for tests, compatibility facad
   - `pyicloud/adapters/auth/__init__.py`
   - `pyicloud/adapters/services/legacy_core.py`
   - `pyicloud/cmdline.py`
-  - `tests/test_legacy_cli_auth_adapter.py`
-  - `tests/test_legacy_core_services_adapter.py`
-  - `tests/test_cmdline.py`
+  - `tests/unit/test_legacy_cli_auth_adapter.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `tests/unit/test_cmdline.py`
   - `docs/refactor_plan.md`
 - Tests executed:
-  - `uv run --extra test pytest -q tests/test_legacy_cli_auth_adapter.py tests/test_cmdline.py tests/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest -q tests/unit/test_legacy_cli_auth_adapter.py tests/unit/test_cmdline.py tests/unit/test_legacy_core_services_adapter.py`
   - `uv run --extra test pytest -q`
 - Risks / TBD:
   - Device/account/drive runtime still relies on legacy service implementation internals (`PyiCloudServices`, `LegacyServiceSessionAdapter`) pending later cleanup phases.
@@ -295,11 +295,11 @@ Only subcommand CLI remains and is API-first.
   - Updated cmdline and characterization tests to assert deprecation and migration messaging behavior.
 - Files changed:
   - `pyicloud/cmdline.py`
-  - `tests/test_cmdline.py`
-  - `tests/test_characterization.py`
+  - `tests/unit/test_cmdline.py`
+  - `tests/unit/test_characterization.py`
   - `docs/refactor_plan.md`
 - Tests executed:
-  - `uv run --extra test pytest -q tests/test_cmdline.py tests/test_characterization.py tests/vertical`
+  - `uv run --extra test pytest -q tests/unit/test_cmdline.py tests/unit/test_characterization.py tests/vertical`
   - `uv run --extra test pytest -q`
 - Risks / TBD:
   - Legacy Python compatibility facade (`PyiCloudService`) remains until later cleanup phases.
@@ -344,5 +344,5 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 3 from docs/refactor_plan.md
+# Continue Phase 8 from docs/refactor_plan.md
 ```

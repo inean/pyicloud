@@ -4,8 +4,8 @@ import re
 
 import pytest
 
-from .const import AUTHENTICATED_USER, VALID_PASSWORD
-from .mock import PyiCloudServicesMock, ServiceEndpointMock
+from tests.const import AUTHENTICATED_USER, VALID_PASSWORD
+from tests.mock import PyiCloudServicesMock, ServiceEndpointMock
 
 
 @pytest.fixture
