@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from pyicloud.api import create_app
-from tests.fakes.auth_scenarios import build_fake_auth_api_service, build_noop_core_services
+from tests.fakes.auth_scenarios import build_deterministic_core_services, build_fake_auth_api_service
 
 
 @pytest.fixture(autouse=True)
@@ -22,5 +22,5 @@ def block_external_network(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture()
 def app(tmp_path: Path):
     auth_service = build_fake_auth_api_service(tmp_path)
-    core_services = build_noop_core_services()
+    core_services = build_deterministic_core_services()
     return create_app(auth_service=auth_service, core_services=core_services)

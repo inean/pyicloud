@@ -24,15 +24,15 @@
   - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
 - In Progress:
-  - Phase 4 Devices Vertical Slice
-  - Phase 5 Account Vertical Slice
-  - Phase 6 Drive Vertical Slice
   - Phase 7 CLI Consolidation
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
   - Phase 2 Auth Vertical Slice (Fake First)
   - Phase 3 Real Auth Adapter + Core Legacy Auth Replacement
+  - Phase 4 Devices Vertical Slice
+  - Phase 5 Account Vertical Slice
+  - Phase 6 Drive Vertical Slice
 - Blocked:
   - None
 
@@ -187,10 +187,30 @@ Real auth path preserved, fake auth path retained for tests, compatibility facad
 - [x] Add device ports + adapters for list/location/status/sound/message/lost mode.
 - [x] Add `/v1/devices*` routes.
 - [x] Add `icloud devices` subcommands.
-- [ ] Add deterministic fake data builders and vertical tests.
+- [x] Add deterministic fake data builders and vertical tests.
 
 ### Exit Criteria
 Full existing Find My iPhone operations exposed via API and CLI.
+
+### Handoff: Phase 4 - Devices Vertical Slice
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Added deterministic device fixtures in vertical fake core services and wired them as default vertical app dependencies.
+  - Added API vertical coverage for device listing, location/status retrieval, action commands, and not-found behavior.
+  - Added CLI vertical coverage for `icloud devices` subcommands against in-process ASGI API transport.
+- Files changed:
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/vertical/conftest.py`
+  - `tests/vertical/api/test_devices_api.py`
+  - `tests/vertical/cli/test_devices_cli.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest -q tests/vertical/api/test_auth_api.py tests/vertical/api/test_devices_api.py tests/vertical/cli/test_auth_cli.py tests/vertical/cli/test_devices_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Account and Drive vertical slices still rely on placeholder deterministic core outputs and need dedicated vertical suites.
+- Next recommended phase: Phase 5 Account Vertical Slice (add deterministic vertical tests).
 
 ---
 
@@ -199,10 +219,29 @@ Full existing Find My iPhone operations exposed via API and CLI.
 - [x] Add account query ports + adapters (devices/family/storage).
 - [x] Add `/v1/account/*` routes.
 - [x] Add `icloud account` subcommands.
-- [ ] Add deterministic vertical tests.
+- [x] Add deterministic vertical tests.
 
 ### Exit Criteria
 Account parity via API/CLI with no live network calls.
+
+### Handoff: Phase 5 - Account Vertical Slice
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Extended deterministic vertical fake core services with account device/family/storage fixtures.
+  - Added API vertical coverage for `/v1/account/devices`, `/v1/account/family`, and `/v1/account/storage`.
+  - Added CLI vertical coverage for `icloud account devices|family|storage`.
+- Files changed:
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/vertical/api/test_account_api.py`
+  - `tests/vertical/cli/test_account_cli.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest -q tests/vertical/api/test_auth_api.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/cli/test_auth_cli.py tests/vertical/cli/test_devices_cli.py tests/vertical/cli/test_account_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Drive vertical slice still needs deterministic fake coverage for tree/file/mutate/download behavior.
+- Next recommended phase: Phase 6 Drive Vertical Slice (add deterministic vertical tests including streaming/download behavior).
 
 ---
 
@@ -211,10 +250,29 @@ Account parity via API/CLI with no live network calls.
 - [x] Add drive ports + adapters (tree/file/upload/mkdir/rename/delete).
 - [x] Add `/v1/drive/*` routes.
 - [x] Add `icloud drive` subcommands.
-- [ ] Add deterministic vertical tests including streaming/download behavior.
+- [x] Add deterministic vertical tests including streaming/download behavior.
 
 ### Exit Criteria
 Drive parity via API/CLI with no live network calls.
+
+### Handoff: Phase 6 - Drive Vertical Slice
+- Date: 2026-03-04
+- Status: Done
+- Summary:
+  - Added deterministic in-memory drive fixtures and mutation behavior to vertical fake core services.
+  - Added API vertical coverage for drive tree/file metadata, binary download, mkdir/upload/rename/delete.
+  - Added CLI vertical coverage for `icloud drive` commands including `--download-to` and upload flow.
+- Files changed:
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/vertical/api/test_drive_api.py`
+  - `tests/vertical/cli/test_drive_cli.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest -q tests/vertical`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Old flat CLI behavior remains; migration/help messaging still pending in Phase 7.
+- Next recommended phase: Phase 7 CLI Consolidation.
 
 ---
 
