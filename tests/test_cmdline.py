@@ -65,7 +65,8 @@ class TestCmdline(IsolatedAsyncioTestCase):
         runner = CliRunner()
 
         with patch(
-            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            "pyicloud.cmdline._legacy_authenticate",
+            new_callable=AsyncMock,
             return_value=ServiceEndpointMock(AUTHENTICATED_USER, VALID_PASSWORD),
         ):
             result = await runner.invoke(
@@ -91,7 +92,7 @@ class TestCmdline(IsolatedAsyncioTestCase):
         with (
             patch("pyicloud.cmdline.run_bootstrap_auth", new_callable=AsyncMock) as mock_bootstrap,
             patch("pyicloud.cmdline.build_service_endpoint_restore") as mock_build_restore,
-            patch("pyicloud.cmdline._legacy_authenticate") as mock_legacy_auth,
+            patch("pyicloud.cmdline._legacy_authenticate", new_callable=AsyncMock) as mock_legacy_auth,
             patch("pyicloud.cmdline.PyiCloudServices") as mock_services,
         ):
             mock_restore = mock_build_restore.return_value
@@ -132,14 +133,16 @@ class TestCmdline(IsolatedAsyncioTestCase):
         runner = CliRunner()
 
         with patch(
-            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            "pyicloud.cmdline._legacy_authenticate",
+            new_callable=AsyncMock,
             side_effect=ValueError("Invalid email address. Got 'invalid_user'"),
         ):
             result = await runner.invoke(self.main, ["--username", "invalid_user"])
         assert "Invalid email address. Got 'invalid_user'" in str(result.exception)
 
         with patch(
-            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            "pyicloud.cmdline._legacy_authenticate",
+            new_callable=AsyncMock,
             side_effect=ValueError("Invalid email address. Got 'invalid_user'"),
         ):
             result = await runner.invoke(self.main, ["--username", "invalid_user", "--password", "invalid_pass"])
@@ -150,7 +153,8 @@ class TestCmdline(IsolatedAsyncioTestCase):
         runner = CliRunner()
 
         with patch(
-            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            "pyicloud.cmdline._legacy_authenticate",
+            new_callable=AsyncMock,
             return_value=ServiceEndpointMock(REQUIRES_2FA_USER, VALID_PASSWORD),
         ):
             result = await runner.invoke(
@@ -174,7 +178,8 @@ class TestCmdline(IsolatedAsyncioTestCase):
         runner = CliRunner()
 
         with patch(
-            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            "pyicloud.cmdline._legacy_authenticate",
+            new_callable=AsyncMock,
             return_value=ServiceEndpointMock(AUTHENTICATED_USER, VALID_PASSWORD),
         ):
             result = await runner.invoke(
@@ -207,7 +212,8 @@ class TestCmdline(IsolatedAsyncioTestCase):
         runner = CliRunner()
 
         with patch(
-            "pyicloud.cmdline.authenticate_legacy_endpoint",
+            "pyicloud.cmdline._legacy_authenticate",
+            new_callable=AsyncMock,
             return_value=ServiceEndpointMock(AUTHENTICATED_USER, VALID_PASSWORD),
         ):
             result = await runner.invoke(

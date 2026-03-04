@@ -6,7 +6,6 @@ command line scripts, and related.
 
 from __future__ import annotations
 
-import getpass
 import logging
 import pickle
 import sys
@@ -44,13 +43,11 @@ class _DictProxy:
         return self._dict.get(name, self._default)
 
 
-def _legacy_authenticate(username: str, password: str, *, interactive: bool):
-    return authenticate_legacy_endpoint(
+async def _legacy_authenticate(username: str, password: str, *, interactive: bool):
+    return await authenticate_legacy_endpoint(
         username=username,
         password=password,
         interactive=interactive,
-        getpass_fn=getpass.getpass,
-        input_fn=input,
     )
 
 
@@ -128,7 +125,7 @@ async def main(**kwargs):
         return
 
     if endpoint is None:
-        endpoint = _legacy_authenticate(
+        endpoint = await _legacy_authenticate(
             username=username,
             password=password,
             interactive=command_line.interactive,

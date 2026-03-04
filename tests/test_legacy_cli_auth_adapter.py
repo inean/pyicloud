@@ -1,66 +1,48 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from pyicloud.adapters.auth import legacy_cli_auth
-from pyicloud.exceptions import PyiCloudFailedLoginException
 
 
-def test_authenticate_legacy_endpoint_returns_api_on_success():
-    class FakeApi:
-        requires_password = False
-        requires_2sa = False
-        requires_2fa = False
+@pytest.mark.asyncio
+async def test_authenticate_legacy_endpoint_returns_restored_endpoint():
+    endpoint = object()
+    auth_runner_called = []
 
-        def __init__(self):
-            self.calls = 0
+    async def fake_auth_runner(*, username, password, interactive):  # noqa: ARG001
+        auth_runner_called.append((username, password, interactive))
 
-        def authenticate(self):
-            self.calls += 1
+    restore = SimpleNamespace(restore=lambda **_: endpoint)
+    restore_builder = lambda: restore
 
-    api = FakeApi()
-    restored = legacy_cli_auth.authenticate_legacy_endpoint(
+    restored = await legacy_cli_auth.authenticate_legacy_endpoint(
         username="user@example.com",
         password="secret",
         interactive=False,
-        pyicloud_cls=lambda **_: api,
+        auth_runner=fake_auth_runner,
+        restore_builder=restore_builder,
     )
 
-    assert restored is api
-    assert api.calls == 1
+    assert restored is endpoint
+    assert auth_runner_called == [("user@example.com", "secret", False)]
 
 
-def test_authenticate_legacy_endpoint_raises_runtime_error_on_failed_login():
-    class FakeApi:
-        requires_password = False
-        requires_2sa = False
-        requires_2fa = False
+@pytest.mark.asyncio
+async def test_authenticate_legacy_endpoint_raises_when_restore_missing():
+    async def fake_auth_runner(*, username, password, interactive):  # noqa: ARG001
+        return None
 
-        def authenticate(self):
-            raise PyiCloudFailedLoginException("bad credentials")
+    restore = SimpleNamespace(restore=lambda **_: None)
+    restore_builder = lambda: restore
 
-    with pytest.raises(RuntimeError, match="Bad username or password"):
-        legacy_cli_auth.authenticate_legacy_endpoint(
+    with pytest.raises(RuntimeError, match="no endpoint payload found"):
+        await legacy_cli_auth.authenticate_legacy_endpoint(
             username="user@example.com",
             password="secret",
             interactive=False,
-            pyicloud_cls=lambda **_: FakeApi(),
-        )
-
-
-def test_authenticate_legacy_endpoint_raises_value_error_on_validation(monkeypatch):
-    class FakeValidationError(Exception):
-        def errors(self):
-            return [{"msg": "Invalid email"}]
-
-    def raise_validation(**_):
-        raise FakeValidationError()
-
-    monkeypatch.setattr(legacy_cli_auth, "PyiCloudValidationError", FakeValidationError)
-    with pytest.raises(ValueError, match="Invalid email"):
-        legacy_cli_auth.authenticate_legacy_endpoint(
-            username="not-an-email",
-            password="secret",
-            interactive=False,
-            pyicloud_cls=raise_validation,
+            auth_runner=fake_auth_runner,
+            restore_builder=restore_builder,
         )
