@@ -7,6 +7,7 @@ from copy import copy
 from dataclasses import asdict, dataclass, field, fields
 from functools import WRAPPER_ASSIGNMENTS, cached_property
 from http.cookiejar import CookieJar
+from time import perf_counter
 from types import UnionType, get_original_bases
 from typing import (
     Any,
@@ -26,6 +27,7 @@ from typing import (
 import httpx
 from pydantic import BaseModel, Field, ValidationInfo, model_validator
 
+from pyicloud.adapters.upstream_probe import get_upstream_probe, upstream_capture_body_max_bytes
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.log import LOGGER, PyiCloudPasswordFilter, logger_get
@@ -37,6 +39,7 @@ from pyicloud.models.fields import ContentTypeType
 from pyicloud.models.headers import HeadersModel
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
+from pyicloud.upstream import build_request_event, build_response_event
 
 
 class Endpoint(LeafModel, ABC):
@@ -354,6 +357,8 @@ class BaseTransport[T: BaseRequest, K: BaseResponse](ABC):
     _request: httpx.Request | None
     _response: httpx.Response | None
     _data: dict[str, Any]
+    _probe_started_at: dict[int, float]
+    _probe_request_events: dict[int, Any]
 
     def __init__(
         self,
@@ -373,15 +378,48 @@ class BaseTransport[T: BaseRequest, K: BaseResponse](ABC):
         self._request = None
         self._response = None
         self._data = data or {}
+        self._probe_started_at = {}
+        self._probe_request_events = {}
 
         # Add a hook to response events, so last one is automatically
         # stored in self._response
         async def request_hook(value: httpx.Request) -> None:
             self._request = value
+            probe = get_upstream_probe()
+            body_max_bytes = upstream_capture_body_max_bytes()
+            request_event = build_request_event(
+                request=value,
+                body_max_bytes=body_max_bytes,
+                attempt=1,
+            )
+            self._probe_request_events[id(value)] = request_event
+            self._probe_started_at[id(value)] = perf_counter()
+            probe.on_request(request_event)
 
         async def response_hook(value: httpx.Response) -> None:
             self._response = value
             await value.aread()
+            probe = get_upstream_probe()
+            body_max_bytes = upstream_capture_body_max_bytes()
+            request_id = id(value.request)
+            request_event = self._probe_request_events.pop(request_id, None)
+            started = self._probe_started_at.pop(request_id, None)
+            if request_event is None:
+                request_event = build_request_event(
+                    request=value.request,
+                    body_max_bytes=body_max_bytes,
+                    attempt=1,
+                )
+                probe.on_request(request_event)
+            duration_ms = ((perf_counter() - started) * 1000.0) if started is not None else 0.0
+            probe.on_response(
+                build_response_event(
+                    request_event=request_event,
+                    response=value,
+                    duration_ms=duration_ms,
+                    body_max_bytes=body_max_bytes,
+                )
+            )
 
         self._client.event_hooks["request"].append(request_hook)
         self._client.event_hooks["response"].append(response_hook)

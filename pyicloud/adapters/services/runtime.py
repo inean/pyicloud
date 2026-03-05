@@ -9,6 +9,7 @@ from pyicloud.adapters.service_endpoint import LegacyServiceEndpointFactoryAdapt
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.ports import ServiceEndpointPort, SessionStorePort
 from pyicloud.services import PyiCloudServices
+from pyicloud.upstream import ensure_upstream_context
 
 
 class NamedBytesIO(io.BytesIO):
@@ -35,6 +36,10 @@ class LegacyServicesRuntime:
         payload = self._store.load(username)
         if payload is None:
             raise RuntimeError(f"No stored endpoint payload found for account: {username}")
+        ensure_upstream_context(
+            username=username,
+            flow_id=str(payload.get("__flow_id", "")).strip() or None,
+        )
         endpoint = self._endpoint_factory.from_payload(
             username=username,
             password="",

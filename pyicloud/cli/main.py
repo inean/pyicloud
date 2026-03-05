@@ -101,7 +101,7 @@ async def _observability_query(
     start: int | None,
     end: int | None,
     step: str,
-) -> None:
+) -> Any:
     token = _load_token()
     if token is None:
         raise click.ClickException("No local token found. Run `icloud auth login` first.")
@@ -118,14 +118,96 @@ async def _observability_query(
         payload["end"] = end
         payload["step"] = step
 
-    data = await _api_request(
+    return await _api_request(
         api_url=ctx.obj["api_url"],
         method="POST",
         route=f"/v1/observability/{language.strip().lower()}",
         token=token,
         json_body=payload,
     )
-    _print_json(data)
+
+
+def _extract_flow_events(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+
+    explicit = payload.get("events")
+    if isinstance(explicit, list):
+        return [dict(item) for item in explicit if isinstance(item, dict)]
+
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return []
+    result = data.get("result")
+    if not isinstance(result, list):
+        return []
+
+    events: list[dict[str, Any]] = []
+    for stream in result:
+        if not isinstance(stream, dict):
+            continue
+        values = stream.get("values")
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not (isinstance(value, list) and len(value) == 2):
+                continue
+            ts_raw, line = value
+            event: dict[str, Any] = {}
+            try:
+                event["timestamp_ns"] = int(str(ts_raw))
+            except ValueError:
+                event["timestamp_ns"] = 0
+            if isinstance(line, str):
+                try:
+                    maybe = json.loads(line)
+                except json.JSONDecodeError:
+                    maybe = None
+                if isinstance(maybe, dict):
+                    event.update(maybe)
+                else:
+                    event["line"] = line
+            events.append(event)
+    return sorted(events, key=lambda item: int(item.get("timestamp_ns", 0)))
+
+
+def _print_flow_table(*, flow_id: str, events: list[dict[str, Any]]) -> None:
+    if not events:
+        click.echo(f"No events found for flow_id={flow_id}")
+        return
+
+    headers = ("timestamp", "step", "method", "path", "status", "outcome", "duration_ms", "target_service")
+    rows: list[tuple[str, ...]] = []
+    for event in events:
+        rows.append(
+            (
+                str(event.get("timestamp", event.get("timestamp_ns", ""))),
+                str(event.get("pyicloud.step", event.get("step", ""))),
+                str(event.get("method", "")),
+                str(event.get("path", "")),
+                str(event.get("status_code", "")),
+                str(event.get("outcome", "")),
+                str(event.get("duration_ms", "")),
+                str(event.get("target_service", "")),
+            )
+        )
+
+    widths = [len(header) for header in headers]
+    for row in rows:
+        widths = [max(width, len(cell)) for width, cell in zip(widths, row, strict=False)]
+
+    def _fmt_row(cells: tuple[str, ...]) -> str:
+        return " | ".join(cell.ljust(widths[idx]) for idx, cell in enumerate(cells))
+
+    click.echo(_fmt_row(headers))
+    click.echo("-+-".join("-" * width for width in widths))
+    for row in rows:
+        click.echo(_fmt_row(row))
+
+
+def _flow_logql_query(flow_id: str) -> str:
+    needle = f'"pyicloud.flow_id":"{flow_id}"'
+    return f'{{component="pyicloud.upstream"}} |= "{needle}"'
 
 
 @click.group(help="pyicloud API-driven CLI")
@@ -734,7 +816,7 @@ async def observability_promql(
     end: int | None,
     step: str,
 ) -> None:
-    await _observability_query(
+    data = await _observability_query(
         ctx=ctx,
         language="promql",
         query=query,
@@ -743,6 +825,7 @@ async def observability_promql(
         end=end,
         step=step,
     )
+    _print_json(data)
 
 
 @observability.command("traceql")
@@ -760,7 +843,7 @@ async def observability_traceql(
     end: int | None,
     step: str,
 ) -> None:
-    await _observability_query(
+    data = await _observability_query(
         ctx=ctx,
         language="traceql",
         query=query,
@@ -769,6 +852,7 @@ async def observability_traceql(
         end=end,
         step=step,
     )
+    _print_json(data)
 
 
 @observability.command("logql")
@@ -786,7 +870,7 @@ async def observability_logql(
     end: int | None,
     step: str,
 ) -> None:
-    await _observability_query(
+    data = await _observability_query(
         ctx=ctx,
         language="logql",
         query=query,
@@ -795,6 +879,40 @@ async def observability_logql(
         end=end,
         step=step,
     )
+    _print_json(data)
+
+
+@observability.command("flow")
+@click.option("--flow-id", required=True)
+@click.option("--format", "output_format", type=click.Choice(["table", "json"]), default="table", show_default=True)
+@click.option("--source", default="", show_default=False)
+@click.option("--start", type=int, default=None, show_default=False)
+@click.option("--end", type=int, default=None, show_default=False)
+@click.option("--step", default="", show_default=False)
+@click.pass_context
+async def observability_flow(
+    ctx: click.Context,
+    flow_id: str,
+    output_format: str,
+    source: str,
+    start: int | None,
+    end: int | None,
+    step: str,
+) -> None:
+    data = await _observability_query(
+        ctx=ctx,
+        language="logql",
+        query=_flow_logql_query(flow_id),
+        source=source,
+        start=start,
+        end=end,
+        step=step,
+    )
+    events = _extract_flow_events(data)
+    if output_format == "json":
+        _print_json({"flow_id": flow_id, "events": events})
+        return
+    _print_flow_table(flow_id=flow_id, events=events)
 
 
 if __name__ == "__main__":

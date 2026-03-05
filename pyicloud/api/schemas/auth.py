@@ -24,6 +24,7 @@ class AuthLoginResponse(BaseModel):
     expires_in: int | None = None
     challenge_id: str | None = None
     challenge_ttl: int | None = None
+    flow_id: str | None = None
 
 
 class AuthSessionResponse(BaseModel):

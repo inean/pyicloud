@@ -890,6 +890,61 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 
 ---
 
+## Phase 20A: Internal MITM Upstream Traceability (Auth + Services)
+### Checklist
+- [x] Add outbound upstream probe port/contracts (`on_request`, `on_response`, `on_error`) with hexagonal docstrings.
+- [x] Add correlation context (`flow_id`, `operation`, `step`, `account_hash`) based on `contextvars`.
+- [x] Generate/propagate `flow_id` from auth bootstrap, persist in session payload metadata, and reuse in service calls.
+- [x] Instrument async auth/session egress path via `BaseTransport` hooks.
+- [x] Instrument sync legacy service egress path via `LegacyServiceSessionAdapter.request`.
+- [x] Add probe adapters:
+  - [x] `null` no-op default.
+  - [x] `otel` adapter emitting spans + metrics + structured logs.
+- [x] Enforce capture safety defaults:
+  - [x] env gating (`dev/qa` allowlist) with fail-fast when capture enabled outside allowed envs.
+  - [x] strict redaction of sensitive headers/cookies/body fields.
+  - [x] binary body metadata capture (no raw dump).
+- [x] Add helper CLI command:
+  - [x] `icloud observability flow --flow-id <id> --format table|json`
+  - [x] timeline extraction from LogQL-style result payloads.
+- [x] Add deterministic tests:
+  - [x] sanitization + classification + context + guardrails (unit).
+  - [x] auth->find_devices sequence correlation in one `flow_id` (integration).
+  - [x] OTel probe span/metrics/log emission behavior (integration; skipped when optional deps missing).
+  - [x] flow helper CLI table/json rendering (vertical).
+- [x] Document runtime controls and flow inspection examples in `docs/observability.md`.
+
+### Exit Criteria
+- Outbound traffic from auth and service flows is traceable with one correlation id.
+- Operators and AI agents can reconstruct the request timeline by `flow_id`.
+- Sensitive data remains redacted while preserving payload diagnostics.
+
+### Handoff: Phase 20A - Internal MITM Upstream Traceability
+- Date: 2026-03-05
+- Status: Done
+- Summary: Added transport-level MITM-style probe instrumentation for auth/session and legacy service calls, with flow correlation and CLI timeline inspection.
+- Files changed:
+  - `pyicloud/ports/upstream_probe.py`
+  - `pyicloud/adapters/upstream_probe/*`
+  - `pyicloud/upstream/*`
+  - `pyicloud/sessions/__init__.py`
+  - `pyicloud/adapters/session/legacy_service_http.py`
+  - `pyicloud/application/{auth_session.py,api_auth.py,core_services.py}`
+  - `pyicloud/service.py`
+  - `pyicloud/cli/main.py`
+  - `pyicloud/api/{app.py,schemas/auth.py}`
+  - `docs/observability.md`
+  - tests under `tests/unit`, `tests/integration`, and `tests/vertical/cli`.
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_upstream_probe_sanitize.py tests/unit/test_upstream_probe_context.py tests/unit/test_upstream_probe_classification.py tests/unit/test_upstream_probe_runtime.py tests/integration/test_upstream_flow_sequence.py tests/vertical/cli/test_observability_cli.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_auth_session_flow.py tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_api.py tests/integration/test_api_end_to_end.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_cmdline.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_auth_session_store_integration.py tests/unit/test_auth_bootstrap.py tests/integration/test_auth_tree_srp_flow.py tests/vertical/api/test_observability_api.py tests/vertical/cli/test_observability_cli.py tests/integration/test_observability_otel_adapter.py`
+- Risks / TBD:
+  - Full route/use-case exhaustive instrumentation remains in Phase 20.
+  - OTel upstream probe integration tests requiring optional dependencies are skipped when `opentelemetry` is not installed.
+
+---
+
 ## Phase 20: Exhaustive Runtime Instrumentation (Optional Expansion)
 ### Checklist
 - [ ] Define telemetry contract for full-code instrumentation:
@@ -928,5 +983,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 17 from docs/refactor_plan.md
+# Continue Phase 18 (docs realignment), then Phase 19/20
 ```

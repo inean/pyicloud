@@ -115,3 +115,110 @@ async def test_cli_observability_commands(app, monkeypatch: pytest.MonkeyPatch, 
     )
     assert logql_range.exit_code == 0
     assert json.loads(logql_range.output)["data"]["resultType"] == "matrix"
+
+
+@pytest.mark.asyncio
+async def test_cli_observability_flow_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    token_file = tmp_path / "token.json"
+    token_file.write_text(json.dumps({"access_token": "token-1"}), encoding="utf-8")
+    monkeypatch.setenv("PYICLOUD_API_TOKEN_FILE", str(token_file))
+
+    async def fake_api_request(**kwargs):  # noqa: ANN003
+        return {
+            "status": "success",
+            "language": "logql",
+            "data": {
+                "resultType": "streams",
+                "result": [
+                    {
+                        "stream": {"component": "pyicloud.upstream"},
+                        "values": [
+                            [
+                                "1710000000000000000",
+                                json.dumps(
+                                    {
+                                        "timestamp": 1710000000.0,
+                                        "pyicloud.step": "signin",
+                                        "method": "POST",
+                                        "path": "/appleauth/auth/signin/init",
+                                        "status_code": 200,
+                                        "outcome": "success",
+                                        "duration_ms": 20.0,
+                                        "target_service": "apple.idmsa",
+                                    }
+                                ),
+                            ]
+                        ],
+                    }
+                ],
+            },
+            "warnings": [],
+            "source": "loki",
+        }
+
+    monkeypatch.setattr("pyicloud.cli.main._api_request", fake_api_request)
+
+    runner = CliRunner()
+    result = await runner.invoke(
+        main,
+        [
+            "--api-url",
+            "http://testserver",
+            "observability",
+            "flow",
+            "--flow-id",
+            "flow-1",
+            "--format",
+            "table",
+        ],
+    )
+    assert result.exit_code == 0
+    assert "timestamp" in result.output
+    assert "signin" in result.output
+
+
+@pytest.mark.asyncio
+async def test_cli_observability_flow_json(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    token_file = tmp_path / "token.json"
+    token_file.write_text(json.dumps({"access_token": "token-1"}), encoding="utf-8")
+    monkeypatch.setenv("PYICLOUD_API_TOKEN_FILE", str(token_file))
+
+    async def fake_api_request(**kwargs):  # noqa: ANN003
+        return {
+            "status": "success",
+            "language": "logql",
+            "events": [
+                {
+                    "timestamp": 1710000000.0,
+                    "pyicloud.step": "find_devices",
+                    "method": "POST",
+                    "path": "/fmipservice/client/web/refreshClient",
+                    "status_code": 200,
+                    "outcome": "success",
+                    "duration_ms": 33.0,
+                    "target_service": "apple.findmy",
+                }
+            ],
+            "source": "mock",
+        }
+
+    monkeypatch.setattr("pyicloud.cli.main._api_request", fake_api_request)
+
+    runner = CliRunner()
+    result = await runner.invoke(
+        main,
+        [
+            "--api-url",
+            "http://testserver",
+            "observability",
+            "flow",
+            "--flow-id",
+            "flow-2",
+            "--format",
+            "json",
+        ],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["flow_id"] == "flow-2"
+    assert payload["events"][0]["pyicloud.step"] == "find_devices"

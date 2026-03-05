@@ -16,6 +16,7 @@ from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObserv
 from pyicloud.adapters.services import build_legacy_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
+from pyicloud.adapters.upstream_probe import validate_upstream_probe_configuration
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
@@ -28,6 +29,7 @@ from pyicloud.domain import (
     Unauthorized,
     UnsupportedQueryMode,
 )
+from pyicloud.exceptions import PyiCloudAPIResponseError
 
 from .schemas import (
     AccountStorageResponse,
@@ -130,6 +132,7 @@ def create_app(
     observability_service: ObservabilityApi | None = None,
 ) -> FastAPI:
     """Build and configure the FastAPI application."""
+    validate_upstream_probe_configuration()
 
     app = FastAPI(title="pyicloud API", version="1.0.0")
     app.state.auth_service = auth_service or _build_default_auth_service()
@@ -159,6 +162,16 @@ def create_app(
         }
         return mapping.get(status_code, "http_error")
 
+    def _coerce_upstream_status(raw_code: str | int | None) -> int | None:
+        if raw_code is None:
+            return None
+        if isinstance(raw_code, int):
+            return raw_code
+        try:
+            return int(raw_code)
+        except (TypeError, ValueError):
+            return None
+
     @app.exception_handler(HTTPException)
     async def _http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
         details: Any | None = None
@@ -175,6 +188,22 @@ def create_app(
             }
         }
         return JSONResponse(status_code=exc.status_code, content=payload)
+
+    @app.exception_handler(PyiCloudAPIResponseError)
+    async def _pyicloud_api_error_handler(_: Request, exc: PyiCloudAPIResponseError) -> JSONResponse:
+        upstream_status = _coerce_upstream_status(exc.code)
+        detail_payload: dict[str, Any] = {
+            "message": str(exc.reason or "Upstream iCloud request failed"),
+            "upstream_status": upstream_status,
+            "upstream_reason": str(exc.reason or ""),
+            "retryable": upstream_status in {421, 450, 500},
+        }
+        if upstream_status in {421, 450}:
+            detail_payload["hint"] = "Run `icloud auth login` again to refresh the Apple upstream session."
+        return await _http_exception_handler(
+            _,
+            HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail_payload),
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:

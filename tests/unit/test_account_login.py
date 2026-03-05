@@ -46,6 +46,9 @@ from tests.const_auth import (
     DES_COOKIE,
     SESSION_RESPONSE_BODY_2FA,
     SESSION_RESPONSE_BODY_OK,
+    WEB_KB_COOKIE,
+    X_APPLE_UNIQUE_CLIENT_ID,
+    X_APPLE_WEBAUTH_LOGIN,
 )
 
 if TYPE_CHECKING:
@@ -433,6 +436,21 @@ async def test_account_login_response_user(account_login_user: AccountLogin):
     assert bool(account_login_user.response) is True
     assert cast(AccountLoginResponseCookies, account_login_user.response.cookies).webauth_hsa_trust
     assert account_login_user._settings.token.trust == VALID_TOKEN
+
+
+def test_account_login_response_cookie_mapping_restores_client_and_webauth_cookies():
+    cookies = httpx.Cookies(
+        {
+            X_APPLE_UNIQUE_CLIENT_ID.name: X_APPLE_UNIQUE_CLIENT_ID.value,
+            X_APPLE_WEBAUTH_LOGIN.name: X_APPLE_WEBAUTH_LOGIN.value,
+            WEB_KB_COOKIE.name: WEB_KB_COOKIE.value,
+        }
+    )
+    parsed = AccountLoginResponseCookies.model_validate({}, context={"cookies": cookies})
+
+    assert parsed.client_id is not None
+    assert parsed.webauth_login is not None
+    assert parsed.web_kb is not None
 
 
 async def test_account_login_invalid_token(account_login_invalid_token: AccountLogin):
