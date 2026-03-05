@@ -25,3 +25,15 @@ class ChallengeExpired(ApiDomainError):
 
 class Unauthorized(ApiDomainError):
     """Raised when bearer token validation fails."""
+
+
+class BackendUnavailable(ApiDomainError):
+    """Raised when an observability backend is unavailable or unconfigured."""
+
+
+class UnsupportedQueryMode(ApiDomainError):
+    """Raised when query language or mode cannot be executed."""
+
+
+class QueryExecutionFailed(ApiDomainError):
+    """Raised when a backend rejects or fails a query request."""

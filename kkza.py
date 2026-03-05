@@ -28,11 +28,11 @@ from pyicloud.trees.setup import SetupHooks, SetupModelTree
 # Mock imports for testing user
 from tests.const import REQUIRES_2FA_USER, VALID_2FA_CODE
 from tests.mock import PyiCloudMockTransport
-from tests.test_account_login import account_login_handler
-from tests.test_security_code import security_code_handler
-from tests.test_signin import signin_handler
-from tests.test_trust import trust_handler
-from tests.test_validate import validate_handler
+from tests.unit.test_account_login import account_login_handler
+from tests.unit.test_security_code import security_code_handler
+from tests.unit.test_signin import signin_handler
+from tests.unit.test_trust import trust_handler
+from tests.unit.test_validate import validate_handler
 
 # Set the level for this logger
 logger.setLevel(logging.DEBUG)
@@ -114,7 +114,8 @@ if __name__ == "__main__":
             client_options={
                 "transport": PyiCloudMockTransport(
                     routes=[
-                        (Endpoints.SIGNIN, signin_handler),
+                        (Endpoints.SIGNIN_INIT, signin_handler),
+                        (Endpoints.SIGNIN_COMPLETE, signin_handler),
                         (Endpoints.SECURITY_CODE, security_code_handler),
                         (Endpoints.TRUST, trust_handler),
                         (Endpoints.ACCOUNT_LOGIN, account_login_handler),
@@ -169,17 +170,39 @@ if __name__ == "__main__":
 
         @use_context
         async def show_devices(bhtree, api: Any):
-            devices: FindMyiPhone = Application(api, settings=cast(Settings, config)).devices
-            for coro in asyncio.as_completed(map(lambda device: device.content(), devices)):
-                contents = await coro
+            if config.account.username == REQUIRES_2FA_USER:
+                devices: FindMyiPhone = Application(api, settings=cast(Settings, config)).devices
+                for coro in asyncio.as_completed(map(lambda device: device.content(), devices)):
+                    contents = await coro
+                    print("-" * 30)
+                    print(f"Name - {contents.get('name')}")
+                    print(f"Display Name  - {contents.get('deviceDisplayName')}")
+                    print(f"Location      - {contents.get('location')}")
+                    print(f"Battery Level - {contents.get('batteryLevel')}")
+                    print(f"Battery Status- {contents.get('batteryStatus')}")
+                    print(f"Device Class  - {contents.get('deviceClass')}")
+                    print(f"Device Model  - {contents.get('deviceModel')}")
+                return api
+
+            devices = Application(
+                api,
+                settings=cast(Settings, renew_model.settings),
+                cookies=renew_model.cookies,
+            ).devices
+            found = 0
+            async for device in devices:
+                found += 1
+                contents = await device.content()
                 print("-" * 30)
-                print("Name - %s" % contents["name"])
-                print("Display Name  - %s" % contents["deviceDisplayName"])
-                print("Location      - %s" % contents["location"])
-                print("Battery Level - %s" % contents["batteryLevel"])
-                print("Battery Status- %s" % contents["batteryStatus"])
-                print("Device Class  - %s" % contents["deviceClass"])
-                print("Device Model  - %s" % contents["deviceModel"])
+                print(f"Name - {contents.get('name')}")
+                print(f"Display Name  - {contents.get('deviceDisplayName')}")
+                print(f"Location      - {contents.get('location')}")
+                print(f"Battery Level - {contents.get('batteryLevel')}")
+                print(f"Battery Status- {contents.get('batteryStatus')}")
+                print(f"Device Class  - {contents.get('deviceClass')}")
+                print(f"Device Model  - {contents.get('deviceModel')}")
+            if found == 0:
+                print("No devices were returned by findme/refreshClient for this account.")
 
             return api
 

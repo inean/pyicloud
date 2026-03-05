@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, Self, TypeVar
+from collections.abc import Callable
+from typing import Any, Self
 
-from pydantic import AliasChoices, BaseModel, Field, ValidationInfo, model_validator
-
-E = TypeVar("E", bound="Error")
+from pydantic import AliasChoices, BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 
 class Error(BaseModel):
@@ -16,8 +15,17 @@ class Error(BaseModel):
         validation_alias=AliasChoices("suppressDismissal"),
     )
 
+    @field_validator("message", mode="before")
+    @classmethod
+    def coerce_message(cls, value: Any) -> str:
+        if isinstance(value, str):
+            return value
+        if value is None:
+            return ""
+        return str(value)
 
-class ServiceErrorsModel(BaseModel, Generic[E]):
+
+class ServiceErrorsModel[E: Error](BaseModel):
     service_errors: list[E] = Field(
         default=[],
         validation_alias=AliasChoices("serviceErrors", "service_errors"),

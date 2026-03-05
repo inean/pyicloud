@@ -9,12 +9,22 @@ from typing import Any
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Path, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 
+from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
 from pyicloud.adapters.services import LegacyCoreServicesAdapter
 from pyicloud.adapters.session import InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
-from pyicloud.domain import ChallengeExpired, InvalidCredentials, InvalidSecurityCode, Unauthorized
+from pyicloud.application.observability import ObservabilityApi
+from pyicloud.domain import (
+    BackendUnavailable,
+    ChallengeExpired,
+    InvalidCredentials,
+    InvalidSecurityCode,
+    QueryExecutionFailed,
+    Unauthorized,
+    UnsupportedQueryMode,
+)
 
 from .schemas import (
     AccountStorageResponse,
@@ -27,6 +37,8 @@ from .schemas import (
     DevicePlaySoundRequest,
     DriveCreateFolderRequest,
     DriveRenameNodeRequest,
+    ObservabilityQueryRequest,
+    ObservabilityQueryResponse,
     ReminderCreateRequest,
     SimpleOkResponse,
 )
@@ -59,22 +71,49 @@ def _build_default_core_services() -> CoreServicesApi:
     )
 
 
+def _build_default_observability_service() -> ObservabilityApi:
+    adapter_name = os.getenv("PYICLOUD_OBSERVABILITY_ADAPTER", "null").strip().lower()
+    if adapter_name == "null":
+        adapter = NullObservabilityAdapter()
+        return ObservabilityApi(promql=adapter, traceql=adapter, logql=adapter)
+    if adapter_name == "otel":
+        ensure_otel_dependencies()
+        timeout_raw = os.getenv("PYICLOUD_OBSERVABILITY_TIMEOUT_SECONDS", "10.0")
+        try:
+            timeout_seconds = float(timeout_raw)
+        except ValueError as err:
+            raise RuntimeError("PYICLOUD_OBSERVABILITY_TIMEOUT_SECONDS must be numeric") from err
+        adapter = OTelObservabilityAdapter(
+            promql_endpoint=os.getenv("PYICLOUD_OBSERVABILITY_PROMQL_ENDPOINT"),
+            traceql_endpoint=os.getenv("PYICLOUD_OBSERVABILITY_TRACEQL_ENDPOINT"),
+            logql_endpoint=os.getenv("PYICLOUD_OBSERVABILITY_LOGQL_ENDPOINT"),
+            timeout_seconds=timeout_seconds,
+        )
+        return ObservabilityApi(promql=adapter, traceql=adapter, logql=adapter)
+    raise RuntimeError(f"Unsupported observability adapter: {adapter_name}")
+
+
 def create_app(
     *,
     auth_service: AuthApiService | None = None,
     core_services: CoreServicesApi | None = None,
+    observability_service: ObservabilityApi | None = None,
 ) -> FastAPI:
     """Build and configure the FastAPI application."""
 
     app = FastAPI(title="pyicloud API", version="1.0.0")
     app.state.auth_service = auth_service or _build_default_auth_service()
     app.state.core_services = core_services or _build_default_core_services()
+    app.state.observability_service = observability_service or _build_default_observability_service()
 
     def get_auth_service() -> AuthApiService:
         return app.state.auth_service
 
     def get_core_services() -> CoreServicesApi:
         return app.state.core_services
+
+    def get_observability_service() -> ObservabilityApi:
+        return app.state.observability_service
 
     def _extract_token(authorization: str | None = Header(default=None)) -> str:
         if not authorization or not authorization.startswith("Bearer "):
@@ -90,6 +129,38 @@ def create_app(
         except Unauthorized as err:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
         return principal.username
+
+    def _run_observability_query(
+        *,
+        language: str,
+        payload: ObservabilityQueryRequest,
+        service: ObservabilityApi,
+    ) -> ObservabilityQueryResponse:
+        try:
+            if payload.start is None:
+                result = service.instant_query(
+                    language=language,
+                    query=payload.query,
+                    source=payload.source,
+                )
+            else:
+                assert payload.end is not None
+                assert payload.step is not None
+                result = service.range_query(
+                    language=language,
+                    query=payload.query,
+                    start=payload.start,
+                    end=payload.end,
+                    step=payload.step,
+                    source=payload.source,
+                )
+        except UnsupportedQueryMode as err:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err)) from err
+        except BackendUnavailable as err:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err)) from err
+        except QueryExecutionFailed as err:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(err)) from err
+        return ObservabilityQueryResponse.model_validate(result)
 
     @app.get("/healthz")
     def health() -> dict[str, str]:
@@ -399,6 +470,30 @@ def create_app(
             media_type="application/octet-stream",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+
+    @app.post("/v1/observability/promql", response_model=ObservabilityQueryResponse)
+    def observability_promql(
+        payload: ObservabilityQueryRequest,
+        username: str = Depends(_get_username),  # noqa: ARG001
+        service: ObservabilityApi = Depends(get_observability_service),
+    ) -> ObservabilityQueryResponse:
+        return _run_observability_query(language="promql", payload=payload, service=service)
+
+    @app.post("/v1/observability/traceql", response_model=ObservabilityQueryResponse)
+    def observability_traceql(
+        payload: ObservabilityQueryRequest,
+        username: str = Depends(_get_username),  # noqa: ARG001
+        service: ObservabilityApi = Depends(get_observability_service),
+    ) -> ObservabilityQueryResponse:
+        return _run_observability_query(language="traceql", payload=payload, service=service)
+
+    @app.post("/v1/observability/logql", response_model=ObservabilityQueryResponse)
+    def observability_logql(
+        payload: ObservabilityQueryRequest,
+        username: str = Depends(_get_username),  # noqa: ARG001
+        service: ObservabilityApi = Depends(get_observability_service),
+    ) -> ObservabilityQueryResponse:
+        return _run_observability_query(language="logql", payload=payload, service=service)
 
     @app.get("/v1/drive/tree")
     def drive_tree(

@@ -65,6 +65,10 @@ lint = [
     "mypy>=1.10.0",
     "ruff>=0.4.2",
 ]
+otel = [
+    "opentelemetry-api>=1.30.0",
+    "opentelemetry-sdk>=1.30.0",
+]
 rich = ["rich>=13.7.1"]
 test = [
     "hypothesis>=6.103.0",

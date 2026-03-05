@@ -1,7 +1,16 @@
-"""Hexagonal ports for auth/session and endpoint restoration use-cases."""
+"""Hexagonal ports for auth/session, core services, and observability use-cases."""
 
 from .auth import AuthSessionPort, ServiceEndpointPort, SessionStorePort
 from .auth_state_reset import AuthStateResetPolicy
+from .observability import (
+    LogQLQueryPort,
+    ObservabilityInstantQueryRequest,
+    ObservabilityLanguage,
+    ObservabilityQueryEnvelope,
+    ObservabilityRangeQueryRequest,
+    PromQLQueryPort,
+    TraceQLQueryPort,
+)
 from .services import (
     AccountServicePort,
     CalendarServicePort,
@@ -22,12 +31,19 @@ __all__ = [
     "ContactsServicePort",
     "DeviceServicePort",
     "DriveServicePort",
+    "LogQLQueryPort",
+    "ObservabilityInstantQueryRequest",
+    "ObservabilityLanguage",
+    "ObservabilityQueryEnvelope",
+    "ObservabilityRangeQueryRequest",
     "PhotosServicePort",
+    "PromQLQueryPort",
     "RemindersServicePort",
     "SessionCommandPort",
     "SessionQueryPort",
     "ServiceEndpointPort",
     "SessionStorePort",
     "TokenSignerPort",
+    "TraceQLQueryPort",
     "UbiquityServicePort",
 ]
