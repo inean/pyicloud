@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import OrderedDict
 from os import PathLike, fspath
 from pathlib import Path
-from typing import ClassVar, Literal, OrderedDict, TypedDict, cast, override
+from typing import ClassVar, Literal, TypedDict, cast, override
 
 from psygnal import EventedModel
 from pydantic import BaseModel, ValidationError
@@ -129,7 +130,7 @@ class AbstractPath[T: BaseModel | dict | str](PathLike):
         for origin, value in self.cls_config["file_origins"].items():
             match origin:
                 case "env_file" | "env_dir":
-                    env = f'{self.cls_config.get("env_prefix", "")}{value}'
+                    env = f"{self.cls_config.get('env_prefix', '')}{value}"
                     if env_path := os.environ.get(env.upper()):
                         path = expand_env(env_path).expanduser()
                         if origin == "env_file":

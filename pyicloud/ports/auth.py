@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol
 
+
 class AuthSessionPort(Protocol):
     """
     Direction: outbound
@@ -126,6 +127,8 @@ class SessionStorePort(Protocol):
         Raises:
             RuntimeError: Stored state cannot be removed reliably.
         """
+
+
 class ServiceEndpointPort(Protocol):
     """
     Direction: outbound
