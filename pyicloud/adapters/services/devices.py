@@ -7,56 +7,35 @@ from typing import Any
 
 from pyicloud.ports import DeviceServicePort
 
+from .clients.devices import DevicesClient, LegacyDevicesClient
+from .mappers.devices import map_device_location, map_device_snapshot, map_device_status
 from .runtime import LegacyServicesAdapterBase
 
 
 class DevicesServiceAdapter(LegacyServicesAdapterBase, DeviceServicePort):
     """Map Find My iPhone operations to the device service port contract."""
 
-    @staticmethod
-    def _iter_devices(manager: Any) -> list[Any]:
-        try:
-            keys = list(manager.keys())
-            return [manager[key] for key in keys]
-        except Exception:  # noqa: BLE001
-            pass
-
-        devices = []
-        idx = 0
-        while True:
-            try:
-                devices.append(manager[idx])
-                idx += 1
-            except Exception:  # noqa: BLE001
-                break
-        return devices
-
-    def _get_device(self, *, username: str, device_id: str) -> Any:
-        manager = self._services(username=username).devices
-        for device in self._iter_devices(manager):
-            if str(device["id"]) == device_id:
-                return device
-        raise KeyError(f"Device not found: {device_id}")
+    def _client(self, *, username: str) -> DevicesClient:
+        return LegacyDevicesClient(runtime=self._runtime, username=username)
 
     def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        manager = self._services(username=username).devices
-        return [dict(device.data) for device in self._iter_devices(manager)]
+        snapshots = self._client(username=username).list_devices()
+        return [map_device_snapshot(view) for view in snapshots]
 
     def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
-        device = self._get_device(username=username, device_id=device_id)
-        location = device.location()
-        if isinstance(location, dict):
-            return location
-        return {"location": location}
+        view = self._client(username=username).location(device_id=device_id)
+        return map_device_location(view)
 
     def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
-        return dict(self._get_device(username=username, device_id=device_id).status())
+        view = self._client(username=username).status(device_id=device_id)
+        return map_device_status(view)
 
     def play_sound(self, *, username: str, device_id: str, subject: str) -> None:
-        self._get_device(username=username, device_id=device_id).play_sound(subject=subject)
+        self._client(username=username).play_sound(device_id=device_id, subject=subject)
 
     def display_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
-        self._get_device(username=username, device_id=device_id).display_message(
+        self._client(username=username).display_message(
+            device_id=device_id,
             subject=subject,
             message=message,
             sounds=sounds,
@@ -71,7 +50,8 @@ class DevicesServiceAdapter(LegacyServicesAdapterBase, DeviceServicePort):
         text: str,
         newpasscode: str,
     ) -> None:
-        self._get_device(username=username, device_id=device_id).lost_device(
+        self._client(username=username).lost_mode(
+            device_id=device_id,
             number=number,
             text=text,
             newpasscode=newpasscode,
