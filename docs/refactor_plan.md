@@ -17,7 +17,7 @@
 - Token persistence: file store + env override.
 - Vertical tests: in-process ASGI only; no iCloud network calls.
 - Legacy removal boundary: core auth/session/endpoint legacy first; service internals migrate incrementally.
-- Observability query scope: PromQL (accept `pronql` alias at API/CLI boundary), TraceQL, and LogQL.
+- Observability query scope: PromQL, TraceQL, and LogQL.
 - Observability backend policy: project must run without observability dependencies via `null` adapters; `otel` adapter remains optional.
 
 ## Phase Board
@@ -483,7 +483,7 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
 - [x] Expose API + CLI surfaces:
   - [x] Add `/v1/observability/promql`, `/v1/observability/traceql`, `/v1/observability/logql` endpoints.
   - [x] Add request/response schemas under `pyicloud/api/schemas/`.
-  - [x] Accept `pronql` as an alias in API/CLI inputs and normalize to `promql`.
+  - [x] Keep canonical API/CLI query language names (`promql`, `traceql`, `logql`) with no misspelled alias support.
   - [x] Add `icloud observability promql|traceql|logql` subcommands.
 - [x] Add deterministic test coverage:
   - [x] Unit: null adapter behavior, otel adapter configuration/errors, query request normalization.
@@ -507,7 +507,7 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
   - Added observability ports/contracts and domain query errors with skill-aligned port docstrings.
   - Added default `null` adapter and optional `otel` adapter with lazy OTel imports and fail-fast dependency check when explicitly selected.
   - Wired `ObservabilityApi` into FastAPI app factory with adapter mode/env configuration.
-  - Added `/v1/observability/{promql|traceql|logql}` plus `/v1/observability/pronql` alias and CLI commands `icloud observability promql|traceql|logql` plus hidden `pronql` alias.
+  - Added `/v1/observability/{promql|traceql|logql}` and CLI commands `icloud observability promql|traceql|logql`.
   - Added deterministic unit/vertical/integration coverage and an OTel import guardrail test.
   - Added observability documentation with setup, env vars, envelope format, and error mapping.
 - Files changed:

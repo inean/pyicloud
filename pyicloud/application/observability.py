@@ -29,8 +29,6 @@ class ObservabilityApi:
     @staticmethod
     def normalize_language(language: str) -> ObservabilityLanguage:
         clean = language.strip().lower()
-        if clean == "pronql":
-            return "promql"
         if clean in {"promql", "traceql", "logql"}:
             return clean
         raise UnsupportedQueryMode(f"Unsupported observability language: {language}")

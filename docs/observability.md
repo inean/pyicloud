@@ -35,7 +35,6 @@ uv sync --extra otel
 - `POST /v1/observability/promql`
 - `POST /v1/observability/traceql`
 - `POST /v1/observability/logql`
-- Alias: `POST /v1/observability/pronql` (normalized to `promql`)
 
 Request body:
 
@@ -74,4 +73,3 @@ Response envelope:
 - `icloud observability promql --query 'up'`
 - `icloud observability traceql --query '{ duration > 1s }' --start 1710000000 --end 1710000600 --step 1m`
 - `icloud observability logql --query '{service="api"}'`
-- Alias: `icloud observability pronql --query 'up'`

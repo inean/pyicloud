@@ -85,11 +85,6 @@ def _print_json(payload: Any) -> None:
     click.echo(json.dumps(payload, indent=2, sort_keys=True, default=str))
 
 
-def _normalize_observability_language(language: str) -> str:
-    clean = language.strip().lower()
-    return "promql" if clean == "pronql" else clean
-
-
 async def _observability_query(
     *,
     ctx: click.Context,
@@ -119,7 +114,7 @@ async def _observability_query(
     data = await _api_request(
         api_url=ctx.obj["api_url"],
         method="POST",
-        route=f"/v1/observability/{_normalize_observability_language(language)}",
+        route=f"/v1/observability/{language.strip().lower()}",
         token=token,
         json_body=payload,
     )
@@ -735,32 +730,6 @@ async def observability_promql(
     await _observability_query(
         ctx=ctx,
         language="promql",
-        query=query,
-        source=source,
-        start=start,
-        end=end,
-        step=step,
-    )
-
-
-@observability.command("pronql", hidden=True)
-@click.option("--query", required=True)
-@click.option("--source", default="", show_default=False)
-@click.option("--start", type=int, default=None, show_default=False)
-@click.option("--end", type=int, default=None, show_default=False)
-@click.option("--step", default="", show_default=False)
-@click.pass_context
-async def observability_pronql(
-    ctx: click.Context,
-    query: str,
-    source: str,
-    start: int | None,
-    end: int | None,
-    step: str,
-) -> None:
-    await _observability_query(
-        ctx=ctx,
-        language="pronql",
         query=query,
         source=source,
         start=start,

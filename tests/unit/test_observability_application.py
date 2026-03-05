@@ -12,24 +12,24 @@ def _build_service() -> ObservabilityApi:
     return ObservabilityApi(promql=adapter, traceql=adapter, logql=adapter)
 
 
-def test_observability_language_normalization_accepts_pronql_alias() -> None:
-    assert ObservabilityApi.normalize_language("pronql") == "promql"
+def test_observability_language_normalization_accepts_promql() -> None:
+    assert ObservabilityApi.normalize_language("promql") == "promql"
 
 
 def test_observability_language_normalization_rejects_unknown_language() -> None:
     with pytest.raises(UnsupportedQueryMode):
         ObservabilityApi.normalize_language("sql")
+    with pytest.raises(UnsupportedQueryMode):
+        ObservabilityApi.normalize_language("pronql")
 
 
 def test_observability_application_routes_instant_query() -> None:
     service = _build_service()
 
     promql = service.instant_query(language="promql", query="up")
-    pronql = service.instant_query(language="pronql", query="up")
     traceql = service.instant_query(language="traceql", query='{ trace_id != "" }')
 
     assert promql["language"] == "promql"
-    assert pronql["language"] == "promql"
     assert traceql["language"] == "traceql"
 
 

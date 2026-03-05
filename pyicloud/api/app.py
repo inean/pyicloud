@@ -479,14 +479,6 @@ def create_app(
     ) -> ObservabilityQueryResponse:
         return _run_observability_query(language="promql", payload=payload, service=service)
 
-    @app.post("/v1/observability/pronql", response_model=ObservabilityQueryResponse)
-    def observability_pronql(
-        payload: ObservabilityQueryRequest,
-        username: str = Depends(_get_username),  # noqa: ARG001
-        service: ObservabilityApi = Depends(get_observability_service),
-    ) -> ObservabilityQueryResponse:
-        return _run_observability_query(language="pronql", payload=payload, service=service)
-
     @app.post("/v1/observability/traceql", response_model=ObservabilityQueryResponse)
     def observability_traceql(
         payload: ObservabilityQueryRequest,

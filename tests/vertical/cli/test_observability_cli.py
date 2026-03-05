@@ -90,8 +90,8 @@ async def test_cli_observability_commands(app, monkeypatch: pytest.MonkeyPatch, 
             "up",
         ],
     )
-    assert pronql.exit_code == 0
-    assert json.loads(pronql.output)["language"] == "promql"
+    assert pronql.exit_code != 0
+    assert "No such command 'pronql'" in pronql.output
 
     logql_range = await runner.invoke(
         main,

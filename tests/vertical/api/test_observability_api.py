@@ -15,7 +15,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
 
 
 @pytest.mark.asyncio
-async def test_observability_api_default_null_adapter_and_alias(app):
+async def test_observability_api_default_null_adapter(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         headers = await _auth_headers(client)
 
@@ -26,8 +26,7 @@ async def test_observability_api_default_null_adapter_and_alias(app):
         assert promql_payload["language"] == "promql"
 
         pronql = await client.post("/v1/observability/pronql", headers=headers, json={"query": "up"})
-        assert pronql.status_code == 200
-        assert pronql.json()["language"] == "promql"
+        assert pronql.status_code == 404
 
 
 @pytest.mark.asyncio
