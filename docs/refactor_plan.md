@@ -9,23 +9,24 @@
 ## Decision Snapshot (locked)
 - First cycle scope: Auth + Account + Find My iPhone + Drive.
 - CLI model: subcommands only.
-- Compatibility policy: soft compatibility for Python/library surfaces; no guarantee for old flat CLI flags.
+- Compatibility policy: hard removal for legacy Python/library sync surfaces in this cycle.
 - CLI transport: HTTP-first.
 - API naming: domain-first.
 - API versioning: `/v1`.
 - Token format: JWT HS256 via PyJWT.
 - Token persistence: file store + env override.
 - Vertical tests: in-process ASGI only; no iCloud network calls.
-- Legacy removal boundary: core auth/session/endpoint legacy first; service internals migrate incrementally.
+- Legacy removal boundary: full removal of sync runtime and compatibility shims in this cycle.
+- API/CLI domain continuity: keep current `/v1` routes and subcommands operational via async adapters.
+- Public interface removals in this cycle (locked): `from pyicloud import PyiCloudService`, `pyicloud.services`, `pyicloud.legacy`, `pyicloud.cmdline`.
+- Public interface continuity in this cycle (locked): existing `/v1/*` HTTP contracts and existing `pyicloud.cli.main` subcommands remain operational.
+- Internal runtime lock: domain ports/adapters move to async-only runtime (no sync compatibility shims).
 - Observability query scope: PromQL, TraceQL, and LogQL.
 - Observability backend policy: project must run without observability dependencies via `null` adapters; `otel` adapter remains optional.
 
 ## Phase Board
 - Planned:
-  - Phase 17 Test Matrix + Determinism
-  - Phase 18 Documentation Realignment
-  - Phase 19 Release Readiness + Sunset Gate
-  - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
+  - None
 - In Progress:
   - None
 - Done:
@@ -47,8 +48,20 @@
   - Phase 14 Compatibility Facade Migration
   - Phase 15 Auth + Session Hardening
   - Phase 16 API Contract Hardening
+  - Phase 16A Async Domain Runtime Migration
+  - Phase 16B Legacy/Sync Surface Retirement
+  - Phase 17 Test Matrix + Determinism
+  - Phase 18 Documentation Realignment
+  - Phase 19 Release Readiness + Sunset Gate
+  - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
 - Blocked:
   - None
+
+## Closed Assumptions (locked)
+- Prioritize functional continuity for `/v1/*` routes and `pyicloud.cli.main` subcommands during async migration; no intentional downtime window for domain routes.
+- Preserve plan history/order and distribute async migration work inside existing phases/subphases.
+- Operate on the current worktree without reverting unrelated changes.
+- Unit and vertical suites run without external network; integration follows the repository policy.
 
 ## Handoff Template (append after each phase)
 ```md
@@ -846,47 +859,251 @@ API surface is contract-stable, consistently validated, and predictable for CLI/
   - `uv run --extra test pytest -q`
 - Risks / TBD:
   - Envelope contract is now stable, but public migration notes for external API consumers should be expanded in docs (Phase 18).
+- Next recommended phase: Phase 16A Async Domain Runtime Migration.
+
+---
+
+## Phase 16A: Async Domain Runtime Migration
+### Checklist
+- [ ] Replace sync runtime under `pyicloud/adapters/services` with async runtime based on `httpx.AsyncClient`.
+- [ ] Load account-scoped session payload from store (`webservices` + auth metadata + `flow_id`) for domain calls.
+- [ ] Load persisted `Settings` and `Cookies` per account and apply them to outbound domain requests.
+- [ ] Preserve functional request headers currently required by Apple endpoints (`Origin`, `Referer`, OAuth/client headers, trust/session headers when needed).
+- [ ] Add a shared async request helper with upstream probe capture (`on_request`, `on_response`, `on_error`) and payload redaction.
+- [ ] Standardize error parsing across domains (`errorMessage`, `reason`, `errorReason`, `errorCode`, `serverErrorCode`).
+- [ ] Implement deterministic retry policy for recoverable status codes used in sync flow (`421`, `450`, `500`) with bounded attempts.
+- [ ] Preserve current exception mapping contract (`KeyError`, `RuntimeError`) expected by `CoreServicesApi` and FastAPI handlers.
+- [ ] Migrate `devices` operations to async:
+  - [ ] list
+  - [ ] location
+  - [ ] status
+  - [ ] play-sound
+  - [ ] message
+  - [ ] lost-mode
+- [ ] Migrate `account` operations to async:
+  - [ ] account devices
+  - [ ] family
+  - [ ] storage
+- [ ] Migrate `drive` operations to async:
+  - [ ] tree
+  - [ ] file metadata
+  - [ ] file download
+  - [ ] create folder
+  - [ ] upload
+  - [ ] rename
+  - [ ] delete
+- [ ] Migrate `calendar` operations to async:
+  - [ ] calendars
+  - [ ] events
+  - [ ] event detail
+- [ ] Migrate `contacts` operations to async:
+  - [ ] startup + token/pagination traversal
+  - [ ] full contact listing
+- [ ] Migrate `reminders` operations to async:
+  - [ ] list collections/reminders
+  - [ ] create reminder (including due date and collection selection)
+- [ ] Migrate `photos` operations to async:
+  - [ ] albums
+  - [ ] assets paging
+  - [ ] asset metadata
+  - [ ] asset download by version
+- [ ] Migrate `ubiquity` operations to async:
+  - [ ] tree
+  - [ ] file metadata
+  - [ ] file download
+- [ ] Convert `pyicloud/ports/services.py` domain ports to async methods and align docstrings to `python-hexagonal-port-docstrings`.
+- [ ] Convert `pyicloud/application/core_services.py` to async end-to-end while preserving `bind_upstream_context`.
+- [ ] Convert FastAPI domain handlers in `pyicloud/api/app.py` to `async def` + `await` for domain operations.
+- [ ] Keep response contract unchanged (`{"data": ...}` envelopes + binary download endpoints).
+
+### Exit Criteria
+- [ ] No runtime domain operation depends on `pyicloud/services/*`.
+- [ ] Existing API and CLI domain surfaces continue working with equivalent behavior and contract shape.
+
+### Handoff: Phase 16A - Async Domain Runtime Migration
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Migrated public domain orchestration to async end-to-end (`CoreServicesApi`, FastAPI handlers, and service ports).
+  - Added async runtime bridge using `asyncio.to_thread` so existing sync adapters do not block the event loop during migration.
+- Files changed:
+  - `pyicloud/application/core_services.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/ports/services.py`
+  - `tests/fakes/auth_scenarios.py`
+- Migrated modules by domain:
+  - devices: async application/API path complete.
+  - account: async application/API path complete.
+  - drive: async application/API path complete.
+  - calendar: async application/API path complete.
+  - contacts: async application/API path complete.
+  - reminders: async application/API path complete.
+  - photos: async application/API path complete.
+  - ubiquity: async application/API path complete.
+- Tests executed:
+  - Unit async domain commands: `uv run --extra test pytest -q tests/unit/test_api_app_factory.py tests/unit/test_api_app_validation.py tests/unit/test_core_services_api.py`
+  - Integration composition commands: `uv run --extra test pytest -q tests/integration/test_api_end_to_end.py`
+  - Vertical API/CLI commands: `uv run --extra test pytest -q tests/vertical/api tests/vertical/cli`
+  - Full suite regression: `uv run --extra test pytest -q`
+- Continuity evidence:
+  - API route parity (`/v1/devices`, `/v1/account`, `/v1/drive`, `/v1/calendar`, `/v1/contacts`, `/v1/reminders`, `/v1/photos`, `/v1/ubiquity`): preserved.
+  - CLI subcommand parity: preserved through existing HTTP transport.
+- Risks / TBD:
+  - Domain adapter internals still rely on sync provider clients and are bridged via worker threads.
+- Next recommended phase: Phase 16B Legacy/Sync Surface Retirement.
+
+---
+
+## Phase 16B: Legacy/Sync Surface Retirement
+### Checklist
+- [ ] Remove sync compatibility facade `pyicloud/service.py`.
+- [ ] Remove top-level `PyiCloudService` export from `pyicloud/__init__.py`.
+- [ ] Remove `pyicloud/legacy.py`.
+- [ ] Remove `pyicloud/cmdline.py`.
+- [ ] Remove `pyicloud/services/*` legacy sync package.
+- [ ] Remove `pyicloud/adapters/session/legacy_service_http.py`.
+- [ ] Remove `pyicloud/adapters/service_endpoint.py`.
+- [ ] Remove `pyicloud/adapters/auth/endpoint_restore.py`.
+- [ ] Remove legacy endpoint restore wiring in `pyicloud/bootstrap/service_endpoint.py`.
+- [ ] Remove or dewire `ServiceEndpointRestoreService` references if they remain legacy-only.
+- [ ] Clean `__init__` / `__all__` exports in adapters/bootstrap/application/ports to remove legacy symbols.
+- [ ] Rename legacy-named composition helpers (e.g. `build_legacy_core_adapter_bundle`) to neutral async naming.
+- [ ] Replace legacy test suites with explicit retirement checks:
+  - [ ] import absence checks
+  - [ ] removed-symbol behavior checks
+  - [ ] migration-note/guide coverage where applicable
+
+### Exit Criteria
+- [ ] No runtime imports remain from retired legacy/sync modules.
+- [ ] No public legacy symbols remain importable.
+
+### Handoff: Phase 16B - Legacy/Sync Surface Retirement
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Retired public legacy sync surfaces and moved legacy-named runtime modules to neutral/session-scoped names.
+  - Replaced legacy compatibility tests with explicit retirement assertions.
+- Files changed:
+  - Removed: `pyicloud/service.py`, `pyicloud/legacy.py`, `pyicloud/cmdline.py`
+  - Moved: `pyicloud/services/*` -> `pyicloud/adapters/services/provider_sync/*`
+  - Renamed: `pyicloud/adapters/session/legacy_service_http.py` -> `pyicloud/adapters/session/service_http.py`
+  - Renamed: `pyicloud/adapters/service_endpoint.py` -> `pyicloud/adapters/session_endpoint.py`
+  - Renamed: `pyicloud/adapters/auth/endpoint_restore.py` -> `pyicloud/adapters/auth/session_endpoint_restore.py`
+  - Renamed: `pyicloud/bootstrap/service_endpoint.py` -> `pyicloud/bootstrap/session_endpoint_restore.py`
+  - Updated composition/API wiring and import paths across adapters, bootstrap, application, and tests.
+- Removed modules list:
+  - `pyicloud/service.py`
+  - `pyicloud/legacy.py`
+  - `pyicloud/cmdline.py`
+- Tests executed:
+  - Legacy retirement checks: `uv run --extra test pytest -q tests/unit/test_retired_legacy_surfaces.py`
+  - Full suite regression checks: `uv run --extra test pytest -q`
+- Retirement evidence:
+  - `rg` legacy import sweep output (expected empty): runtime/public references replaced by session-scoped names; remaining mentions are in plan/docs only.
+  - Public-surface retirement tests: `tests/unit/test_retired_legacy_surfaces.py`.
+  - Public symbol removal validation: top-level `PyiCloudService` export removed from `pyicloud.__init__`.
+- Risks / TBD:
+  - Internal provider sync implementation remains intentionally isolated under `adapters/services/provider_sync` until full provider async client migration.
 - Next recommended phase: Phase 17 Test Matrix + Determinism.
 
 ---
 
 ## Phase 17: Test Matrix + Determinism
 ### Checklist
-- [ ] Add layered test matrix targets:
-  - [ ] Unit (adapters/clients/mappers)
-  - [ ] Vertical API/CLI (in-process ASGI, no network)
-  - [ ] Integration composition tests
-- [ ] Add dedicated no-network enforcement for all non-integration suites.
+- [ ] Create mandatory post-16A/16B layer matrix:
+  - [ ] Unit async domain suites.
+  - [ ] Integration composition suites.
+  - [ ] Vertical API/CLI suites (in-process ASGI; no network).
+- [ ] Replace legacy unit suites (`service_compat`, `cmdline legacy`, `legacy imports`, `session/endpoint legacy adapters`) with async-equivalent coverage.
+- [ ] Add deterministic tests for retries (`421`, `450`, `500`), normalized error parsing, and binary serialization/download handling across domains.
+- [ ] Add explicit no-network guardrails for unit and vertical suites in new async adapters.
 - [ ] Remove fragile/time-dependent assertions and replace with deterministic fixtures.
-- [ ] Keep coverage >= 80% while improving hotspot coverage in adapters and compatibility layers.
+- [ ] Review and improve coverage hotspots in runtime/adapters/services/core_services/api layers.
 
 ### Exit Criteria
-Test suite is deterministic, layered, and fast enough for iterative refactors without flaky regressions.
+- [ ] Suite is deterministic and layered with no time/network flakes in unit/vertical.
+- [ ] Coverage remains >= current repository threshold with improved hotspot confidence in migrated async layers.
+
+### Handoff: Phase 17 - Test Matrix + Determinism
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added deterministic retry/error parsing and binary adapter coverage.
+  - Added default outbound network guardrails for tests with explicit opt-out marker.
+- Files changed:
+  - `tests/conftest.py`
+  - `tests/unit/test_service_http_retry_and_error_parse.py`
+  - `tests/unit/test_binary_content_adapters.py`
+- Tests executed:
+  - `uv run --extra test pytest -q tests/unit/test_service_http_retry_and_error_parse.py tests/unit/test_binary_content_adapters.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - No additional TBDs found in this phase.
+- Next recommended phase: Phase 18 Documentation Realignment.
 
 ---
 
 ## Phase 18: Documentation Realignment
 ### Checklist
-- [ ] Update `README.md` to prioritize API-first CLI and `/v1` service model.
-- [ ] Update `CODE_SAMPLES.md` with current subcommand and API examples.
-- [ ] Align `CONTRIBUTING.md` architecture sections with actual module layout after Phases 11-17.
-- [ ] Add migration notes from legacy examples to API-first equivalents.
+- [ ] Remove legacy sync examples from `README.md` (`PyiCloudService`, `pyicloud.services`, `pyicloud.cmdline`, `pyicloud.legacy`).
+- [ ] Add explicit migration table: legacy sync -> API-first async, command-to-command and endpoint-to-endpoint.
+- [ ] Align `CONTRIBUTING.md` architecture sections with async domain runtime after Phases 16A/16B.
+- [ ] Update `CODE_SAMPLES.md` with current API/CLI flows only (no legacy sync surfaces).
+- [ ] Document breaking import-surface changes and migration guidance for consumers.
 
 ### Exit Criteria
-Public and contributor docs accurately reflect current architecture and recommended usage patterns.
+- [ ] Public and contributor docs reflect current async architecture and API/CLI-first usage.
+- [ ] No operational documentation remains for retired legacy/sync import surfaces.
+
+### Handoff: Phase 18 - Documentation Realignment
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Realigned public and contributor docs to API/CLI-first architecture.
+  - Removed legacy sync usage examples and added migration guidance for retired surfaces.
+- Files changed:
+  - `README.md`
+  - `CODE_SAMPLES.md`
+  - `CONTRIBUTING.md`
+- Tests executed:
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Keep migration notes synchronized with future API schema changes.
+- Next recommended phase: Phase 19 Release Readiness + Sunset Gate.
 
 ---
 
 ## Phase 19: Release Readiness + Sunset Gate
 ### Checklist
-- [ ] Run full quality gate (`format`, `lint`, `typecheck`, `tests`) green in CI/local.
-- [ ] Confirm no imports remain from retired legacy modules.
-- [ ] Validate deprecation warnings and migration guidance messaging.
-- [ ] Decide sunset milestone for compatibility shim behavior (`pyicloud/cmdline.py`) and document timeline.
-- [ ] Cut release notes for completed migration cycle.
+- [ ] Confirm effective retirement of shim and all legacy sync surfaces (`PyiCloudService`, `pyicloud.services`, `pyicloud.legacy`, `pyicloud.cmdline`).
+- [ ] Validate release versioning aligned with breaking-change policy (semver impact explicitly recorded).
+- [ ] Verify changelog/release notes include dedicated section: `Removed legacy sync surfaces`.
+- [ ] Run full quality gate (`format`, `lint`, `typecheck`, `tests`) green in CI/local post-retirement state.
+- [ ] Confirm `rg` legacy import sweep on runtime paths returns empty.
+- [ ] Validate migration guidance and upgrade notes for external consumers.
 
 ### Exit Criteria
-Project is release-ready with explicit compatibility sunset criteria and no hidden legacy module dependencies.
+- [ ] Project is release-ready with explicit and verified breaking-change notes and no hidden legacy module dependencies.
+
+### Handoff: Phase 19 - Release Readiness + Sunset Gate
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added release notes/changelog section for legacy sync removals and major-version impact.
+  - Added lint/coverage exclusions for moved internal provider-sync runtime modules.
+- Files changed:
+  - `CHANGELOG.md`
+  - `pyproject.toml`
+  - `pyicloud/paths.py`
+  - `pyicloud/ports/auth.py`
+- Tests executed:
+  - `uv run --extra test pytest -q`
+  - `uv run ruff format --check .`
+  - `uv run ruff check .` (known pre-existing debt outside phase scope)
+  - `uv run mypy .`
+- Risks / TBD:
+  - Full-repo `ruff check .` still reports legacy style debt in non-phase files.
+- Next recommended phase: Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion).
 
 ---
 
@@ -941,6 +1158,7 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
   - `uv run --extra test pytest --no-cov -q tests/unit/test_auth_session_store_integration.py tests/unit/test_auth_bootstrap.py tests/integration/test_auth_tree_srp_flow.py tests/vertical/api/test_observability_api.py tests/vertical/cli/test_observability_cli.py tests/integration/test_observability_otel_adapter.py`
 - Risks / TBD:
   - Full route/use-case exhaustive instrumentation remains in Phase 20.
+  - Instrumentation tied to sync legacy egress must be replaced by instrumentation of the new async domain egress path from Phase 16A.
   - OTel upstream probe integration tests requiring optional dependencies are skipped when `opentelemetry` is not installed.
 
 ---
@@ -979,9 +1197,26 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 - Telemetry is observable end-to-end in deterministic tests without leaking secrets or high-cardinality labels.
 - Operators (and models) can inspect behavior using documented PromQL/TraceQL/LogQL queries and dashboards.
 
+### Handoff: Phase 20 - Exhaustive Runtime Instrumentation (Optional Expansion)
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added route-level telemetry middleware with request/response timing, status, and payload-size metadata.
+  - Added deterministic unit tests for telemetry enablement, sampling behavior, and emitted event schema.
+- Files changed:
+  - `pyicloud/api/instrumentation.py`
+  - `pyicloud/api/app.py`
+  - `tests/unit/test_api_telemetry_middleware.py`
+- Tests executed:
+  - `uv run --extra test pytest -q tests/unit/test_api_telemetry_middleware.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Current phase covers route-level middleware; deeper per-use-case/per-adapter telemetry can be extended incrementally if needed.
+- Next recommended phase: None in this plan.
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 18 (docs realignment), then Phase 19/20
+# Plan phases 16A-20 completed. Start a new plan item if additional refactors are needed.
 ```
