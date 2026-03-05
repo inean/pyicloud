@@ -20,11 +20,14 @@ from pyicloud.models.fields import (
     SessionTokenType,
     SiteCookieType,
     TrustTokenType,
+    XAppleClientIdType,
     XAppleDsWebSessionTokenType,
     XAppleWebauthHsaTrustType,
+    XAppleWebauthLoginType,
     XAppleWebauthTokenType,
     XAppleWebauthUserType,
     XAppleWebauthValidateType,
+    XAppleWebKBType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
@@ -104,10 +107,13 @@ class AccountLoginResponseHeaders(HeadersModel): ...
 
 
 class AccountLoginResponseCookies(CookiesModel):
+    client_id: XAppleClientIdType | None = None
     webauth_hsa_trust: XAppleWebauthHsaTrustType | None = None
+    webauth_login: XAppleWebauthLoginType | None = None
     webauth_user: XAppleWebauthUserType | None = None
     webauth_token: XAppleWebauthTokenType | None = None
     webauth_validate: XAppleWebauthValidateType | None = None
+    web_kb: XAppleWebKBType | None = None
     ds_web_session_token: XAppleDsWebSessionTokenType | None = None
 
 
