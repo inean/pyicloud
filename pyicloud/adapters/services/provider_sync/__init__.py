@@ -18,27 +18,24 @@ from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar
-from pyicloud.services.account import AccountService
-from pyicloud.services.calendar import CalendarService
-from pyicloud.services.contacts import ContactsService
-from pyicloud.services.drive import DriveService
-from pyicloud.services.findmyiphone import FindMyiPhoneServiceManager
-from pyicloud.services.photos import PhotosService
-from pyicloud.services.reminders import RemindersService
-from pyicloud.services.ubiquity import UbiquityService
+from .account import AccountService
+from .calendar import CalendarService
+from .contacts import ContactsService
+from .drive import DriveService
+from .findmyiphone import FindMyiPhoneServiceManager
+from .photos import PhotosService
+from .reminders import RemindersService
+from .ubiquity import UbiquityService
 from pyicloud.sessions import DynamicEndpoint
 from pyicloud.sessions.session import create_session
 
 
 class PyiCloudServices:
     """
-    A base authentication class for the iCloud service. Handles the
-    authentication required to access iCloud services.
+    Internal provider runtime for iCloud domain services.
 
-    Usage:
-        from pyicloud import PyiCloudService
-        pyicloud = PyiCloudService('username@apple.com', 'password')
-        pyicloud.iphone.location()
+    This class is retained for adapter/runtime compatibility and is not
+    part of the public import surface.
     """
 
     class _Proxy:

@@ -5,10 +5,10 @@ from __future__ import annotations
 import io
 from typing import Any
 
-from pyicloud.adapters.service_endpoint import LegacyServiceEndpointFactoryAdapter
+from pyicloud.adapters.services.provider_sync import PyiCloudServices
+from pyicloud.adapters.session_endpoint import LegacyServiceEndpointFactoryAdapter
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.ports import ServiceEndpointPort, SessionStorePort
-from pyicloud.services import PyiCloudServices
 from pyicloud.upstream import ensure_upstream_context
 
 
@@ -20,7 +20,7 @@ class NamedBytesIO(io.BytesIO):
         self.name = name
 
 
-class LegacyServicesRuntime:
+class ServiceRuntime:
     """Build ``PyiCloudServices`` instances from persisted endpoint payloads."""
 
     def __init__(
@@ -71,11 +71,16 @@ class LegacyServicesRuntime:
         return b"".join(chunks)
 
 
-class LegacyServicesAdapterBase:
+class ServicesAdapterBase:
     """Base adapter with shared access to legacy runtime composition."""
 
-    def __init__(self, *, runtime: LegacyServicesRuntime):
+    def __init__(self, *, runtime: ServiceRuntime):
         self._runtime = runtime
 
     def _services(self, *, username: str) -> PyiCloudServices:
         return self._runtime.services(username=username)
+
+
+# Backward-compatible aliases kept internal during retirement migration.
+LegacyServicesRuntime = ServiceRuntime
+LegacyServicesAdapterBase = ServicesAdapterBase

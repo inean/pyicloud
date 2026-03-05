@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from pyicloud.adapters.service_endpoint import LegacyServiceEndpointFactoryAdapter
+from pyicloud.adapters.session_endpoint import LegacyServiceEndpointFactoryAdapter
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.ports import ServiceEndpointPort, SessionStorePort
 

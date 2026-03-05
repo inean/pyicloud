@@ -11,7 +11,7 @@ from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
 from pyicloud.ports import ServiceEndpointPort
 
-from .session.legacy_service_http import LegacyServiceSessionAdapter
+from .session.service_http import LegacyServiceSessionAdapter
 
 
 class LegacyServiceEndpointAdapter:

@@ -2,14 +2,14 @@
 
 from .account import AccountServiceAdapter
 from .calendar import CalendarServiceAdapter
-from .composition import LegacyCoreAdapterBundle, build_legacy_core_adapter_bundle
+from .composition import CoreAdapterBundle, build_core_adapter_bundle
 from .contacts import ContactsServiceAdapter
 from .devices import DevicesServiceAdapter
 from .drive import DriveServiceAdapter
 from .legacy_core import LegacyCoreServicesAdapter
 from .photos import PhotosServiceAdapter
 from .reminders import RemindersServiceAdapter
-from .runtime import LegacyServicesRuntime
+from .runtime import ServiceRuntime
 from .ubiquity import UbiquityServiceAdapter
 
 __all__ = [
@@ -18,11 +18,11 @@ __all__ = [
     "ContactsServiceAdapter",
     "DevicesServiceAdapter",
     "DriveServiceAdapter",
-    "LegacyCoreAdapterBundle",
+    "CoreAdapterBundle",
     "LegacyCoreServicesAdapter",
-    "LegacyServicesRuntime",
+    "ServiceRuntime",
     "PhotosServiceAdapter",
     "RemindersServiceAdapter",
     "UbiquityServiceAdapter",
-    "build_legacy_core_adapter_bundle",
+    "build_core_adapter_bundle",
 ]

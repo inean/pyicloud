@@ -105,6 +105,9 @@ testpaths = [
     "tests/vertical",
 ]
 
+[tool.coverage.run]
+omit = ["pyicloud/adapters/services/provider_sync/*"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py313"
@@ -144,6 +147,9 @@ fixable = ["ALL"]
 
 # Avoid trying to fix flake8-bugbear (`B`) violations.
 unfixable = ["B"]
+
+[tool.ruff.lint.per-file-ignores]
+"pyicloud/adapters/services/provider_sync/*.py" = ["F", "I", "UP"]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = false

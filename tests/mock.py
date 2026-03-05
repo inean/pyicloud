@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 import re
 from collections import OrderedDict
-from typing import Callable
+from collections.abc import Callable
 
 import httpx
 
+from pyicloud.adapters.services.provider_sync import PyiCloudServices
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.models.settings import Settings
-from pyicloud.services import PyiCloudServices
 
 from .const import (
     AUTHENTICATED_USER,

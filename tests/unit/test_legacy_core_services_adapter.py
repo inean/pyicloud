@@ -14,7 +14,7 @@ from pyicloud.adapters.services import (
     DriveServiceAdapter,
     LegacyCoreServicesAdapter,
     RemindersServiceAdapter,
-    build_legacy_core_adapter_bundle,
+    build_core_adapter_bundle,
     legacy_core,
 )
 from pyicloud.adapters.services import (
@@ -377,8 +377,8 @@ def test_decomposed_adapters_cover_devices_account_drive_calendar_contacts_remin
     assert reminders_adapter.create_reminder(username="user@example.com", title="Task")
 
 
-def test_build_legacy_core_adapter_bundle_shares_runtime_instance():
-    bundle = build_legacy_core_adapter_bundle(
+def test_build_core_adapter_bundle_shares_runtime_instance():
+    bundle = build_core_adapter_bundle(
         session_store=SimpleNamespace(
             load=lambda username: {"webservices": {"findme": {"url": "https://example.test"}}}
         ),
