@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, Path, Query, 
 from fastapi.responses import StreamingResponse
 
 from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
-from pyicloud.adapters.services import LegacyCoreServicesAdapter
+from pyicloud.adapters.services import build_legacy_core_adapter_bundle
 from pyicloud.adapters.session import InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.application.api_auth import AuthApiService
@@ -58,16 +58,16 @@ def _build_default_auth_service() -> AuthApiService:
 
 
 def _build_default_core_services() -> CoreServicesApi:
-    adapter = LegacyCoreServicesAdapter()
+    adapters = build_legacy_core_adapter_bundle()
     return CoreServicesApi(
-        devices=adapter,
-        accounts=adapter,
-        drive=adapter,
-        calendars=adapter,
-        contacts=adapter,
-        reminders=adapter,
-        photos=adapter,
-        ubiquity=adapter,
+        devices=adapters.devices,
+        accounts=adapters.accounts,
+        drive=adapters.drive,
+        calendars=adapters.calendars,
+        contacts=adapters.contacts,
+        reminders=adapters.reminders,
+        photos=adapters.photos,
+        ubiquity=adapters.ubiquity,
     )
 
 

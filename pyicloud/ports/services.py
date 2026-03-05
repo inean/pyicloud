@@ -18,7 +18,7 @@ class DeviceServicePort(Protocol):
         Implementations map provider responses and action commands into stable
         domain structures consumed by API use-cases and CLI workflows.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: DevicesServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
@@ -112,7 +112,7 @@ class AccountServicePort(Protocol):
         Implementations translate provider account payloads into domain mappings
         used by API responses and CLI presentation layers.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: AccountServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
@@ -160,7 +160,7 @@ class DriveServicePort(Protocol):
         Implementations translate domain path/action intent into provider calls and
         map drive node metadata and content back to stable domain responses.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: DriveServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def tree(self, *, username: str, path: str) -> Mapping[str, Any]:
@@ -259,7 +259,7 @@ class CalendarServicePort(Protocol):
         Implementations map provider calendar/event payloads into stable
         structures that API and CLI layers can present consistently.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: CalendarServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
@@ -314,7 +314,7 @@ class ContactsServicePort(Protocol):
         Implementations map provider contact payloads into stable domain mappings
         consumed by API responses and CLI output.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: ContactsServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
@@ -340,7 +340,7 @@ class RemindersServicePort(Protocol):
         Implementations map reminder list/create intents to provider calls and
         normalize provider responses into stable domain structures.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: RemindersServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def reminder_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
@@ -385,7 +385,7 @@ class PhotosServicePort(Protocol):
         Implementations map domain photo library queries to provider calls and
         normalize album, asset metadata, and binary content to stable outputs.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: PhotosServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
@@ -461,7 +461,7 @@ class UbiquityServicePort(Protocol):
         Implementations map domain path reads to provider node lookups and
         normalize node metadata and file bytes to stable API outputs.
 
-    Implemented by: LegacyCoreServicesAdapter
+    Implemented by: UbiquityServiceAdapter, LegacyCoreServicesAdapter
     """
 
     def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:

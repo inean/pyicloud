@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 11 Core Adapter Decomposition
   - Phase 12 Typed Domain Clients I
   - Phase 13 Typed Domain Clients II
   - Phase 14 Compatibility Facade Migration
@@ -47,6 +46,7 @@
   - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
   - Phase 10A Observability Query Abstraction (PromQL/TraceQL/LogQL)
+  - Phase 11 Core Adapter Decomposition
 - Blocked:
   - None
 
@@ -545,21 +545,55 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
 
 ## Phase 11: Core Adapter Decomposition
 ### Checklist
-- [ ] Split `LegacyCoreServicesAdapter` into domain adapters:
-  - [ ] `DevicesServiceAdapter`
-  - [ ] `AccountServiceAdapter`
-  - [ ] `DriveServiceAdapter`
-  - [ ] `CalendarServiceAdapter`
-  - [ ] `ContactsServiceAdapter`
-  - [ ] `RemindersServiceAdapter`
-  - [ ] `PhotosServiceAdapter`
-  - [ ] `UbiquityServiceAdapter`
-- [ ] Introduce a thin composition root that wires adapters without domain logic.
-- [ ] Keep existing API/CLI behavior unchanged while replacing internals.
-- [ ] Add/expand unit tests per adapter module and shared helper coverage.
+- [x] Split `LegacyCoreServicesAdapter` into domain adapters:
+  - [x] `DevicesServiceAdapter`
+  - [x] `AccountServiceAdapter`
+  - [x] `DriveServiceAdapter`
+  - [x] `CalendarServiceAdapter`
+  - [x] `ContactsServiceAdapter`
+  - [x] `RemindersServiceAdapter`
+  - [x] `PhotosServiceAdapter`
+  - [x] `UbiquityServiceAdapter`
+- [x] Introduce a thin composition root that wires adapters without domain logic.
+- [x] Keep existing API/CLI behavior unchanged while replacing internals.
+- [x] Add/expand unit tests per adapter module and shared helper coverage.
 
 ### Exit Criteria
 No monolithic core adapter remains; domain adapters are independently testable and behavior parity is preserved.
+
+### Handoff: Phase 11 - Core Adapter Decomposition
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Extracted domain adapters into dedicated modules (`devices`, `account`, `drive`, `calendar`, `contacts`, `reminders`, `photos`, `ubiquity`) with a shared legacy runtime.
+  - Converted `LegacyCoreServicesAdapter` into a thin compatibility facade that composes the shared runtime and inherits domain adapter behavior.
+  - Added explicit composition root `build_legacy_core_adapter_bundle` and rewired API app factory to inject per-domain adapters into `CoreServicesApi`.
+  - Updated port documentation `Implemented by` references to reflect decomposed adapters.
+  - Expanded unit coverage to validate runtime restoration behavior plus decomposed adapter/composition behavior.
+- Files changed:
+  - `pyicloud/adapters/services/runtime.py`
+  - `pyicloud/adapters/services/devices.py`
+  - `pyicloud/adapters/services/account.py`
+  - `pyicloud/adapters/services/drive.py`
+  - `pyicloud/adapters/services/calendar.py`
+  - `pyicloud/adapters/services/contacts.py`
+  - `pyicloud/adapters/services/reminders.py`
+  - `pyicloud/adapters/services/photos.py`
+  - `pyicloud/adapters/services/ubiquity.py`
+  - `pyicloud/adapters/services/composition.py`
+  - `pyicloud/adapters/services/legacy_core.py`
+  - `pyicloud/adapters/services/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/ports/services.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_drive_api.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Adapter-specific unit suites can still grow (particularly devices/drive/reminders edge cases) to increase hotspot confidence.
+- Next recommended phase: Phase 12 Typed Domain Clients I.
 
 ---
 
@@ -714,5 +748,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 11 from docs/refactor_plan.md
+# Continue Phase 12 from docs/refactor_plan.md
 ```
