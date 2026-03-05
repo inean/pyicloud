@@ -15,14 +15,14 @@ from .runtime import LegacyServicesAdapterBase
 class AccountServiceAdapter(LegacyServicesAdapterBase, AccountServicePort):
     """Map account operations to the account service port contract."""
 
-    def _client(self, *, username: str) -> AccountClient:
+    def _account_client(self, *, username: str) -> AccountClient:
         return LegacyAccountClient(runtime=self._runtime, username=username)
 
     def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_account_device(view) for view in self._client(username=username).devices()]
+        return [map_account_device(view) for view in self._account_client(username=username).devices()]
 
     def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_account_family_member(view) for view in self._client(username=username).family()]
+        return [map_account_family_member(view) for view in self._account_client(username=username).family()]
 
     def account_storage(self, *, username: str) -> Mapping[str, Any]:
-        return map_account_storage(self._client(username=username).storage())
+        return map_account_storage(self._account_client(username=username).storage())

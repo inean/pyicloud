@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 13 Typed Domain Clients II
   - Phase 14 Compatibility Facade Migration
   - Phase 15 Auth + Session Hardening
   - Phase 16 API Contract Hardening
@@ -47,6 +46,7 @@
   - Phase 10A Observability Query Abstraction (PromQL/TraceQL/LogQL)
   - Phase 11 Core Adapter Decomposition
   - Phase 12 Typed Domain Clients I
+  - Phase 13 Typed Domain Clients II
 - Blocked:
   - None
 
@@ -647,18 +647,63 @@ Devices/account/drive flows run through typed clients and explicit mappers, with
 
 ## Phase 13: Typed Domain Clients II
 ### Checklist
-- [ ] Implement typed outbound clients for secondary domains:
-  - [ ] Calendar
-  - [ ] Contacts
-  - [ ] Reminders
-  - [ ] Photos
-  - [ ] Ubiquity
-- [ ] Add explicit binary/content handling adapters for photo and file downloads.
-- [ ] Standardize paging/filter semantics across domain client APIs.
-- [ ] Add deterministic test fixtures for each secondary client and mapper.
+- [x] Implement typed outbound clients for secondary domains:
+  - [x] Calendar
+  - [x] Contacts
+  - [x] Reminders
+  - [x] Photos
+  - [x] Ubiquity
+- [x] Add explicit binary/content handling adapters for photo and file downloads.
+- [x] Standardize paging/filter semantics across domain client APIs.
+- [x] Add deterministic test fixtures for each secondary client and mapper.
 
 ### Exit Criteria
 All service domains are backed by typed clients with deterministic coverage and consistent adapter contracts.
+
+### Handoff: Phase 13 - Typed Domain Clients II
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added typed outbound clients for `calendar`, `contacts`, `reminders`, `photos`, and `ubiquity`.
+  - Added explicit binary/content adapters for photo and ubiquity downloads.
+  - Added secondary-domain mapper modules and rewired secondary adapters to use typed clients + mappers.
+  - Standardized query semantics with shared `Pagination` and `TimeRangeFilter` models.
+  - Fixed mixin client-resolution collisions by using domain-specific client accessors in all service adapters.
+- Files changed:
+  - `pyicloud/adapters/services/clients/__init__.py`
+  - `pyicloud/adapters/services/clients/common.py`
+  - `pyicloud/adapters/services/clients/calendar.py`
+  - `pyicloud/adapters/services/clients/contacts.py`
+  - `pyicloud/adapters/services/clients/reminders.py`
+  - `pyicloud/adapters/services/clients/photos.py`
+  - `pyicloud/adapters/services/clients/ubiquity.py`
+  - `pyicloud/adapters/services/content.py`
+  - `pyicloud/adapters/services/mappers/__init__.py`
+  - `pyicloud/adapters/services/mappers/calendar.py`
+  - `pyicloud/adapters/services/mappers/contacts.py`
+  - `pyicloud/adapters/services/mappers/reminders.py`
+  - `pyicloud/adapters/services/mappers/photos.py`
+  - `pyicloud/adapters/services/mappers/ubiquity.py`
+  - `pyicloud/adapters/services/devices.py`
+  - `pyicloud/adapters/services/account.py`
+  - `pyicloud/adapters/services/drive.py`
+  - `pyicloud/adapters/services/calendar.py`
+  - `pyicloud/adapters/services/contacts.py`
+  - `pyicloud/adapters/services/reminders.py`
+  - `pyicloud/adapters/services/photos.py`
+  - `pyicloud/adapters/services/ubiquity.py`
+  - `tests/unit/test_typed_secondary_service_clients.py`
+  - `tests/unit/test_service_mappers.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run ruff check pyicloud/adapters/services tests/unit/test_typed_secondary_service_clients.py tests/unit/test_service_mappers.py tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_typed_service_clients.py tests/unit/test_typed_secondary_service_clients.py tests/unit/test_service_mappers.py tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py tests/vertical/cli/test_calendar_cli.py tests/vertical/cli/test_contacts_cli.py tests/vertical/cli/test_reminders_cli.py tests/vertical/cli/test_photos_cli.py tests/vertical/cli/test_ubiquity_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Compatibility facade migration to the new composition paths is pending (Phase 14).
+- Next recommended phase: Phase 14 Compatibility Facade Migration.
 
 ---
 
@@ -781,5 +826,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 13 from docs/refactor_plan.md
+# Continue Phase 14 from docs/refactor_plan.md
 ```
