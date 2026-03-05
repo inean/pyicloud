@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from time import time
 from typing import Any
 
@@ -12,12 +12,13 @@ from pyicloud.ports import SessionCommandPort, SessionQueryPort
 class InMemoryApiSessionStore(SessionQueryPort, SessionCommandPort):
     """Store auth challenges and token revocations in process memory."""
 
-    def __init__(self):
+    def __init__(self, *, clock: Callable[[], float] | None = None):
+        self._clock = clock or time
         self._challenges: dict[str, tuple[float, dict[str, Any]]] = {}
         self._revoked: dict[str, float] = {}
 
     def _cleanup(self) -> None:
-        now = time()
+        now = self._clock()
 
         expired_challenges = [key for key, (expires_at, _) in self._challenges.items() if expires_at <= now]
         for key in expired_challenges:
@@ -40,7 +41,7 @@ class InMemoryApiSessionStore(SessionQueryPort, SessionCommandPort):
 
     def put_challenge(self, *, challenge_id: str, payload: Mapping[str, Any], ttl_seconds: int) -> None:
         self._cleanup()
-        self._challenges[challenge_id] = (time() + ttl_seconds, dict(payload))
+        self._challenges[challenge_id] = (self._clock() + ttl_seconds, dict(payload))
 
     def delete_challenge(self, challenge_id: str) -> None:
         self._cleanup()
@@ -48,4 +49,4 @@ class InMemoryApiSessionStore(SessionQueryPort, SessionCommandPort):
 
     def revoke_token(self, *, token_id: str, ttl_seconds: int) -> None:
         self._cleanup()
-        self._revoked[token_id] = time() + ttl_seconds
+        self._revoked[token_id] = self._clock() + ttl_seconds

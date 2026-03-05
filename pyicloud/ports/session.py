@@ -54,7 +54,7 @@ class SessionQueryPort(Protocol):
         Implementations provide query access to session/challenge persistence while
         the core stays independent from storage and TTL details.
 
-    Implemented by: InMemoryApiSessionStore
+    Implemented by: InMemoryApiSessionStore, FileApiSessionStore
     """
 
     def get_challenge(self, challenge_id: str) -> Mapping[str, Any] | None:
@@ -91,7 +91,7 @@ class SessionCommandPort(Protocol):
         Implementations persist and expire mutable auth/session artifacts while
         the core remains independent from concrete storage backends.
 
-    Implemented by: InMemoryApiSessionStore
+    Implemented by: InMemoryApiSessionStore, FileApiSessionStore
     """
 
     def put_challenge(self, *, challenge_id: str, payload: Mapping[str, Any], ttl_seconds: int) -> None:

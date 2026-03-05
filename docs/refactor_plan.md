@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 15 Auth + Session Hardening
   - Phase 16 API Contract Hardening
   - Phase 17 Test Matrix + Determinism
   - Phase 18 Documentation Realignment
@@ -47,6 +46,7 @@
   - Phase 12 Typed Domain Clients I
   - Phase 13 Typed Domain Clients II
   - Phase 14 Compatibility Facade Migration
+  - Phase 15 Auth + Session Hardening
 - Blocked:
   - None
 
@@ -745,15 +745,46 @@ Compatibility facade remains functional but no longer relies on unstable legacy 
 
 ## Phase 15: Auth + Session Hardening
 ### Checklist
-- [ ] Add pluggable persistence strategy for API auth/session/challenge data:
-  - [ ] In-memory (tests/dev)
-  - [ ] File-backed durable store
-- [ ] Add token expiry, clock-skew, and invalidation edge-case coverage.
-- [ ] Harden secret handling for JWT signing key management (`env` + explicit failure on weak defaults in non-dev).
-- [ ] Add account-scoped isolation checks for multi-account local usage.
+- [x] Add pluggable persistence strategy for API auth/session/challenge data:
+  - [x] In-memory (tests/dev)
+  - [x] File-backed durable store
+- [x] Add token expiry, clock-skew, and invalidation edge-case coverage.
+- [x] Harden secret handling for JWT signing key management (`env` + explicit failure on weak defaults in non-dev).
+- [x] Add account-scoped isolation checks for multi-account local usage.
 
 ### Exit Criteria
 Auth/session flows are reliable for long-running and multi-account usage with deterministic edge-case behavior.
+
+### Handoff: Phase 15 - Auth + Session Hardening
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added pluggable API auth state persistence with `InMemoryApiSessionStore` (dev/tests) and new durable `FileApiSessionStore`.
+  - Added auth runtime backend selection env var (`PYICLOUD_API_SESSION_BACKEND=memory|file`) and file backend root control (`PYICLOUD_API_SESSION_STORE_DIR`).
+  - Hardened JWT signer with strong-secret enforcement (`enforce_strong_secret`) and clock-skew tolerance (`leeway_seconds`).
+  - Hardened auth app bootstrap to require explicit strong `PYICLOUD_API_JWT_SECRET` in non-dev runtimes and validate JWT leeway env parsing.
+  - Added account-scoped token revocation keys (`{username}:{token_id}`) to prevent cross-account invalidation collisions in shared local runtimes.
+  - Added deterministic tests for session stores, JWT skew/expiry, auth revocation isolation, and auth runtime configuration behavior.
+- Files changed:
+  - `pyicloud/adapters/session/in_memory_api_session.py`
+  - `pyicloud/adapters/session/file_api_session.py`
+  - `pyicloud/adapters/session/__init__.py`
+  - `pyicloud/adapters/token/jwt_signer.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/ports/session.py`
+  - `tests/unit/test_api_session_store.py`
+  - `tests/unit/test_api_auth_service.py`
+  - `tests/unit/test_jwt_signer.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run ruff check pyicloud/adapters/session pyicloud/adapters/token/jwt_signer.py pyicloud/application/api_auth.py pyicloud/api/app.py pyicloud/ports/session.py tests/unit/test_api_session_store.py tests/unit/test_api_auth_service.py tests/unit/test_jwt_signer.py tests/unit/test_api_app_auth_config.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_session_store.py tests/unit/test_api_auth_service.py tests/unit/test_jwt_signer.py tests/unit/test_api_app_auth_config.py tests/vertical/api/test_auth_api.py tests/vertical/cli/test_auth_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - File-backed auth state currently uses local JSON snapshots and does not provide inter-process locking guarantees.
+- Next recommended phase: Phase 16 API Contract Hardening.
 
 ---
 
@@ -847,5 +878,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 15 from docs/refactor_plan.md
+# Continue Phase 16 from docs/refactor_plan.md
 ```
