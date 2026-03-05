@@ -11,6 +11,20 @@ ACT_DEFAULT_ARGS ?= --pull=false --reuse
 
 UV ?= uv
 UV_RUN := $(UV) run
+PODMAN ?= podman
+PODMAN_COMPOSE := $(PODMAN) compose
+OBSERVABILITY_COMPOSE_FILE ?= ops/observability/docker-compose.yml
+API_HOST ?= 127.0.0.1
+API_PORT ?= 8000
+API_URL ?= http://$(API_HOST):$(API_PORT)
+API_LOG_FILE ?= /tmp/pyicloud-api.log
+UPSTREAM_ALLOWED_ENVS ?= dev,qa
+UPSTREAM_CAPTURE_BODY_MAX_BYTES ?= 16384
+OBSERVABILITY_TIMEOUT_SECONDS ?= 10
+PROMQL_ENDPOINT ?= http://127.0.0.1:9090/api/v1/query
+TRACEQL_ENDPOINT ?= http://127.0.0.1:3200/api/search
+LOGQL_ENDPOINT ?= http://127.0.0.1:3100/loki/api/v1/query
+FLOW_FORMAT ?= table
 
 # ANSI colors
 RESET := \033[0m
@@ -38,7 +52,9 @@ endef
 .PHONY: help \
 		format format-fix lint lint-fix typecheck test test-ratchet test-validate check ci \
 		build build-check clean clean-dist \
-		act act-validate act-dryrun-pytest act-pytest
+		act act-validate act-dryrun-pytest act-pytest \
+		observability-up observability-down observability-ps observability-logs api-observability-upstream \
+		auth-login auth-security-code devices-list flow-timeline auth-flow
 
 ##@ Quality
 format: ## Check formatting with Ruff
@@ -146,6 +162,106 @@ act-dryrun-pytest: act ## Dry-run unittest job with act + Podman
 
 act-pytest: ACT_ARGS=pull_request -j pytest
 act-pytest: act ## Execute unittest job with act + Podman
+
+##@ Observability
+observability-up: ## Start local Grafana/Prometheus/Tempo/Loki stack with Podman Compose
+	$(call info,Starting observability stack)
+	$(PODMAN_COMPOSE) -f $(OBSERVABILITY_COMPOSE_FILE) up -d
+	$(call ok,Observability stack started)
+
+observability-down: ## Stop and remove local observability stack
+	$(call info,Stopping observability stack)
+	$(PODMAN_COMPOSE) -f $(OBSERVABILITY_COMPOSE_FILE) down
+	$(call ok,Observability stack stopped)
+
+observability-ps: ## Show observability stack containers
+	$(call info,Listing observability services)
+	$(PODMAN_COMPOSE) -f $(OBSERVABILITY_COMPOSE_FILE) ps
+
+observability-logs: ## Tail observability stack logs (set OBS_SERVICE=<service> to filter)
+	@if [[ -n "$${OBS_SERVICE:-}" ]]; then \
+	  $(PODMAN_COMPOSE) -f $(OBSERVABILITY_COMPOSE_FILE) logs -f "$$OBS_SERVICE"; \
+	else \
+	  $(PODMAN_COMPOSE) -f $(OBSERVABILITY_COMPOSE_FILE) logs -f; \
+	fi
+
+api-observability-upstream: ## Run API in dev with upstream MITM capture + observability endpoints configured
+	$(call require_uv)
+	$(call info,Starting pyicloud API with upstream capture enabled)
+	PYICLOUD_API_ENV=dev \
+	PYICLOUD_API_HOST=$(API_HOST) \
+	PYICLOUD_API_PORT=$(API_PORT) \
+	PYICLOUD_UPSTREAM_CAPTURE_ENABLED=true \
+	PYICLOUD_UPSTREAM_PROBE_ADAPTER=otel \
+	PYICLOUD_UPSTREAM_ALLOWED_ENVS=$(UPSTREAM_ALLOWED_ENVS) \
+	PYICLOUD_UPSTREAM_CAPTURE_BODY_MAX_BYTES=$(UPSTREAM_CAPTURE_BODY_MAX_BYTES) \
+	PYICLOUD_OBSERVABILITY_ADAPTER=otel \
+	PYICLOUD_OBSERVABILITY_PROMQL_ENDPOINT=$(PROMQL_ENDPOINT) \
+	PYICLOUD_OBSERVABILITY_TRACEQL_ENDPOINT=$(TRACEQL_ENDPOINT) \
+	PYICLOUD_OBSERVABILITY_LOGQL_ENDPOINT=$(LOGQL_ENDPOINT) \
+	PYICLOUD_OBSERVABILITY_TIMEOUT_SECONDS=$(OBSERVABILITY_TIMEOUT_SECONDS) \
+	$(UV_RUN) icloud-api | tee $(API_LOG_FILE)
+
+auth-login: ## Run CLI auth login (requires APPLE_ID and APPLE_PASSWORD env vars)
+	$(call require_uv)
+	@if [[ -z "$${APPLE_ID:-}" || -z "$${APPLE_PASSWORD:-}" ]]; then \
+	  printf "$(YELLOW)Set APPLE_ID and APPLE_PASSWORD before running this target.$(RESET)\n" >&2; \
+	  exit 1; \
+	fi
+	PYICLOUD_API_URL=$(API_URL) \
+	$(UV_RUN) icloud auth login --username "$$APPLE_ID" --password "$$APPLE_PASSWORD"
+
+auth-security-code: ## Complete auth challenge (requires CHALLENGE_ID and SECURITY_CODE env vars)
+	$(call require_uv)
+	@if [[ -z "$${CHALLENGE_ID:-}" || -z "$${SECURITY_CODE:-}" ]]; then \
+	  printf "$(YELLOW)Set CHALLENGE_ID and SECURITY_CODE before running this target.$(RESET)\n" >&2; \
+	  exit 1; \
+	fi
+	PYICLOUD_API_URL=$(API_URL) \
+	$(UV_RUN) icloud auth security-code --challenge-id "$$CHALLENGE_ID" --code "$$SECURITY_CODE"
+
+devices-list: ## Run devices list against API using stored local token
+	$(call require_uv)
+	PYICLOUD_API_URL=$(API_URL) \
+	$(UV_RUN) icloud devices list
+
+flow-timeline: ## Render flow timeline (requires FLOW_ID; optional FLOW_FORMAT=table|json)
+	$(call require_uv)
+	@if [[ -z "$${FLOW_ID:-}" ]]; then \
+	  printf "$(YELLOW)Set FLOW_ID before running this target.$(RESET)\n" >&2; \
+	  exit 1; \
+	fi
+	PYICLOUD_API_URL=$(API_URL) \
+	$(UV_RUN) icloud observability flow --flow-id "$$FLOW_ID" --format "$(FLOW_FORMAT)"
+
+auth-flow: ## Execute login + optional 2FA + devices list and print FLOW_ID (requires APPLE_ID and APPLE_PASSWORD)
+	$(call require_uv)
+	@if [[ -z "$${APPLE_ID:-}" || -z "$${APPLE_PASSWORD:-}" ]]; then \
+	  printf "$(YELLOW)Set APPLE_ID and APPLE_PASSWORD before running this target.$(RESET)\n" >&2; \
+	  exit 1; \
+	fi
+	@if ! command -v jq >/dev/null 2>&1; then \
+	  printf "$(YELLOW)jq is required for auth-flow target. Install jq and retry.$(RESET)\n" >&2; \
+	  exit 1; \
+	fi
+	@set -euo pipefail; \
+	login_json="$$(PYICLOUD_API_URL=$(API_URL) $(UV_RUN) icloud auth login --username "$$APPLE_ID" --password "$$APPLE_PASSWORD")"; \
+	printf "%s\n" "$$login_json"; \
+	status="$$(printf "%s" "$$login_json" | jq -r '.status')"; \
+	flow_id="$$(printf "%s" "$$login_json" | jq -r '.flow_id // empty')"; \
+	if [[ "$$status" == "challenge_required" ]]; then \
+	  challenge_id="$$(printf "%s" "$$login_json" | jq -r '.challenge_id')"; \
+	  if [[ -z "$${SECURITY_CODE:-}" ]]; then \
+	    read -r -p "SECURITY_CODE: " security_code; \
+	  else \
+	    security_code="$$SECURITY_CODE"; \
+	  fi; \
+	  login2_json="$$(PYICLOUD_API_URL=$(API_URL) $(UV_RUN) icloud auth security-code --challenge-id "$$challenge_id" --code "$$security_code")"; \
+	  printf "%s\n" "$$login2_json"; \
+	  flow_id="$$(printf "%s" "$$login2_json" | jq -r '.flow_id // empty')"; \
+	fi; \
+	PYICLOUD_API_URL=$(API_URL) $(UV_RUN) icloud devices list; \
+	printf "FLOW_ID=%s\n" "$$flow_id"
 
 ##@ Help
 help: ## Show this help with grouped targets

@@ -29,6 +29,7 @@ from pyicloud.domain import (
     Unauthorized,
     UnsupportedQueryMode,
 )
+from pyicloud.exceptions import PyiCloudAPIResponseError
 
 from .schemas import (
     AccountStorageResponse,
@@ -161,6 +162,16 @@ def create_app(
         }
         return mapping.get(status_code, "http_error")
 
+    def _coerce_upstream_status(raw_code: str | int | None) -> int | None:
+        if raw_code is None:
+            return None
+        if isinstance(raw_code, int):
+            return raw_code
+        try:
+            return int(raw_code)
+        except (TypeError, ValueError):
+            return None
+
     @app.exception_handler(HTTPException)
     async def _http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
         details: Any | None = None
@@ -177,6 +188,22 @@ def create_app(
             }
         }
         return JSONResponse(status_code=exc.status_code, content=payload)
+
+    @app.exception_handler(PyiCloudAPIResponseError)
+    async def _pyicloud_api_error_handler(_: Request, exc: PyiCloudAPIResponseError) -> JSONResponse:
+        upstream_status = _coerce_upstream_status(exc.code)
+        detail_payload: dict[str, Any] = {
+            "message": str(exc.reason or "Upstream iCloud request failed"),
+            "upstream_status": upstream_status,
+            "upstream_reason": str(exc.reason or ""),
+            "retryable": upstream_status in {421, 450, 500},
+        }
+        if upstream_status in {421, 450}:
+            detail_payload["hint"] = "Run `icloud auth login` again to refresh the Apple upstream session."
+        return await _http_exception_handler(
+            _,
+            HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail_payload),
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
