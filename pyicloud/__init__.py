@@ -2,8 +2,6 @@
 
 import logging
 
-from .service import PyiCloudService
-
 # Set up logging for this module
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -17,4 +15,4 @@ except ImportError:
 
 __version__ = version
 
-__all__ = ["PyiCloudService", "__version__"]
+__all__ = ["__version__"]
