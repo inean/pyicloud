@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
-from pyicloud.adapters.services import build_legacy_core_adapter_bundle
+from pyicloud.adapters.services import build_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.adapters.upstream_probe import validate_upstream_probe_configuration
@@ -90,7 +90,7 @@ def _build_default_auth_service() -> AuthApiService:
 
 
 def _build_default_core_services() -> CoreServicesApi:
-    adapters = build_legacy_core_adapter_bundle()
+    adapters = build_core_adapter_bundle()
     return CoreServicesApi(
         devices=adapters.devices,
         accounts=adapters.accounts,

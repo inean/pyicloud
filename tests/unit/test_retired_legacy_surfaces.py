@@ -13,6 +13,11 @@ import pytest
         "pyicloud.service",
         "pyicloud.legacy",
         "pyicloud.cmdline",
+        "pyicloud.services",
+        "pyicloud.adapters.session.legacy_service_http",
+        "pyicloud.adapters.service_endpoint",
+        "pyicloud.adapters.auth.endpoint_restore",
+        "pyicloud.bootstrap.service_endpoint",
     ],
 )
 def test_removed_legacy_modules_are_not_importable(module_name: str) -> None:

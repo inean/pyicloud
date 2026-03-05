@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from pyicloud.adapters.auth import TreeAuthSessionAdapter
-from pyicloud.adapters.session.legacy_service_http import LegacyServiceSessionAdapter
+from pyicloud.adapters.session.service_http import LegacyServiceSessionAdapter
 from pyicloud.application import AuthSessionService
 from pyicloud.constants import AppleHeaders
 from pyicloud.domain import AuthFlowRequest
@@ -87,8 +87,8 @@ async def test_upstream_probe_reconstructs_auth_then_find_devices_sequence(monke
 
     monkeypatch.setattr("pyicloud.sessions.get_upstream_probe", lambda: probe)
     monkeypatch.setattr("pyicloud.sessions.upstream_capture_body_max_bytes", lambda: 4096)
-    monkeypatch.setattr("pyicloud.adapters.session.legacy_service_http.get_upstream_probe", lambda: probe)
-    monkeypatch.setattr("pyicloud.adapters.session.legacy_service_http.upstream_capture_body_max_bytes", lambda: 4096)
+    monkeypatch.setattr("pyicloud.adapters.session.service_http.get_upstream_probe", lambda: probe)
+    monkeypatch.setattr("pyicloud.adapters.session.service_http.upstream_capture_body_max_bytes", lambda: 4096)
 
     monkeypatch.setenv("PYICLOUD_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("PYICLOUD_COOKIES_DIR", str(tmp_path / "cookies"))

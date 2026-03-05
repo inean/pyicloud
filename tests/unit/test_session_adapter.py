@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from pyicloud.adapters.session.legacy_service_http import LegacyServiceSessionAdapter
+from pyicloud.adapters.session.service_http import LegacyServiceSessionAdapter
 from pyicloud.exceptions import PyiCloudAPIResponseError
 from pyicloud.models.settings import Settings
 
