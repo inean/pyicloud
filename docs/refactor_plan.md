@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 14 Compatibility Facade Migration
   - Phase 15 Auth + Session Hardening
   - Phase 16 API Contract Hardening
   - Phase 17 Test Matrix + Determinism
@@ -47,6 +46,7 @@
   - Phase 11 Core Adapter Decomposition
   - Phase 12 Typed Domain Clients I
   - Phase 13 Typed Domain Clients II
+  - Phase 14 Compatibility Facade Migration
 - Blocked:
   - None
 
@@ -709,16 +709,37 @@ All service domains are backed by typed clients with deterministic coverage and 
 
 ## Phase 14: Compatibility Facade Migration
 ### Checklist
-- [ ] Refactor `PyiCloudService` compatibility facade to depend on new adapter composition paths.
-- [ ] Remove remaining direct assumptions about legacy service internals from facade bootstrapping.
-- [ ] Define and implement explicit compatibility policy:
-  - [ ] Supported Python/library surface
-  - [ ] Deprecated surface with warnings
-  - [ ] Removed/unsupported surface
-- [ ] Add focused compatibility tests for `from pyicloud import PyiCloudService`.
+- [x] Refactor `PyiCloudService` compatibility facade to depend on new adapter composition paths.
+- [x] Remove remaining direct assumptions about legacy service internals from facade bootstrapping.
+- [x] Define and implement explicit compatibility policy:
+  - [x] Supported Python/library surface
+  - [x] Deprecated surface with warnings
+  - [x] Removed/unsupported surface
+- [x] Add focused compatibility tests for `from pyicloud import PyiCloudService`.
 
 ### Exit Criteria
 Compatibility facade remains functional but no longer relies on unstable legacy internals.
+
+### Handoff: Phase 14 - Compatibility Facade Migration
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Replaced direct `PyiCloudServices` passthrough in `pyicloud.service.PyiCloudService` with adapter composition via `build_legacy_core_adapter_bundle`.
+  - Removed compatibility-facade bootstrap coupling to legacy monolithic service internals and routed all domain calls through per-domain adapters.
+  - Added explicit compatibility policy (`supported`, `deprecated`, `removed`) and exposed it with `PyiCloudService.compatibility_policy()`.
+  - Added deprecated domain facade attributes (`account`, `drive`, `files`, `photos`, `calendar`, `contacts`, `reminders`) with warning-based guidance to stable helper methods.
+  - Added focused top-level compatibility tests for construction, device surface behavior, deprecated facades, unsupported surface errors, and running-loop guard.
+- Files changed:
+  - `pyicloud/service.py`
+  - `tests/unit/test_pyicloud_service_compatibility.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run ruff check pyicloud/service.py tests/unit/test_pyicloud_service_compatibility.py tests/unit/test_characterization.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_pyicloud_service_compatibility.py tests/unit/test_characterization.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Compatibility facade intentionally narrows behavior to documented supported/deprecated surfaces; undocumented dynamic internals remain unsupported.
+- Next recommended phase: Phase 15 Auth + Session Hardening.
 
 ---
 
@@ -826,5 +847,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 14 from docs/refactor_plan.md
+# Continue Phase 15 from docs/refactor_plan.md
 ```
