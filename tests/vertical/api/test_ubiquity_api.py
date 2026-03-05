@@ -10,7 +10,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
         json={"username": "success@example.com", "password": "secret"},
     )
     assert login.status_code == 200
-    payload = login.json()
+    payload = login.json()["data"]
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
@@ -21,7 +21,7 @@ async def test_ubiquity_api_tree_file_and_download(app):
 
         tree = await client.get("/v1/ubiquity/tree", headers=headers, params={"path": "/"})
         assert tree.status_code == 200
-        assert [child["name"] for child in tree.json()["children"]] == ["Documents", "Notes"]
+        assert [child["name"] for child in tree.json()["data"]["children"]] == ["Documents", "Notes"]
 
         metadata = await client.get(
             "/v1/ubiquity/file",
@@ -29,8 +29,8 @@ async def test_ubiquity_api_tree_file_and_download(app):
             params={"path": "/Documents/shared.txt"},
         )
         assert metadata.status_code == 200
-        assert metadata.json()["type"] == "file"
-        assert metadata.json()["name"] == "shared.txt"
+        assert metadata.json()["data"]["type"] == "file"
+        assert metadata.json()["data"]["name"] == "shared.txt"
 
         download = await client.get(
             "/v1/ubiquity/file",
@@ -43,3 +43,4 @@ async def test_ubiquity_api_tree_file_and_download(app):
 
         missing = await client.get("/v1/ubiquity/tree", headers=headers, params={"path": "/missing"})
         assert missing.status_code == 404
+        assert missing.json()["error"]["code"] == "not_found"

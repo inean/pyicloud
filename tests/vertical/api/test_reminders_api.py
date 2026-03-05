@@ -10,7 +10,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
         json={"username": "success@example.com", "password": "secret"},
     )
     assert login.status_code == 200
-    payload = login.json()
+    payload = login.json()["data"]
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
@@ -21,7 +21,7 @@ async def test_reminders_api_list_and_create(app):
 
         listed = await client.get("/v1/reminders", headers=headers)
         assert listed.status_code == 200
-        payload = listed.json()
+        payload = listed.json()["data"]
         assert set(payload.keys()) == {"Personal", "Work"}
         assert payload["Personal"][0]["title"] == "Buy milk"
 
@@ -36,9 +36,9 @@ async def test_reminders_api_list_and_create(app):
             },
         )
         assert created.status_code == 200
-        assert created.json()["detail"] == "Reminder created"
+        assert created.json()["data"]["detail"] == "Reminder created"
 
         updated = await client.get("/v1/reminders", headers=headers)
         assert updated.status_code == 200
-        work_titles = [item["title"] for item in updated.json()["Work"]]
+        work_titles = [item["title"] for item in updated.json()["data"]["Work"]]
         assert work_titles == ["Send status update", "Prepare release notes"]

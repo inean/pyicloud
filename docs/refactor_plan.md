@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 16 API Contract Hardening
   - Phase 17 Test Matrix + Determinism
   - Phase 18 Documentation Realignment
   - Phase 19 Release Readiness + Sunset Gate
@@ -47,6 +46,7 @@
   - Phase 13 Typed Domain Clients II
   - Phase 14 Compatibility Facade Migration
   - Phase 15 Auth + Session Hardening
+  - Phase 16 API Contract Hardening
 - Blocked:
   - None
 
@@ -790,13 +790,63 @@ Auth/session flows are reliable for long-running and multi-account usage with de
 
 ## Phase 16: API Contract Hardening
 ### Checklist
-- [ ] Define stable response envelopes for all `/v1/*` domains where missing.
-- [ ] Normalize error payload shape and status mapping across routes.
-- [ ] Add schema-level validation for binary/download endpoints metadata.
-- [ ] Add API contract tests asserting shape stability (golden snapshots or strict schema asserts).
+- [x] Define stable response envelopes for all `/v1/*` domains where missing.
+- [x] Normalize error payload shape and status mapping across routes.
+- [x] Add schema-level validation for binary/download endpoints metadata.
+- [x] Add API contract tests asserting shape stability (golden snapshots or strict schema asserts).
 
 ### Exit Criteria
 API surface is contract-stable, consistently validated, and predictable for CLI/external clients.
+
+### Handoff: Phase 16 - API Contract Hardening
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added stable success response envelopes (`{"data": ...}`) across `/v1/*` routes and normalized API errors to `{"error": {"code","message","status","details"}}`.
+  - Added global `HTTPException` + request-validation handlers for consistent error shape and status mapping.
+  - Added schema validation for binary/download metadata via dedicated models:
+    - `DriveFileMetadataResponse`
+    - `PhotoAssetMetadataResponse`
+    - `UbiquityFileMetadataResponse`
+  - Updated download endpoints to validate metadata before streaming content and to return explicit upstream errors on invalid metadata contracts.
+  - Updated CLI transport parsing to unwrap success envelopes and parse normalized error payloads.
+  - Updated API/CLI/integration tests to assert contract envelopes and added focused API contract integration tests.
+- Files changed:
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/schemas/common.py`
+  - `pyicloud/api/schemas/library.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `pyicloud/cli/main.py`
+  - `tests/vertical/api/test_auth_api.py`
+  - `tests/vertical/api/test_devices_api.py`
+  - `tests/vertical/api/test_account_api.py`
+  - `tests/vertical/api/test_drive_api.py`
+  - `tests/vertical/api/test_calendar_api.py`
+  - `tests/vertical/api/test_contacts_api.py`
+  - `tests/vertical/api/test_reminders_api.py`
+  - `tests/vertical/api/test_photos_api.py`
+  - `tests/vertical/api/test_ubiquity_api.py`
+  - `tests/vertical/api/test_observability_api.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+  - `tests/vertical/cli/test_account_cli.py`
+  - `tests/vertical/cli/test_calendar_cli.py`
+  - `tests/vertical/cli/test_contacts_cli.py`
+  - `tests/vertical/cli/test_devices_cli.py`
+  - `tests/vertical/cli/test_drive_cli.py`
+  - `tests/vertical/cli/test_observability_cli.py`
+  - `tests/vertical/cli/test_photos_cli.py`
+  - `tests/vertical/cli/test_reminders_cli.py`
+  - `tests/vertical/cli/test_ubiquity_cli.py`
+  - `tests/integration/test_api_end_to_end.py`
+  - `tests/integration/test_api_contracts.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run ruff check pyicloud/api/app.py pyicloud/api/schemas pyicloud/cli/main.py tests/vertical/api tests/vertical/cli tests/integration/test_api_end_to_end.py tests/integration/test_api_contracts.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api tests/vertical/cli tests/integration/test_api_end_to_end.py tests/integration/test_api_contracts.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Envelope contract is now stable, but public migration notes for external API consumers should be expanded in docs (Phase 18).
+- Next recommended phase: Phase 17 Test Matrix + Determinism.
 
 ---
 
@@ -878,5 +928,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 16 from docs/refactor_plan.md
+# Continue Phase 17 from docs/refactor_plan.md
 ```

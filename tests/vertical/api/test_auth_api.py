@@ -12,13 +12,13 @@ async def test_auth_login_success_and_session_lookup(app):
             json={"username": "success@example.com", "password": "secret"},
         )
         assert login.status_code == 200
-        payload = login.json()
+        payload = login.json()["data"]
         assert payload["status"] == "authenticated"
         token = payload["access_token"]
 
         session = await client.get("/v1/auth/session", headers={"Authorization": f"Bearer {token}"})
         assert session.status_code == 200
-        assert session.json()["username"] == "success@example.com"
+        assert session.json()["data"]["username"] == "success@example.com"
 
 
 @pytest.mark.asyncio
@@ -29,7 +29,7 @@ async def test_auth_login_requires_security_code_then_authenticates(app):
             json={"username": "requires2fa@example.com", "password": "secret"},
         )
         assert login.status_code == 200
-        payload = login.json()
+        payload = login.json()["data"]
         assert payload["status"] == "challenge_required"
         challenge_id = payload["challenge_id"]
 
@@ -44,7 +44,7 @@ async def test_auth_login_requires_security_code_then_authenticates(app):
             json={"challenge_id": challenge_id, "code": "123456"},
         )
         assert ok.status_code == 200
-        assert ok.json()["status"] == "authenticated"
+        assert ok.json()["data"]["status"] == "authenticated"
 
 
 @pytest.mark.asyncio
@@ -55,6 +55,7 @@ async def test_auth_login_invalid_credentials(app):
             json={"username": "invalid@example.com", "password": "secret"},
         )
         assert resp.status_code == 401
+        assert resp.json()["error"]["code"] == "unauthorized"
 
 
 @pytest.mark.asyncio
@@ -64,10 +65,11 @@ async def test_auth_logout_revokes_token(app):
             "/v1/auth/login",
             json={"username": "success@example.com", "password": "secret"},
         )
-        token = login.json()["access_token"]
+        token = login.json()["data"]["access_token"]
 
         logout = await client.post("/v1/auth/logout", headers={"Authorization": f"Bearer {token}"})
         assert logout.status_code == 200
 
         session = await client.get("/v1/auth/session", headers={"Authorization": f"Bearer {token}"})
         assert session.status_code == 401
+        assert session.json()["error"]["code"] == "unauthorized"

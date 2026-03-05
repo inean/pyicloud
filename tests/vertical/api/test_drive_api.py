@@ -10,7 +10,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
         json={"username": "success@example.com", "password": "secret"},
     )
     assert login.status_code == 200
-    payload = login.json()
+    payload = login.json()["data"]
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
@@ -21,11 +21,11 @@ async def test_drive_api_tree_and_file_endpoints(app):
 
         tree = await client.get("/v1/drive/tree", headers=headers, params={"path": "/"})
         assert tree.status_code == 200
-        assert [child["name"] for child in tree.json()["children"]] == ["Documents", "Photos"]
+        assert [child["name"] for child in tree.json()["data"]["children"]] == ["Documents", "Photos"]
 
         metadata = await client.get("/v1/drive/file", headers=headers, params={"path": "/Documents/notes.txt"})
         assert metadata.status_code == 200
-        assert metadata.json()["type"] == "file"
+        assert metadata.json()["data"]["type"] == "file"
 
         download = await client.get(
             "/v1/drive/file",
@@ -48,7 +48,7 @@ async def test_drive_api_mutations(app):
             json={"parent_path": "/Documents", "name": "Archive"},
         )
         assert mkdir.status_code == 200
-        assert mkdir.json()["detail"] == "Folder created"
+        assert mkdir.json()["data"]["detail"] == "Folder created"
 
         upload = await client.post(
             "/v1/drive/upload",
@@ -57,7 +57,7 @@ async def test_drive_api_mutations(app):
             files={"file": ("report.txt", b"Quarterly summary", "application/octet-stream")},
         )
         assert upload.status_code == 200
-        assert upload.json()["detail"] == "File uploaded"
+        assert upload.json()["data"]["detail"] == "File uploaded"
 
         rename = await client.patch(
             "/v1/drive/node",
@@ -65,7 +65,7 @@ async def test_drive_api_mutations(app):
             json={"path": "/Documents/Archive/report.txt", "new_name": "report-2026.txt"},
         )
         assert rename.status_code == 200
-        assert rename.json()["detail"] == "Node renamed"
+        assert rename.json()["data"]["detail"] == "Node renamed"
 
         renamed_download = await client.get(
             "/v1/drive/file",
@@ -81,8 +81,8 @@ async def test_drive_api_mutations(app):
             params={"path": "/Documents/Archive/report-2026.txt"},
         )
         assert delete.status_code == 200
-        assert delete.json()["detail"] == "Node deleted"
+        assert delete.json()["data"]["detail"] == "Node deleted"
 
         archive_tree = await client.get("/v1/drive/tree", headers=headers, params={"path": "/Documents/Archive"})
         assert archive_tree.status_code == 200
-        assert archive_tree.json()["children"] == []
+        assert archive_tree.json()["data"]["children"] == []

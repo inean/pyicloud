@@ -71,13 +71,20 @@ async def _api_request(
         detail = response.text
         try:
             payload = response.json()
-            detail = str(payload.get("detail", payload))
+            if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+                error = payload["error"]
+                detail = str(error.get("message", payload))
+            else:
+                detail = str(payload.get("detail", payload))
         except Exception:  # noqa: BLE001
             pass
         raise click.ClickException(f"{response.status_code}: {detail}")
 
     if response.headers.get("content-type", "").startswith("application/json"):
-        return response.json()
+        payload = response.json()
+        if isinstance(payload, dict) and "data" in payload:
+            return payload["data"]
+        return payload
     return response.content
 
 

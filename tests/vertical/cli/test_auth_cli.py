@@ -37,7 +37,10 @@ async def test_cli_auth_login_session_logout_flow(app, monkeypatch: pytest.Monke
         if response.status_code >= 400:
             raise RuntimeError(response.text)
         if response.headers.get("content-type", "").startswith("application/json"):
-            return response.json()
+            payload = response.json()
+            if isinstance(payload, dict) and "data" in payload:
+                return payload["data"]
+            return payload
         return response.content
 
     token_file = tmp_path / "token.json"

@@ -10,7 +10,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
         json={"username": "success@example.com", "password": "secret"},
     )
     assert login.status_code == 200
-    payload = login.json()
+    payload = login.json()["data"]
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
@@ -21,5 +21,5 @@ async def test_contacts_api_list(app):
 
         contacts = await client.get("/v1/contacts", headers=headers)
         assert contacts.status_code == 200
-        payload = contacts.json()
+        payload = contacts.json()["data"]
         assert [item["displayName"] for item in payload] == ["Inean User", "Family Member"]

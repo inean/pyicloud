@@ -8,8 +8,10 @@ from .auth import (
     AuthSessionResponse,
     SimpleOkResponse,
 )
+from .common import ApiErrorDetail, DataEnvelope, ErrorEnvelope
 from .devices import DeviceLostModeRequest, DeviceMessageRequest, DevicePlaySoundRequest
 from .drive import DriveCreateFolderRequest, DriveRenameNodeRequest
+from .library import DriveFileMetadataResponse, PhotoAssetMetadataResponse, UbiquityFileMetadataResponse
 from .observability import ObservabilityQueryRequest, ObservabilityQueryResponse
 from .reminders import ReminderCreateRequest
 
@@ -19,13 +21,19 @@ __all__ = [
     "AuthLoginResponse",
     "AuthSecurityCodeRequest",
     "AuthSessionResponse",
+    "ApiErrorDetail",
+    "DataEnvelope",
     "DeviceLostModeRequest",
     "DeviceMessageRequest",
     "DevicePlaySoundRequest",
     "DriveCreateFolderRequest",
+    "DriveFileMetadataResponse",
     "DriveRenameNodeRequest",
+    "ErrorEnvelope",
     "ObservabilityQueryRequest",
     "ObservabilityQueryResponse",
+    "PhotoAssetMetadataResponse",
     "ReminderCreateRequest",
     "SimpleOkResponse",
+    "UbiquityFileMetadataResponse",
 ]
