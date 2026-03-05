@@ -10,7 +10,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
         json={"username": "success@example.com", "password": "secret"},
     )
     assert login.status_code == 200
-    payload = login.json()
+    payload = login.json()["data"]
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
@@ -21,14 +21,14 @@ async def test_account_api_devices_family_storage(app):
 
         devices = await client.get("/v1/account/devices", headers=headers)
         assert devices.status_code == 200
-        assert [item["id"] for item in devices.json()] == ["device-iphone-1", "device-ipad-1"]
+        assert [item["id"] for item in devices.json()["data"]] == ["device-iphone-1", "device-ipad-1"]
 
         family = await client.get("/v1/account/family", headers=headers)
         assert family.status_code == 200
-        assert [item["fullName"] for item in family.json()] == ["Inean User", "Family Member"]
+        assert [item["fullName"] for item in family.json()["data"]] == ["Inean User", "Family Member"]
 
         storage = await client.get("/v1/account/storage", headers=headers)
         assert storage.status_code == 200
-        payload = storage.json()
+        payload = storage.json()["data"]
         assert payload["usage"]["total_storage_in_bytes"] == 500000000000
         assert payload["usages_by_media"]["photos"]["usage_in_bytes"] == 92000000000

@@ -36,7 +36,10 @@ def _patch_cli_api(monkeypatch: pytest.MonkeyPatch, app) -> None:
         if response.status_code >= 400:
             raise RuntimeError(response.text)
         if response.headers.get("content-type", "").startswith("application/json"):
-            return response.json()
+            payload = response.json()
+            if isinstance(payload, dict) and "data" in payload:
+                return payload["data"]
+            return payload
         return response.content
 
     monkeypatch.setattr("pyicloud.cli.main._api_request", fake_api_request)

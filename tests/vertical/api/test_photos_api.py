@@ -10,7 +10,7 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
         json={"username": "success@example.com", "password": "secret"},
     )
     assert login.status_code == 200
-    payload = login.json()
+    payload = login.json()["data"]
     return {"Authorization": f"Bearer {payload['access_token']}"}
 
 
@@ -21,7 +21,7 @@ async def test_photos_api_albums_assets_metadata_and_download(app):
 
         albums = await client.get("/v1/photos/albums", headers=headers)
         assert albums.status_code == 200
-        assert [item["name"] for item in albums.json()] == ["All Photos", "Favorites"]
+        assert [item["name"] for item in albums.json()["data"]] == ["All Photos", "Favorites"]
 
         assets = await client.get(
             "/v1/photos/assets",
@@ -29,7 +29,7 @@ async def test_photos_api_albums_assets_metadata_and_download(app):
             params={"album": "All Photos", "limit": 1, "offset": 1},
         )
         assert assets.status_code == 200
-        assert [item["id"] for item in assets.json()] == ["photo-2"]
+        assert [item["id"] for item in assets.json()["data"]] == ["photo-2"]
 
         metadata = await client.get(
             "/v1/photos/asset",
@@ -37,7 +37,7 @@ async def test_photos_api_albums_assets_metadata_and_download(app):
             params={"asset_id": "photo-1", "album": "All Photos"},
         )
         assert metadata.status_code == 200
-        assert metadata.json()["filename"] == "beach.jpg"
+        assert metadata.json()["data"]["filename"] == "beach.jpg"
 
         download = await client.get(
             "/v1/photos/download",
