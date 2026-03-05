@@ -6,7 +6,20 @@ from typing import Any
 
 import pytest
 
-from pyicloud.adapters.services import legacy_core
+from pyicloud.adapters.services import (
+    AccountServiceAdapter,
+    CalendarServiceAdapter,
+    ContactsServiceAdapter,
+    DevicesServiceAdapter,
+    DriveServiceAdapter,
+    LegacyCoreServicesAdapter,
+    RemindersServiceAdapter,
+    build_legacy_core_adapter_bundle,
+    legacy_core,
+)
+from pyicloud.adapters.services import (
+    runtime as legacy_runtime,
+)
 
 
 def test_legacy_core_services_adapter_restores_endpoint_from_store(monkeypatch: pytest.MonkeyPatch):
@@ -25,7 +38,7 @@ def test_legacy_core_services_adapter_restores_endpoint_from_store(monkeypatch: 
         def __init__(self, endpoint: object):
             self.endpoint = endpoint
 
-    monkeypatch.setattr(legacy_core, "PyiCloudServices", FakePyiCloudServices)
+    monkeypatch.setattr(legacy_runtime, "PyiCloudServices", FakePyiCloudServices)
     adapter = legacy_core.LegacyCoreServicesAdapter(
         session_store=store,
         endpoint_factory=FakeEndpointFactory(),
@@ -223,3 +236,160 @@ def test_legacy_core_services_adapter_ubiquity_operations(monkeypatch: pytest.Mo
 
     with pytest.raises(KeyError, match="Ubiquity path is not a file"):
         adapter.ubiquity_file_content(username="success@example.com", path="/Documents")
+
+
+class _RuntimeStub:
+    def __init__(self, services: Any):
+        self._services = services
+
+    def services(self, *, username: str):  # noqa: ARG002
+        return self._services
+
+
+class _DriveNode:
+    def __init__(self, *, name: str, node_type: str = "file", payload: bytes = b""):
+        self.name = name
+        self.type = node_type
+        self.size = len(payload)
+        self.date_changed = None
+        self.date_modified = None
+        self.date_last_open = None
+        self._payload = payload
+        self._children: dict[str, _DriveNode] = {}
+
+    def __getitem__(self, key: str):
+        return self._children[key]
+
+    def add_child(self, key: str, node: _DriveNode) -> None:
+        self._children[key] = node
+
+    def dir(self):
+        return [{"name": node.name, "type": node.type} for node in self._children.values()]
+
+    def open(self, stream: bool = True):  # noqa: ARG002
+        return _FakeStreamResponse(self._payload)
+
+    def mkdir(self, name: str):
+        self._children[name] = _DriveNode(name=name, node_type="folder")
+
+    def upload(self, fileobj):
+        self._children[fileobj.name] = _DriveNode(name=fileobj.name, payload=fileobj.read())
+
+    def rename(self, new_name: str):
+        self.name = new_name
+
+    def delete(self):
+        self._payload = b""
+
+
+def test_decomposed_adapters_cover_devices_account_drive_calendar_contacts_reminders():
+    # Devices
+    device_1 = {
+        "id": "dev-1",
+        "name": "iPhone",
+    }
+
+    class _Device(dict):
+        def __init__(self):
+            super().__init__(device_1)
+            self.data = dict(device_1)
+
+        def location(self):
+            return {"lat": 1.0, "lon": 2.0}
+
+        def status(self):
+            return {"batteryLevel": 0.9}
+
+        def play_sound(self, subject: str):  # noqa: ARG002
+            return None
+
+        def display_message(self, subject: str, message: str, sounds: bool):  # noqa: ARG002
+            return None
+
+        def lost_device(self, number: str, text: str, newpasscode: str):  # noqa: ARG002
+            return None
+
+    manager = {"dev-1": _Device()}
+
+    # Account
+    usage = SimpleNamespace(
+        comp_storage_in_bytes=1,
+        used_storage_in_bytes=2,
+        used_storage_in_percent=3.0,
+        available_storage_in_bytes=4,
+        available_storage_in_percent=5.0,
+        total_storage_in_bytes=6,
+        commerce_storage_in_bytes=0,
+        quota_over=False,
+        quota_tier_max=False,
+        quota_almost_full=False,
+        quota_paid=True,
+    )
+    media = SimpleNamespace(key="drive", label="Drive", color="#fff", usage_in_bytes=9)
+    storage = SimpleNamespace(usage=usage, usages_by_media={"drive": media})
+    account = SimpleNamespace(
+        devices=[{"id": "dev-1"}],
+        family=[SimpleNamespace(_attrs={"fullName": "User"})],
+        storage=storage,
+    )
+
+    # Drive
+    root = _DriveNode(name="/", node_type="folder")
+    docs = _DriveNode(name="Documents", node_type="folder")
+    report = _DriveNode(name="report.txt", payload=b"report-bytes")
+    docs.add_child("report.txt", report)
+    root.add_child("Documents", docs)
+
+    # Calendar / Contacts / Reminders
+    calendar = SimpleNamespace(
+        calendars=lambda: [{"guid": "cal-1"}],
+        events=lambda from_dt=None, to_dt=None: [{"guid": "event-1"}],  # noqa: ARG005
+        get_event_detail=lambda pguid, guid: {"pguid": pguid, "guid": guid},
+    )
+    contacts = SimpleNamespace(all=lambda: [{"displayName": "User"}])
+    reminders = SimpleNamespace(
+        lists={"Inbox": [{"title": "Task"}]},
+        post=lambda **kwargs: True,  # noqa: ARG005
+    )
+
+    services = SimpleNamespace(
+        devices=manager,
+        account=account,
+        drive=root,
+        calendar=calendar,
+        contacts=contacts,
+        reminders=reminders,
+    )
+    runtime = _RuntimeStub(services)
+
+    devices_adapter = DevicesServiceAdapter(runtime=runtime)
+    account_adapter = AccountServiceAdapter(runtime=runtime)
+    drive_adapter = DriveServiceAdapter(runtime=runtime)
+    calendar_adapter = CalendarServiceAdapter(runtime=runtime)
+    contacts_adapter = ContactsServiceAdapter(runtime=runtime)
+    reminders_adapter = RemindersServiceAdapter(runtime=runtime)
+
+    assert devices_adapter.list_devices(username="user@example.com")[0]["id"] == "dev-1"
+    assert account_adapter.account_storage(username="user@example.com")["usage"]["total_storage_in_bytes"] == 6
+    assert drive_adapter.file_content(username="user@example.com", path="/Documents/report.txt") == b"report-bytes"
+    assert calendar_adapter.events(username="user@example.com")[0]["guid"] == "event-1"
+    assert contacts_adapter.all_contacts(username="user@example.com")[0]["displayName"] == "User"
+    assert reminders_adapter.create_reminder(username="user@example.com", title="Task")
+
+
+def test_build_legacy_core_adapter_bundle_shares_runtime_instance():
+    bundle = build_legacy_core_adapter_bundle(
+        session_store=SimpleNamespace(
+            load=lambda username: {"webservices": {"findme": {"url": "https://example.test"}}}
+        ),
+        endpoint_factory=SimpleNamespace(from_payload=lambda **kwargs: object()),  # noqa: ARG005
+    )
+
+    assert type(bundle.devices) is DevicesServiceAdapter
+    assert type(bundle.accounts) is AccountServiceAdapter
+    assert type(bundle.drive) is DriveServiceAdapter
+    assert type(bundle.calendars) is CalendarServiceAdapter
+    assert type(bundle.contacts) is ContactsServiceAdapter
+    assert type(bundle.reminders) is RemindersServiceAdapter
+    assert isinstance(LegacyCoreServicesAdapter(), legacy_core.LegacyCoreServicesAdapter)
+    assert bundle.devices._runtime is bundle.accounts._runtime is bundle.drive._runtime
