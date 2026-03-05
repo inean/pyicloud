@@ -31,6 +31,7 @@
   - Phase 17 Test Matrix + Determinism
   - Phase 18 Documentation Realignment
   - Phase 19 Release Readiness + Sunset Gate
+  - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
 - In Progress:
   - None
 - Done:
@@ -672,6 +673,42 @@ Public and contributor docs accurately reflect current architecture and recommen
 
 ### Exit Criteria
 Project is release-ready with explicit compatibility sunset criteria and no hidden legacy module dependencies.
+
+---
+
+## Phase 20: Exhaustive Runtime Instrumentation (Optional Expansion)
+### Checklist
+- [ ] Define telemetry contract for full-code instrumentation:
+  - [ ] Span naming conventions for API routes, application use-cases, and adapters.
+  - [ ] Stable metric names, units, and label sets with cardinality budgets.
+  - [ ] Structured log schema (`timestamp`, `level`, `message`, `trace_id`, `span_id`, `request_id`, `component`).
+- [ ] Instrument all API routes under `/v1/*`:
+  - [ ] Request count, latency histogram, and error count by route/method/status.
+  - [ ] Per-route payload size metrics (request/response) where practical.
+  - [ ] Route-level trace spans with route template attributes (not raw unbounded paths).
+- [ ] Instrument all application use-cases/facades:
+  - [ ] Auth flows (`login`, `security-code`, `session`, `logout`) with outcome tags.
+  - [ ] Core services use-cases (devices/account/drive/calendar/contacts/reminders/photos/ubiquity).
+  - [ ] Observability query use-cases (PromQL/TraceQL/LogQL) with backend, mode, and outcome.
+- [ ] Instrument outbound adapters and infrastructure boundaries:
+  - [ ] HTTP client spans/metrics for provider and observability backend calls.
+  - [ ] Retry/failure counters and latency distributions for external calls.
+  - [ ] Explicit redaction/sanitization of secrets and PII in logs and span attributes.
+- [ ] Add runtime controls:
+  - [ ] Env-configurable sampling, enable/disable switches, and safe defaults for local/dev/CI.
+  - [ ] Backpressure/fallback behavior when telemetry exporters are unavailable.
+- [ ] Add deterministic verification:
+  - [ ] Unit tests for telemetry wrappers/decorators and attribute mapping.
+  - [ ] Integration tests with in-memory exporters asserting spans/metrics/log records for representative flows.
+  - [ ] Guardrails preventing high-cardinality labels and unsafe payload logging.
+- [ ] Add model-operator documentation:
+  - [ ] Query cookbook for PromQL/TraceQL/LogQL to inspect route/use-case health.
+  - [ ] Dashboards and alert examples aligned with emitted metrics/logs/traces.
+
+### Exit Criteria
+- All API routes and application use-cases emit consistent traces, metrics, and structured logs.
+- Telemetry is observable end-to-end in deterministic tests without leaking secrets or high-cardinality labels.
+- Operators (and models) can inspect behavior using documented PromQL/TraceQL/LogQL queries and dashboards.
 
 ## Next Session Start Here
 ```bash
