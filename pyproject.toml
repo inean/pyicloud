@@ -111,6 +111,7 @@ omit = ["pyicloud/adapters/services/provider_sync/*"]
 [tool.ruff]
 line-length = 120
 target-version = "py313"
+extend-exclude = ["examples", "pyicloud/adapters/services/provider_sync"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
