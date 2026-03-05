@@ -22,6 +22,12 @@ from .services import (
     UbiquityServicePort,
 )
 from .session import SessionCommandPort, SessionQueryPort, TokenSignerPort
+from .upstream_probe import (
+    UpstreamErrorEvent,
+    UpstreamRequestEvent,
+    UpstreamResponseEvent,
+    UpstreamTrafficProbePort,
+)
 
 __all__ = [
     "AccountServicePort",
@@ -46,4 +52,8 @@ __all__ = [
     "TokenSignerPort",
     "TraceQLQueryPort",
     "UbiquityServicePort",
+    "UpstreamErrorEvent",
+    "UpstreamRequestEvent",
+    "UpstreamResponseEvent",
+    "UpstreamTrafficProbePort",
 ]

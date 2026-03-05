@@ -31,6 +31,7 @@ class AuthFlowRequest:
     refresh_signin: bool = True
     security_code: str | None = None
     require_trust_token: bool = True
+    flow_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,3 +40,4 @@ class AuthFlowResult:
 
     steps: tuple[AuthStep, ...]
     session_active: bool
+    flow_id: str | None = None

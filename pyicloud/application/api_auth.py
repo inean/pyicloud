@@ -90,20 +90,27 @@ class AuthApiService:
 
     async def login(self, *, username: str, password: str) -> dict[str, Any]:
         auth_service = self._auth_service_factory(username, password)
-        request = AuthFlowRequest(refresh_signin=True, security_code=None, require_trust_token=True)
+        flow_id = str(uuid4())
+        request = AuthFlowRequest(
+            refresh_signin=True,
+            security_code=None,
+            require_trust_token=True,
+            flow_id=flow_id,
+        )
         try:
             await auth_service.run(account_id=username, request=request)
         except SecurityCodeRequired:
             challenge_id = str(uuid4())
             self._session_command.put_challenge(
                 challenge_id=challenge_id,
-                payload={"username": username, "password": password},
+                payload={"username": username, "password": password, "flow_id": flow_id},
                 ttl_seconds=self._challenge_ttl_seconds,
             )
             return {
                 "status": "challenge_required",
                 "challenge_id": challenge_id,
                 "challenge_ttl": self._challenge_ttl_seconds,
+                "flow_id": flow_id,
             }
         except RuntimeError as err:
             raise InvalidCredentials(str(err) or "Invalid credentials") from err
@@ -111,6 +118,7 @@ class AuthApiService:
         token_data = self._issue_token(username=username)
         return {
             "status": "authenticated",
+            "flow_id": flow_id,
             **token_data,
         }
 
@@ -121,9 +129,15 @@ class AuthApiService:
 
         username = str(challenge.get("username", ""))
         password = str(challenge.get("password", ""))
+        flow_id = str(challenge.get("flow_id", "")).strip() or str(uuid4())
         auth_service = self._auth_service_factory(username, password)
 
-        request = AuthFlowRequest(refresh_signin=False, security_code=code, require_trust_token=True)
+        request = AuthFlowRequest(
+            refresh_signin=False,
+            security_code=code,
+            require_trust_token=True,
+            flow_id=flow_id,
+        )
         try:
             await auth_service.run(account_id=username, request=request)
         except SecurityCodeRequired as err:
@@ -135,6 +149,7 @@ class AuthApiService:
         token_data = self._issue_token(username=username)
         return {
             "status": "authenticated",
+            "flow_id": flow_id,
             **token_data,
         }
 
