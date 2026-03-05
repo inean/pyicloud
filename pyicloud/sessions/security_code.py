@@ -1,7 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
-from collections.abc import Sequence
-from typing import Type, Annotated, Self, override, Any
+from typing import Annotated, Self, Type
 
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import BodyModel, EmptyModel
@@ -62,7 +61,7 @@ class SecurityCodeRequestCookies(CookiesModel):
     dslang: DslangCookieType
     site: SiteCookieType
     acn01: Acn01Type
-    aasp: AaspType
+    aasp: AaspType | None = None
 
 
 class SecurityCodeRequestBody(BodyModel):

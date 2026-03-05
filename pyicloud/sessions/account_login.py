@@ -14,38 +14,26 @@ from pyicloud.models.fields import (
     DslangCookieType,
     OriginType,
     PasswordType,
-    PcsCloudkitType,
-    PcsDocumentsType,
-    PcsMailType,
-    PcsNewsType,
-    PcsNotesType,
-    PcsPhotosType,
-    PcsSafariType,
-    PcsSharingType,
     ScntType,
     ServiceType,
     SessionIdType,
     SessionTokenType,
     SiteCookieType,
     TrustTokenType,
-    XAppleClientIdType,
     XAppleDsWebSessionTokenType,
-    XAppleWebauthHsaLoginType,
     XAppleWebauthHsaTrustType,
-    XAppleWebauthLoginType,
     XAppleWebauthTokenType,
     XAppleWebauthUserType,
     XAppleWebauthValidateType,
-    XAppleWebKBType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
-    StaticEndpoint,
     OAuthTransport,
     RequestConfig,
     ResponseConfig,
+    StaticEndpoint,
     serialize,
 )
 
@@ -128,31 +116,10 @@ class AccountLoginResponseHeaders(HeadersModel): ...
 
 
 class AccountLoginResponseCookies(CookiesModel):
-    client_id: XAppleClientIdType | None = None
-    # HomeKit?
     webauth_hsa_trust: XAppleWebauthHsaTrustType | None = None
-    # webauth_hsa_login is emptied on successful login
-    webauth_hsa_login: XAppleWebauthHsaLoginType | None = None
-
-    # PCS Cookies
-    Documents: PcsDocumentsType | None = None
-    Photos: PcsPhotosType | None = None
-    Cloudkit: PcsCloudkitType | None = None
-    Safari: PcsSafariType | None = None
-    Mail: PcsMailType | None = None
-    Notes: PcsNotesType | None = None
-    News: PcsNewsType | None = None
-    Sharing: PcsSharingType | None = None
-
-    # Web Auth
-    webauth_login: XAppleWebauthLoginType | None = None
     webauth_user: XAppleWebauthUserType | None = None
     webauth_token: XAppleWebauthTokenType | None = None
     webauth_validate: XAppleWebauthValidateType | None = None
-
-    # Kb dynamic cookie
-    web_kb: XAppleWebKBType | None = None
-    # Web Session
     ds_web_session_token: XAppleDsWebSessionTokenType | None = None
 
 

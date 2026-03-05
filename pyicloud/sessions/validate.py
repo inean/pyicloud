@@ -4,10 +4,16 @@ from typing import Type
 
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import NullModel
+from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.fields import (
     ContentTypeType,
     DslangCookieType,
     SiteCookieType,
+    XAppleDsWebSessionTokenType,
+    XAppleWebauthHsaTrustType,
+    XAppleWebauthTokenType,
+    XAppleWebauthUserType,
+    XAppleWebauthValidateType,
 )
 from pyicloud.models.headers import HeadersModel
 from pyicloud.sessions import (
@@ -19,7 +25,7 @@ from pyicloud.sessions import (
     StaticEndpoint,
     serialize,
 )
-from pyicloud.sessions.session import SessionBody, SessionCookies, SessionHeaders
+from pyicloud.sessions.session import SessionBody, SessionHeaders
 
 
 ##
@@ -35,9 +41,14 @@ class ValidateRequestHeaders(SessionHeaders):
     content_type: ContentTypeType = "application/json"
 
 
-class ValidateRequestCookies(SessionCookies):
+class ValidateRequestCookies(CookiesModel):
     dslang: DslangCookieType
     site: SiteCookieType
+    webauth_hsa_trust: XAppleWebauthHsaTrustType | None = None
+    webauth_user: XAppleWebauthUserType
+    webauth_token: XAppleWebauthTokenType
+    webauth_validate: XAppleWebauthValidateType
+    ds_web_session_token: XAppleDsWebSessionTokenType
 
 
 class ValidateRequestBody(NullModel): ...
@@ -61,7 +72,10 @@ class ValidateRequest(
 class ValidateResponseHeaders(HeadersModel): ...
 
 
-class ValidateResponseCookies(SessionCookies): ...
+class ValidateResponseCookies(CookiesModel):
+    webauth_token: XAppleWebauthTokenType | None = None
+    webauth_validate: XAppleWebauthValidateType | None = None
+    ds_web_session_token: XAppleDsWebSessionTokenType | None = None
 
 
 class ValidateResponseBody(SessionBody): ...

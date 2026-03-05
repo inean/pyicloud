@@ -240,9 +240,18 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
             assert isinstance(morsel_data, dict), f"Invalid morsel type: {type(morsel_data)}"
             host = httpx.URL(self.endpoint.url).host
             domain = morsel_data["domain"]
-            exclude = "domain" if domain and domain not in host else None
-            if exclude:
-                LOGGER.warning(f"Cookie '{morsel_data['name']}' domain mismatch. Expected: '{host}', got: '{domain}'.")
+            exclude = None
+            if domain and domain not in host:
+                # Apple may return locale cookies bound to .apple.com while setup
+                # endpoints live under setup.icloud.com. Rebind these per-request.
+                if morsel_data.get("name") in {"dslang", "site"}:
+                    morsel_data = dict(morsel_data)
+                    morsel_data["domain"] = host
+                else:
+                    exclude = "domain"
+                    LOGGER.warning(
+                        f"Cookie '{morsel_data['name']}' domain mismatch. Expected: '{host}', got: '{domain}'."
+                    )
             jar.set_cookie(MorselModel.as_cookie(morsel_data, exclude=exclude))
 
         return httpx.Request(
@@ -366,15 +375,20 @@ class BaseTransport(Generic[T, K], ABC):
                 "Referer": f"{Endpoints.HOME}/",
             }
         )
-        headers.update(
-            self._settings.model_dump_by_meta(
-                by_meta="header",
-                include=include,
-                exclude=exclude,
-                exclude_unset=exclude_unset,
-                exclude_defaults=exclude_defaults,
-            )
+        dynamic_headers = self._settings.model_dump_by_meta(
+            by_meta="header",
+            include=include,
+            exclude=exclude,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
         )
+        # httpx requires header values as str/bytes.
+        for key, value in dynamic_headers.items():
+            if isinstance(value, bool):
+                dynamic_headers[key] = "true" if value else "false"
+            elif value is not None and not isinstance(value, (str, bytes)):
+                dynamic_headers[key] = str(value)
+        headers.update(dynamic_headers)
         return headers
 
     def dump_cookies(
@@ -434,6 +448,11 @@ class BaseTransport(Generic[T, K], ABC):
         if self._response is not None:
             self._cookies.model_validate_from_response(self.response)
             self._settings.model_validate_from_response(self.response)
+
+    async def send_request(self, client: httpx.AsyncClient | None = None) -> httpx.Response:
+        """Send the transport request using the provided client or the transport client."""
+        client = client or self._client
+        return await client.send(self.request.create_request())
 
 
 class OAuthTransport(BaseTransport[T, K], ABC):

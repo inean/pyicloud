@@ -55,7 +55,11 @@ def security_code_handler(request: Request | httpx.Request) -> httpx.Response:
         if not mapping.compare(dict(map(tuple, SECURITY_CODE_REQUEST_HEADERS)), dict(request.headers)):
             content = b""
             break
-        if not mapping.compare(dict(map(tuple, SECURITY_CODE_REQUEST_COOKIES)), cast(Request, request).cookies):
+        if not mapping.compare(
+            dict(map(tuple, SECURITY_CODE_REQUEST_COOKIES)),
+            cast(Request, request).cookies,
+            ignore={"aasp"},
+        ):
             content = b""
             break
 
@@ -168,3 +172,22 @@ async def test_security_code_from_models(user):
 
     # Test the request_cls property
     assert user.request_cls == SecurityCodeRequest
+
+
+async def test_security_code_request_without_aasp(
+    security_code_settings: Settings,
+    security_code_cookies: Cookies,
+    httpx_security_code_client: httpx.AsyncClient,
+):
+    security_code_cookies.pop("aasp", None)
+    user = SecurityCode(
+        settings=security_code_settings,
+        cookies=security_code_cookies,
+        data={"security_code": VALID_2FA_CODE},
+        client=httpx_security_code_client,
+    )
+
+    async with user as session:
+        response = await session.send(user.request.create_request())
+
+    assert response.status_code == 204

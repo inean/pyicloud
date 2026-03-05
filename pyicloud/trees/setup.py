@@ -17,10 +17,11 @@ from pyicloud.exceptions import PyiCloudUserCancelledError
 from pyicloud.log import LOGGER
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
+from pyicloud.models.fields import Meta
 from pyicloud.models.settings import Settings
 from pyicloud.sessions import BaseResponse
 from pyicloud.sessions.account_login import AccountLogin
-from pyicloud.sessions.security_code import SecurityCode
+from pyicloud.sessions.security_code import SecurityCode, SecurityCodeRequestCookies, SecurityCodeRequestHeaders
 from pyicloud.sessions.signin import FreshSignIn, SignIn
 from pyicloud.sessions.trust import Trust
 from pyicloud.trees import TreeState, TreeTransitionExtra, blackboard, use_blackboard
@@ -57,6 +58,32 @@ class SetupModelTree(SessionModelTree):
         super().__init__(settings=settings, cookies=cookies, context=context)
         self.hooks = hooks
 
+    @classmethod
+    def required_security_cookie_names(cls) -> tuple[str, ...]:
+        names: list[str] = []
+        for _, cookie_name, field_info in SecurityCodeRequestCookies.model_fields_from_meta(by_meta="cookie"):
+            if field_info.is_required():
+                names.append(cookie_name)
+        return tuple(names)
+
+    @classmethod
+    def required_security_header_paths(cls) -> tuple[tuple[str, str], ...]:
+        paths: list[tuple[str, str]] = []
+        for _, header_name, field_info in SecurityCodeRequestHeaders.model_fields_from_meta(by_meta="header"):
+            if not field_info.is_required():
+                continue
+            config_path = next(
+                (
+                    meta.config
+                    for meta in field_info.metadata
+                    if isinstance(meta, Meta) and meta.config is not None
+                ),
+                None,
+            )
+            if config_path:
+                paths.append((header_name, config_path))
+        return tuple(paths)
+
     @blackboard(fetch=True, store="response")
     async def password_reset_if_needed(self, response: BaseResponse | None = None):
         """
@@ -66,8 +93,16 @@ class SetupModelTree(SessionModelTree):
         # If a previous attempt failed, show error...
         if response is not None:
             assert bool(response) is False
-            LOGGER.error(f"{response.errors[0].code} ({response.errors[0].message})")
-            self.hooks.on_password_error(response.errors[0])
+            error = (
+                response.errors[0]
+                if response.errors
+                else Error(
+                    code=response.status_code,
+                    message=f"HTTP {response.status_code} error response.",
+                )
+            )
+            LOGGER.error(f"{error.code} ({error.message})")
+            self.hooks.on_password_error(error)
             self.password = None
         return None
 
@@ -108,41 +143,43 @@ class SetupModelTree(SessionModelTree):
         # Context manager will load and save config and cookies for us
         async with session as client:
             LOGGER.debug(f"Login as '{self.settings.account.username}'")
-            await client.send(session.request.create_request())
+            await session.send_request(client)
         # If Sucess, Response will eval to True.
         return session.response
 
     async def security_code_are_preconditions_met(self) -> bool:
-        """We are logged when have all required cookies and headers to perform 2FA step"""
+        """Validate all required cookie/header preconditions for the security-code step."""
 
-        # FIXME: Fetch Cookie names from SecurityCode.cookies.request
         if not self.cookies:
             LOGGER.debug("No cookies found")
             return False
-        if Cookie.ACN01 not in self.cookies:
-            LOGGER.debug(f"No {Cookie.ACN01} cookie found")
-            return False
-        if Cookie.AASP not in self.cookies:
-            LOGGER.debug(f"No {Cookie.AASP} cookie found")
-            return False
+        for cookie_name in self.required_security_cookie_names():
+            if cookie_name not in self.cookies:
+                LOGGER.debug(f"No {cookie_name} cookie found")
+                return False
 
-        # FIXME: Fetch Header names from SecurityCode.headers.request
-        if not self.settings.client_settings.scnt:
-            LOGGER.debug("No SCNT found")
-            return False
-        if not self.settings.account.session_id:
-            LOGGER.debug("No session token found")
-            return False
+        # Apple may omit AASP in renewed sessions; keep this optional.
+        if Cookie.AASP not in self.cookies:
+            LOGGER.debug(f"No {Cookie.AASP} cookie found (continuing without it)")
+
+        for header_name, config_path in self.required_security_header_paths():
+            if not self.settings[config_path]:
+                LOGGER.debug(f"No {header_name} found")
+                return False
         return True
 
     @use_blackboard
     async def is_security_code_required(self, response: BaseResponse | None = None) -> int:
         """Return False if a trust token is not present or is not valid anymore."""
-        if response and Header.TRUST_TOKEN_ELIGIBLE in response.headers:
+        if response and getattr(response.headers, "trust_token_eligible", None):
             LOGGER.debug("2FA is pending")
             return True
-        if self.settings.client_settings.trust_eligible and not self.settings.token.trust:
-            LOGGER.debug("Missing session token for a 2FA account")
+        if (
+            self.settings.client_settings.trust_eligible
+            and self.settings.token.session
+            and not self.settings.token.trust
+        ):
+            LOGGER.debug("Missing trust token for a 2FA account")
             return True
         return False
 
@@ -192,8 +229,8 @@ class SetupModelTree(SessionModelTree):
 
     async def account_login(self, require_trust_token=True) -> BaseResponse:
         """Fetch account login."""
-        if require_trust_token and not self.settings.token.trust:
-            raise ValueError("Trust token is required to fetch account login.")
+        if require_trust_token and self.settings.client_settings.trust_eligible and not self.settings.token.trust:
+            LOGGER.debug("Trust token is missing for trust-eligible account; attempting accountLogin anyway.")
         session = AccountLogin(settings=self.settings, cookies=self.cookies, client=self.client)
         async with session as complete:
             LOGGER.debug(f"Fetch account details for: '{self.settings.account.username}'")

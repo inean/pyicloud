@@ -27,6 +27,18 @@ class TreeAuthSessionAdapter(AuthSessionPort):
             raise RuntimeError(str(message))
         raise RuntimeError(fallback)
 
+    @staticmethod
+    def _coerce_payload(payload: Any) -> Mapping[str, Any]:
+        if payload is None:
+            return {}
+        if isinstance(payload, Mapping):
+            return dict(payload)
+        if hasattr(payload, "model_dump"):
+            data = payload.model_dump(by_alias=True)  # type: ignore[call-arg]
+            if isinstance(data, Mapping):
+                return dict(data)
+        return {}
+
     async def signin(self, *, refresh_signin: bool) -> bool:
         response = await self._setup.signin(refresh_signin=refresh_signin)
         self._raise_for_error(response, "Sign in failed")
@@ -54,15 +66,16 @@ class TreeAuthSessionAdapter(AuthSessionPort):
 
     async def session_validate(self) -> Mapping[str, Any]:
         response = await self._setup.session_validate()
-        self._raise_for_error(response, "Session validation failed")
-
-        body = response.body
-        if body is None:
-            return {}
-        if isinstance(body, Mapping):
-            return dict(body)
-        if hasattr(body, "model_dump"):
-            data = body.model_dump(by_alias=True)  # type: ignore[call-arg]
-            if isinstance(data, Mapping):
-                return dict(data)
-        return {}
+        if isinstance(response, BaseResponse):
+            self._raise_for_error(response, "Session validation failed")
+            return self._coerce_payload(response.body)
+        if hasattr(response, "body"):
+            if hasattr(response, "errors") and not bool(response):
+                fallback = "Session validation failed"
+                errors = getattr(response, "errors", [])
+                if errors:
+                    message = getattr(errors[0], "message", fallback)
+                    raise RuntimeError(str(message))
+                raise RuntimeError(fallback)
+            return self._coerce_payload(getattr(response, "body"))
+        return self._coerce_payload(response)

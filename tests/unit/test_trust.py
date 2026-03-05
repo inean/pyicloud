@@ -25,6 +25,7 @@ from tests.const import (
     VALID_TOKEN,
 )
 from tests.const_account_family import APPLE_ID_COUNTRY_CODE
+
 from tests.const_auth import (
     DES_COOKIE,
     TRUST_REQUEST_COOKIES,
@@ -67,7 +68,7 @@ def trust_handler(request: httpx.Request) -> httpx.Response:
         if not mapping.compare(
             dict(map(tuple, TRUST_REQUEST_COOKIES)),
             cast(Request, request).cookies,
-            ignore={DES_COOKIE.name},
+            ignore={DES_COOKIE.name, "aasp"},
         ):
             break
 
@@ -273,7 +274,6 @@ def expected_cookies():
     return {
         Jar.DSLANG: "US-EN",
         Jar.SITE: "USA",
-        Jar.AASP: "login_aasp",
         Jar.ACN01: "acn01_value",
     }
 
@@ -302,6 +302,11 @@ async def test_trust_request_from_models_body(user: Trust):
 ##
 # Response Tests
 ##
+@pytest.fixture
+def mock():
+    return Mock()
+
+
 @pytest.fixture
 async def response_factory(expected_cookies):
     async def _response(user: Trust):
@@ -409,3 +414,21 @@ async def test_trust_invalid_token(user_invalid_token: Trust):
     # Settings is updated with the new session token when the context manager is exited
     assert len(user_invalid_token.response.errors) == 1
     assert user_invalid_token.response.errors[0].code == -20528
+
+
+async def test_trust_request_without_aasp(
+    trust_settings: Settings,
+    trust_cookies: Cookies,
+    trust_client: httpx.AsyncClient,
+):
+    trust_cookies.pop("aasp", None)
+    user = Trust(
+        settings=trust_settings,
+        cookies=trust_cookies,
+        client=trust_client,
+    )
+
+    async with user as session:
+        response = await session.send(user.request.create_request())
+
+    assert response.status_code == 204

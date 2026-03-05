@@ -186,6 +186,22 @@ async def test_validate_request_body(user_trust: Validate):
     assert user_trust.dump_content() == {}
 
 
+def test_validate_request_accepts_minimal_cookie_set(validate_settings: Settings):
+    minimal = Cookies.model_validate(
+        {
+            Jar.DSLANG: {"name": Jar.DSLANG, "value": "US-EN"},
+            Jar.SITE: {"name": Jar.SITE, "value": "USA"},
+            Jar.WEBAUTH_USER: {"name": Jar.WEBAUTH_USER, "value": "webauth_user_value"},
+            Jar.WEBAUTH_TOKEN: {"name": Jar.WEBAUTH_TOKEN, "value": VALID_TOKEN},
+            Jar.WEBAUTH_VALIDATE: {"name": Jar.WEBAUTH_VALIDATE, "value": VALID_TOKEN},
+            Jar.WEB_SESSION_TOKEN: {"name": Jar.WEB_SESSION_TOKEN, "value": "session_token"},
+        }
+    )
+    user = Validate(settings=validate_settings, cookies=minimal)
+    request = user.request.create_request()
+    assert request.url == Endpoints.VALIDATE
+
+
 @pytest.fixture
 async def response_factory():
     async def _response(user: Validate):

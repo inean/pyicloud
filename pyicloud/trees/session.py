@@ -6,15 +6,34 @@ from collections.abc import Sequence
 from contextvars import copy_context
 from typing import Any, Coroutine, cast, override
 
+from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.log import LOGGER
-from pyicloud.models import Meta
+from pyicloud.models.fields import MorselModel
 from pyicloud.sessions import BaseResponse
-from pyicloud.sessions.session import SessionCookies
-from pyicloud.sessions.validate import Validate
+from pyicloud.sessions.validate import Validate, ValidateRequestCookies
 from pyicloud.trees import BehaveTree, Tree, TreeState, TreeTransitionExtra, blackboard
 
 
 class SessionModelTree(Tree):
+    STALE_SESSION_COOKIES: tuple[str, ...] = (
+        Cookie.AASP,
+        Cookie.ACN01,
+        Cookie.WEBAUTH_HSA_LOGIN,
+        Cookie.WEBAUTH_PCS_DOCUMENTS,
+        Cookie.WEBAUTH_PCS_PHOTOS,
+        Cookie.WEBAUTH_PCS_CLOUDKIT,
+        Cookie.WEBAUTH_PCS_SAFARI,
+        Cookie.WEBAUTH_PCS_MAIL,
+        Cookie.WEBAUTH_PCS_NOTES,
+        Cookie.WEBAUTH_PCS_NEWS,
+        Cookie.WEBAUTH_PCS_SHARING,
+    )
+    DYNAMIC_KB_COOKIE_PREFIX = "X_APPLE_WEB_KB-"
+
+    @staticmethod
+    def is_dynamic_kb_cookie(cookie_name: str) -> bool:
+        return cookie_name.startswith(SessionModelTree.DYNAMIC_KB_COOKIE_PREFIX)
+
     @blackboard(fetch=True, remove="refresh_signin")
     def _session_is_valid(self, refresh_signin=False) -> bool:
         """Test that we have required session data to operate services without the need to re-authenticate."""
@@ -48,13 +67,17 @@ class SessionModelTree(Tree):
         return True
 
     def _session_is_expired(self):
-        for cookie in Meta.get_fields(SessionCookies, "cookie"):
-            if cookie not in self.cookies:
-                LOGGER.debug(f"Cookie {cookie.key} is missing")
+        for _, cookie_name, field_info in ValidateRequestCookies.model_fields_from_meta(by_meta="cookie"):
+            if not field_info.is_required():
+                continue
+            if cookie_name not in self.cookies:
+                LOGGER.debug(f"Cookie {cookie_name} is missing")
                 return True
             # Cookie data is too old
-            if self.cookies[cookie].is_expired():
-                LOGGER.debug(f"Cookie {cookie.key} is expired")
+            cookie = self.cookies[cookie_name]
+            assert isinstance(cookie, MorselModel), f"Invalid cookie type: {type(cookie)}"
+            if cookie.is_expired():
+                LOGGER.debug(f"Cookie {cookie_name} is expired")
                 return True
         # Cookies are still valid
         return False
@@ -70,8 +93,11 @@ class SessionModelTree(Tree):
     def _session_reset_cookies(self) -> bool:
         """Reset cookies. Set refresh_sigin to True to force a new session."""
         LOGGER.debug("Cookies are in an inconsistent state. Resetting ...")
-        self.cookies.pop("aasp", None)
-        self.cookies.pop("acn01", None)
+        for cookie_name in self.STALE_SESSION_COOKIES:
+            self.cookies.pop(cookie_name, None)
+        for cookie_name in list(self.cookies.root.keys()):
+            if self.is_dynamic_kb_cookie(cookie_name):
+                self.cookies.pop(cookie_name, None)
         return False
 
     @blackboard(store=("api", lambda x: cast(BaseResponse, x).body, lambda x: bool(x)))

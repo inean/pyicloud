@@ -216,11 +216,9 @@ class LeafModel(EventedModel):
             elif get_args(info.annotation):
                 annotated = next((arg for arg in get_args(info.annotation) if get_origin(arg) is Annotated), None)
                 if annotated is None:
-                    LOGGER.debug(f"Skipping {field} due to missing metadata")
                     continue
                 metadata = get_args(annotated)[1:]
             else:
-                LOGGER.debug(f"Skipping {field} due to missing metadata")
                 continue
             for meta in metadata:
                 # Skip non meta instance in field Annotations
@@ -233,7 +231,6 @@ class LeafModel(EventedModel):
                         value.append(v)
                 # only yield if all required meta fields are present
                 if len(value) != len(by_meta):
-                    LOGGER.debug(f"Skipping {field} due to missing meta fields: {by_meta}")
                     continue
                 yield field, value if len(value) > 1 else value[0], info
 

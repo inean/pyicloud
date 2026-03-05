@@ -6,7 +6,6 @@ from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import EmptyModel
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.fields import (
-    AaspType,
     AcceptType,
     Acn01Type,
     AuthAttributesType,
@@ -58,7 +57,6 @@ class TrustRequestCookies(CookiesModel):
     dslang: DslangCookieType
     site: SiteCookieType
     # Cookie Fields
-    aasp: AaspType
     acn01: Acn01Type
 
 

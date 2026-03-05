@@ -10,25 +10,15 @@ from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.fields import (
     AcceptType,
     OriginType,
-    PcsCloudkitType,
-    PcsDocumentsType,
-    PcsMailType,
-    PcsNewsType,
-    PcsNotesType,
-    PcsPhotosType,
-    PcsSafariType,
-    PcsSharingType,
     ScntType,
     SessionIdType,
-    XAppleClientIdType,
+    DslangCookieType,
+    SiteCookieType,
     XAppleDsWebSessionTokenType,
-    XAppleWebauthHsaLoginType,
     XAppleWebauthHsaTrustType,
-    XAppleWebauthLoginType,
     XAppleWebauthTokenType,
     XAppleWebauthUserType,
     XAppleWebauthValidateType,
-    XAppleWebKBType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
 from pyicloud.sessions import (
@@ -53,31 +43,12 @@ class SessionHeaders(OAuthHeadersModel):
 
 
 class SessionCookies(CookiesModel):
-    client_id: XAppleClientIdType
-    # HomeKit?
-    webauth_hsa_trust: XAppleWebauthHsaTrustType
-    # webauth_hsa_login is emptied on successful login
-    webauth_hsa_login: XAppleWebauthHsaLoginType
-
-    # PCS Cookies
-    Documents: PcsDocumentsType
-    Photos: PcsPhotosType
-    Cloudkit: PcsCloudkitType
-    Safari: PcsSafariType
-    Mail: PcsMailType
-    Notes: PcsNotesType
-    News: PcsNewsType
-    Sharing: PcsSharingType
-
-    # Web Auth
-    webauth_login: XAppleWebauthLoginType
-    webauth_user: XAppleWebauthUserType
+    dslang: DslangCookieType
+    site: SiteCookieType
+    webauth_hsa_trust: XAppleWebauthHsaTrustType | None = None
+    webauth_user: XAppleWebauthUserType | None = None
     webauth_token: XAppleWebauthTokenType
     webauth_validate: XAppleWebauthValidateType
-
-    # Kb dynamic cookie
-    web_kb: XAppleWebKBType
-    # Web Session
     ds_web_session_token: XAppleDsWebSessionTokenType
 
 

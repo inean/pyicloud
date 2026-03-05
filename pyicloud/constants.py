@@ -6,7 +6,8 @@ class Endpoints:
     AUTH = "https://idmsa.apple.com/appleauth/auth"
 
     # Auth Setup Endpoints
-    SIGNIN        = "https://idmsa.apple.com/appleauth/auth/signin"
+    SIGNIN_INIT   = "https://idmsa.apple.com/appleauth/auth/signin/init"
+    SIGNIN_COMPLETE = "https://idmsa.apple.com/appleauth/auth/signin/complete"
     SECURITY_CODE = "https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
     TRUST         = "https://idmsa.apple.com/appleauth/auth/2sv/trust"
 
