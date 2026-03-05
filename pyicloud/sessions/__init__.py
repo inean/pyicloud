@@ -1,24 +1,24 @@
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from copy import copy
 from dataclasses import asdict, dataclass, field, fields
 from functools import WRAPPER_ASSIGNMENTS, cached_property
 from http.cookiejar import CookieJar
+from types import UnionType, get_original_bases
 from typing import (
     Any,
     ClassVar,
-    Generic,
     Literal,
     ParamSpec,
     Self,
-    Type,
-    TypeAlias,
     TypedDict,
     TypeVar,
     cast,
     get_args,
+    get_origin,
     overload,
     override,
 )
@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field, ValidationInfo, model_validator
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.constants import Endpoints
 from pyicloud.log import LOGGER, PyiCloudPasswordFilter, logger_get
-from pyicloud.models import LeafModel, MetaFields, _init_context_var
+from pyicloud.models import LeafModel, _init_context_var
 from pyicloud.models.bodies import BodyModel
 from pyicloud.models.cookies import Cookies, CookiesModel, MorselModel
 from pyicloud.models.errors import Error, ServiceErrorsModel
@@ -85,7 +85,7 @@ class ResponseConfig(TypedDict, total=False):
     body: type[BodyModel]
 
 
-class BaseResponse(BaseModel, Generic[H, C, B]):
+class BaseResponse[H: HeadersModel, C: CookiesModel, B: BodyModel](BaseModel):
     """Response data."""
 
     _config: ClassVar[ResponseConfig] = ResponseConfig(
@@ -102,17 +102,23 @@ class BaseResponse(BaseModel, Generic[H, C, B]):
     body: B | None = None
     errors: list[Error] = Field(default=[])
 
-    # Common Headers that must be stored as config
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
-        # Update config with default values for bae class
-        new_config = ResponseConfig(
-            headers=HeadersModel,
-            cookies=CookiesModel,
-            body=BodyModel,
+        super().__pydantic_init_subclass__(**kwargs)
+
+        config_data = _resolve_config_from_origin(
+            cls=cls,
+            expected_origin=BaseResponse,
+            fields=("headers", "cookies", "body"),
+            defaults={"headers": HeadersModel, "cookies": CookiesModel, "body": BodyModel},
         )
-        new_config.update(cls._config)
-        cls._config = new_config
+
+        explicit_config = cls.__dict__.get("_config")
+        if isinstance(explicit_config, dict):
+            config_data.update(explicit_config)
+
+        cls._config = ResponseConfig(**config_data)  # type: ignore[assignment]
+        cls.model_rebuild(force=True)
 
     def __bool__(self):
         """Return True if the response is successful."""
@@ -167,7 +173,77 @@ class RequestConfig(TypedDict, total=False):
     body: type[BodyModel]
 
 
-class BaseRequest(BaseModel, Generic[H, C, B, U]):
+def _resolve_model_type(annotation: Any, *, module_name: str) -> type[Any] | None:
+    if isinstance(annotation, str):
+        module = sys.modules.get(module_name)
+        if module and hasattr(module, annotation):
+            annotation = getattr(module, annotation)
+    return annotation if isinstance(annotation, type) else None
+
+
+def _resolve_parametric_base_from_original_bases(
+    cls: type[Any], *, expected_origin: type[Any]
+) -> tuple[type[Any], tuple[Any, ...]] | None:
+    for base in get_original_bases(cls):
+        origin = get_origin(base)
+        if not isinstance(origin, type) or not issubclass(origin, expected_origin):
+            if not isinstance(base, type):
+                continue
+            metadata = getattr(base, "__pydantic_generic_metadata__", None)
+            if not isinstance(metadata, dict):
+                continue
+            origin = metadata.get("origin")
+            args = metadata.get("args", ())
+            if not isinstance(origin, type) or not issubclass(origin, expected_origin):
+                continue
+            if not isinstance(args, tuple):
+                continue
+            return origin, args
+        args = get_args(base)
+        if not isinstance(args, tuple):
+            continue
+        return origin, args
+    return None
+
+
+def _resolve_config_from_origin(
+    *,
+    cls: type[Any],
+    expected_origin: type[Any],
+    fields: tuple[str, ...],
+    defaults: dict[str, type[Any]],
+) -> dict[str, type[Any]]:
+    config_data: dict[str, type[Any]] = dict(defaults)
+    metadata = _resolve_parametric_base_from_original_bases(cls, expected_origin=expected_origin)
+    if metadata is None:
+        return config_data
+
+    origin, args = metadata
+    config_data.update(getattr(origin, "_config", {}))
+
+    if len(args) == len(fields):
+        for i, fname in enumerate(fields):
+            ann = args[i]
+            if ann is None or isinstance(ann, TypeVar):
+                continue
+            ann_type = _resolve_model_type(ann, module_name=cls.__module__)
+            if ann_type is not None:
+                config_data[fname] = ann_type
+
+    origin_metadata = getattr(origin, "__pydantic_generic_metadata__", {})
+    parameters = origin_metadata.get("parameters", ())
+    if isinstance(parameters, tuple) and len(parameters) == len(args):
+        type_map = dict(zip(parameters, args))
+        for key, value in tuple(config_data.items()):
+            mapped = type_map.get(value)
+            mapped_type = _resolve_model_type(mapped, module_name=cls.__module__)
+            if mapped_type is not None:
+                config_data[key] = mapped_type
+
+    return config_data
+
+
+class BaseRequest[H: HeadersModel, C: CookiesModel, B: BodyModel, U: Endpoint](BaseModel):
     _config: ClassVar[RequestConfig] = RequestConfig(
         endpoint=Endpoint,
         headers=HeadersModel,
@@ -183,15 +259,20 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
     # Common Headers that must be stored as config
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
-        # Update config with default values for bae class
-        new_config = RequestConfig(
-            headers=HeadersModel,
-            cookies=CookiesModel,
-            body=BodyModel,
-            endpoint=Endpoint,
+        super().__pydantic_init_subclass__(**kwargs)
+
+        config_data = _resolve_config_from_origin(
+            cls=cls,
+            expected_origin=BaseRequest,
+            fields=("headers", "cookies", "body", "endpoint"),
+            defaults={"endpoint": Endpoint, "headers": HeadersModel, "cookies": CookiesModel, "body": BodyModel},
         )
-        new_config.update(cls._config)
-        cls._config = new_config
+
+        explicit_config = cls.__dict__.get("_config")
+        if isinstance(explicit_config, dict):
+            config_data.update(explicit_config)
+
+        cls._config = RequestConfig(**config_data)  # type: ignore[assignment]
         cls.model_rebuild(force=True)
 
     @model_validator(mode="wrap")
@@ -264,11 +345,7 @@ class BaseRequest(BaseModel, Generic[H, C, B, U]):
         )
 
 
-T = TypeVar("T", bound="BaseRequest")
-K = TypeVar("K", bound="BaseResponse")
-
-
-class BaseTransport(Generic[T, K], ABC):
+class BaseTransport[T: BaseRequest, K: BaseResponse](ABC):
     _cookies: Cookies
     _settings: Settings
 
@@ -321,7 +398,8 @@ class BaseTransport(Generic[T, K], ABC):
     @cached_property
     def response(self) -> K:
         assert self._response, "No response available"
-        response = self.response_cls.model_validate(
+        response_cls = self._resolve_response_model()
+        response = response_cls.model_validate(
             {},
             context={
                 "response": self._response,
@@ -329,29 +407,74 @@ class BaseTransport(Generic[T, K], ABC):
                 "cookies": self._cookies,
             },
         )
-        return response
+        return cast(K, response)
 
     @cached_property
     def request(self) -> T:
         assert not self._request, "Request already set"
-        request = self.request_cls.model_validate(
-            self._data,
-            context={
-                "settings": self._settings,
-                "cookies": self._cookies,
-            },
-        )
-        return request
+        candidates = self._resolve_request_candidates()
+        context = self._request_context()
 
-    @property
-    @abstractmethod
-    def request_cls(self) -> type[T]:
-        """Endpoint to use for the session."""
+        if len(candidates) == 1:
+            request = candidates[0].model_validate(copy(self._data), context=context)
+            return cast(T, request)
 
-    @property
-    @abstractmethod
-    def response_cls(self) -> type[K]:
-        """Endpoint to use for the session."""
+        failures: list[tuple[str, Exception]] = []
+        for request_cls in candidates:
+            try:
+                request = request_cls.model_validate(copy(self._data), context=context)
+            except Exception as exc:  # noqa: BLE001 - we need candidate-by-candidate probing
+                failures.append((request_cls.__name__, exc))
+                continue
+            return cast(T, request)
+
+        details = "; ".join(f"{name}: {exc!r}" for name, exc in failures)
+        raise TypeError(f"Could not resolve request model for {type(self).__name__}: {details}")
+
+    def _request_context(self) -> dict[str, Any]:
+        return {
+            "settings": self._settings,
+            "cookies": self._cookies,
+        }
+
+    @classmethod
+    def _resolve_transport_generic_args(cls) -> tuple[Any, Any]:
+        for mro_cls in cls.__mro__:
+            for base in get_original_bases(mro_cls):
+                origin = get_origin(base)
+                if not isinstance(origin, type) or not issubclass(origin, BaseTransport):
+                    continue
+                args = get_args(base)
+                if len(args) != 2:
+                    continue
+                return args[0], args[1]
+        raise TypeError(f"Could not resolve transport generic arguments for {cls.__name__}")
+
+    @classmethod
+    def _resolve_request_candidates(cls) -> list[type[BaseRequest]]:
+        request_ann, _ = cls._resolve_transport_generic_args()
+        origin = get_origin(request_ann)
+
+        if origin in (UnionType,):
+            candidates = [
+                item for item in get_args(request_ann) if isinstance(item, type) and issubclass(item, BaseRequest)
+            ]
+            if candidates:
+                return candidates
+            raise TypeError(f"Union request annotation has no BaseRequest candidates: {request_ann!r}")
+
+        request_cls = _resolve_model_type(request_ann, module_name=cls.__module__)
+        if request_cls is None or not issubclass(request_cls, BaseRequest):
+            raise TypeError(f"Invalid request annotation for {cls.__name__}: {request_ann!r}")
+        return [request_cls]
+
+    @classmethod
+    def _resolve_response_model(cls) -> type[BaseResponse]:
+        _, response_ann = cls._resolve_transport_generic_args()
+        response_cls = _resolve_model_type(response_ann, module_name=cls.__module__)
+        if response_cls is None or not issubclass(response_cls, BaseResponse):
+            raise TypeError(f"Invalid response annotation for {cls.__name__}: {response_ann!r}")
+        return response_cls
 
     def dump_headers(
         self,
@@ -385,7 +508,7 @@ class BaseTransport(Generic[T, K], ABC):
         for key, value in dynamic_headers.items():
             if isinstance(value, bool):
                 dynamic_headers[key] = "true" if value else "false"
-            elif value is not None and not isinstance(value, (str, bytes)):
+            elif value is not None and not isinstance(value, str | bytes):
                 dynamic_headers[key] = str(value)
         headers.update(dynamic_headers)
         return headers
@@ -454,7 +577,7 @@ class BaseTransport(Generic[T, K], ABC):
         return await client.send(self.request.create_request())
 
 
-class OAuthTransport(BaseTransport[T, K], ABC):
+class OAuthTransport[T: BaseRequest, K: BaseResponse](BaseTransport[T, K], ABC):
     @override
     def dump_headers(
         self,
@@ -522,7 +645,7 @@ BT = TypeVar("BT", bound=BaseTransport)
 P = ParamSpec("P")
 
 
-IncEx: TypeAlias = set[int] | set[str] | dict[int, Any] | dict[str, Any] | None
+type IncEx = set[int] | set[str] | dict[int, Any] | dict[str, Any] | None
 
 
 @dataclass
@@ -568,11 +691,11 @@ class Serialize(BaseSerialize):
 
 
 @overload
-def serialize(cls: type[BT]) -> type[BT]: ...
+def serialize[BT: BaseTransport](cls: type[BT]) -> type[BT]: ...
 
 
 @overload
-def serialize(
+def serialize[BT: BaseTransport](
     cls: type[BT],
     *,
     settings: Serialize | dict[str, Any] | None = None,
@@ -580,7 +703,7 @@ def serialize(
 ) -> type[BT]: ...
 
 
-def serialize(
+def serialize[BT: BaseTransport](
     cls: type[BT] | None = None,
     *,
     settings: Serialize | dict[str, Any] | None = None,

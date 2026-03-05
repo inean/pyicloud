@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, cast, get_args, overload
+from typing import TYPE_CHECKING, cast, overload
 from unittest.mock import Mock, patch
 
 import httpx
@@ -17,7 +17,6 @@ from pyicloud.sessions import BodyModel, CookiesModel, HeadersModel
 from pyicloud.sessions.account_login import (
     AccountLogin,
     AccountLoginRequest,
-    AccountLoginResponse,
     AccountLoginResponseCookies,
     AccountLoginServiceRequest,
 )
@@ -241,10 +240,7 @@ async def account_login_service(account_login_cookies, account_login_one_factor_
     ],
 )
 def test_request_classes(user, request_cls):
-    assert user.request_cls == request_cls
-    assert user.request_cls in get_args(get_args(AccountLogin.__orig_bases__[0])[0])  # type: ignore
-    assert user.response_cls == AccountLoginResponse
-    assert user.response_cls in get_args(AccountLogin.__orig_bases__[0])  # type: ignore
+    assert isinstance(user.request, request_cls)
 
 
 ##

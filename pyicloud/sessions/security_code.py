@@ -30,8 +30,6 @@ from pyicloud.sessions import (
     BaseResponse,
     StaticEndpoint,
     OAuthTransport,
-    RequestConfig,
-    ResponseConfig,
     serialize,
 )
 from pyicloud.models.headers import OAuthHeadersModel
@@ -95,12 +93,7 @@ class SecurityCodeRequest(
         SecurityCodeRequestEndpoint,
     ]
 ):
-    _config = RequestConfig(
-        headers=SecurityCodeRequestHeaders,
-        cookies=SecurityCodeRequestCookies,
-        body=SecurityCodeRequestBody,
-        endpoint=SecurityCodeRequestEndpoint,
-    )
+    pass
 
 
 ##
@@ -131,11 +124,7 @@ class SecurityCodeResponse(
         SecurityCodeResponseBody,
     ]
 ):
-    _config = ResponseConfig(
-        headers=SecurityCodeResponseHeaders,
-        cookies=SecurityCodeResponseCookies,
-        body=SecurityCodeResponseBody,
-    )
+    pass
 
     def __bool__(self):
         """Return True if the response is successful."""
@@ -147,10 +136,4 @@ class SecurityCodeResponse(
 ##
 @serialize
 class SecurityCode(OAuthTransport[SecurityCodeRequest, SecurityCodeResponse]):
-    @property
-    def response_cls(self) -> type[SecurityCodeResponse]:
-        return SecurityCodeResponse
-
-    @property
-    def request_cls(self) -> type[SecurityCodeRequest]:
-        return SecurityCodeRequest
+    pass

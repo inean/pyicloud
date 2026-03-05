@@ -38,8 +38,6 @@ from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
     OAuthTransport,
-    RequestConfig,
-    ResponseConfig,
     StaticEndpoint,
     serialize,
 )
@@ -210,12 +208,7 @@ class SignInRequest(
         SignInEndpoint,
     ]
 ):
-    _config = RequestConfig(
-        headers=SignInRequestHeaders,
-        cookies=SignInRequestCookies,
-        body=SignInRequestBody,
-        endpoint=SignInEndpoint,
-    )
+    pass
 
 
 ##
@@ -252,12 +245,7 @@ class SignInInitRequest(
         SignInInitEndpoint,
     ]
 ):
-    _config = RequestConfig(
-        headers=SignInInitRequestHeaders,
-        cookies=SignInInitRequestCookies,
-        body=SignInInitRequestBody,
-        endpoint=SignInInitEndpoint,
-    )
+    pass
 
 
 class SignInInitResponseHeaders(HeadersModel):
@@ -289,22 +277,12 @@ class SignInInitResponse(
         SignInInitResponseBody,
     ]
 ):
-    _config = ResponseConfig(
-        headers=SignInInitResponseHeaders,
-        cookies=SignInInitResponseCookies,
-        body=SignInInitResponseBody,
-    )
+    pass
 
 
 @serialize
 class SignInInit(OAuthTransport[SignInInitRequest, SignInInitResponse]):
-    @property
-    def response_cls(self) -> type[SignInInitResponse]:
-        return SignInInitResponse
-
-    @property
-    def request_cls(self) -> type[SignInInitRequest]:
-        return SignInInitRequest
+    pass
 
 
 ##
@@ -349,12 +327,7 @@ class SignInCompleteRequest(
         SignInCompleteEndpoint,
     ]
 ):
-    _config = RequestConfig(
-        headers=SignInCompleteRequestHeaders,
-        cookies=SignInCompleteRequestCookies,
-        body=SignInCompleteRequestBody,
-        endpoint=SignInCompleteEndpoint,
-    )
+    pass
 
 
 class SignInCompleteResponseHeaders(HeadersModel):
@@ -389,11 +362,7 @@ class SignInCompleteResponse(
         SignInCompleteResponseBody,
     ]
 ):
-    _config = ResponseConfig(
-        headers=SignInCompleteResponseHeaders,
-        cookies=SignInCompleteResponseCookies,
-        body=SignInCompleteResponseBody,
-    )
+    pass
 
     @override
     @classmethod
@@ -404,13 +373,7 @@ class SignInCompleteResponse(
 
 @serialize
 class SignInComplete(OAuthTransport[SignInCompleteRequest, SignInCompleteResponse]):
-    @property
-    def response_cls(self) -> type[SignInCompleteResponse]:
-        return SignInCompleteResponse
-
-    @property
-    def request_cls(self) -> type[SignInCompleteRequest]:
-        return SignInCompleteRequest
+    pass
 
 
 # Backward-compat alias for existing imports/tests.
@@ -422,14 +385,6 @@ SignInResponse = SignInCompleteResponse
 ##
 @serialize
 class SignIn(OAuthTransport[SignInRequest, SignInCompleteResponse]):
-    @property
-    def response_cls(self) -> type[SignInCompleteResponse]:
-        return SignInCompleteResponse
-
-    @property
-    def request_cls(self) -> type[SignInRequest]:
-        return SignInRequest
-
     async def send_signin(self, client: httpx.AsyncClient | None = None) -> SignInCompleteResponse:
         client = client or self._client
         await self._send_srp_signin(client)

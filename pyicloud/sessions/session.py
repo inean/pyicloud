@@ -101,7 +101,7 @@ class Session(OAuthTransport[Rq, Rs]):
         )
 
 
-def create_session(
+def create_session[E: DynamicEndpoint, BodyRq: BodyModel, BodyRs: BodyModel](
     endpoint: type[E],
     *,
     request: type[BodyRq] = EmptyModel,
@@ -122,12 +122,6 @@ def create_session(
 
     @serialize
     class _Session(Session[_Request, _Response]):
-        @property
-        def response_cls(self) -> type[_Response]:
-            return _Response
-
-        @property
-        def request_cls(self) -> type[_Request]:
-            return _Request
+        pass
 
     return _Session

@@ -24,8 +24,6 @@ from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
     OAuthTransport,
-    RequestConfig,
-    ResponseConfig,
     StaticEndpoint,
     serialize,
 )
@@ -62,12 +60,7 @@ class TrustRequestBody(EmptyModel): ...
 
 
 class TrustRequest(BaseRequest[TrustRequestHeaders, TrustRequestCookies, TrustRequestBody, TrustEndpoint]):
-    _config = RequestConfig(
-        headers=TrustRequestHeaders,
-        cookies=TrustRequestCookies,
-        body=TrustRequestBody,
-        endpoint=TrustEndpoint,
-    )
+    pass
 
 
 ##
@@ -96,11 +89,7 @@ class TrustResponseBody(EmptyModel): ...
 
 
 class TrustResponse(BaseResponse[TrustResponseHeaders, TrustResponseCookies, TrustResponseBody]):
-    _config = ResponseConfig(
-        headers=TrustResponseHeaders,
-        cookies=TrustResponseCookies,
-        body=TrustResponseBody,
-    )
+    pass
 
     def __bool__(self):
         """Return True if the response is successful."""
@@ -112,10 +101,4 @@ class TrustResponse(BaseResponse[TrustResponseHeaders, TrustResponseCookies, Tru
 ##
 @serialize
 class Trust(OAuthTransport[TrustRequest, TrustResponse]):
-    @property
-    def response_cls(self) -> type[TrustResponse]:
-        return TrustResponse
-
-    @property
-    def request_cls(self) -> type[TrustRequest]:
-        return TrustRequest
+    pass

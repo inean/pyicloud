@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, cast, get_args, overload
+from typing import TYPE_CHECKING, cast, overload
 from unittest.mock import Mock, patch
 
 import httpx
@@ -11,7 +11,7 @@ from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.sessions import BodyModel, CookiesModel, HeadersModel
-from pyicloud.sessions.trust import Trust, TrustRequest, TrustResponse
+from pyicloud.sessions.trust import Trust, TrustRequest
 from pyicloud.utils import mapping
 from tests import process_cookies
 from tests.const import (
@@ -179,10 +179,7 @@ def test_request_classes(trust_settings, trust_cookies):
     user = Trust(settings=trust_settings, cookies=trust_cookies)
     assert isinstance(user, Trust)
 
-    assert user.request_cls == TrustRequest
-    assert user.request_cls in get_args(Trust.__orig_bases__[0])  # type: ignore
-    assert user.response_cls == TrustResponse
-    assert user.request_cls in get_args(Trust.__orig_bases__[0])  # type: ignore
+    assert isinstance(user.request, TrustRequest)
 
 
 @pytest.mark.parametrize("user", ["user", "user_without_cookies"], indirect=True)

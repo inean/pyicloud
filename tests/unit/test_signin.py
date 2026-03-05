@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import json
-from typing import cast, get_args
+from typing import cast
 from unittest.mock import Mock, patch
 
 import httpx
@@ -15,7 +15,7 @@ from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.sessions import BodyModel, CookiesModel, HeadersModel
-from pyicloud.sessions.signin import SignIn, SignInRequest, SignInResponse
+from pyicloud.sessions.signin import SignIn, SignInRequest
 from tests.const import (
     AUTH_ATTRIBUTES,
     AUTHENTICATED_USER,
@@ -323,10 +323,7 @@ def test_request_classes(signin_settings, signin_cookies):
     user = SignIn(settings=signin_settings, cookies=signin_cookies)
     assert isinstance(user, SignIn)
 
-    assert user.request_cls == SignInRequest
-    assert user.request_cls in get_args(SignIn.__orig_bases__[0])  # type: ignore
-    assert user.response_cls == SignInResponse
-    assert user.request_cls in get_args(SignIn.__orig_bases__[0])  # type: ignore
+    assert isinstance(user.request, SignInRequest)
 
 
 @pytest.fixture

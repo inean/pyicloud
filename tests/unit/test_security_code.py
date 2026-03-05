@@ -167,11 +167,8 @@ async def test_security_code_from_models(user):
         _ = await session.send(user.request.create_request())
 
     assert user.request.body.security_code == VALID_2FA_CODE
-    # Test the response_cls property
-    assert user.response_cls == SecurityCodeResponse
-
-    # Test the request_cls property
-    assert user.request_cls == SecurityCodeRequest
+    assert isinstance(user.response, SecurityCodeResponse)
+    assert isinstance(user.request, SecurityCodeRequest)
 
 
 async def test_security_code_request_without_aasp(

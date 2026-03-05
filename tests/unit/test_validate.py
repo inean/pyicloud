@@ -11,7 +11,7 @@ from pyicloud.constants import AppleCookies as Jar
 from pyicloud.constants import Endpoints
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.sessions.validate import Validate, ValidateRequest, ValidateResponse
+from pyicloud.sessions.validate import Validate, ValidateRequest
 from pyicloud.utils import mapping
 from tests import process_cookies
 from tests.const import AUTHENTICATED_USER, INVALID_TOKEN, SCNT, SESSION_ID, VALID_TOKEN
@@ -162,8 +162,7 @@ def user_invalid(validate_settings, validate_cookies_invalid, validate_client):
 
 
 def test_validate_request_classes(user_trust: Validate):
-    assert user_trust.request_cls == ValidateRequest
-    assert user_trust.response_cls == ValidateResponse
+    assert isinstance(user_trust.request, ValidateRequest)
 
 
 async def test_validate_request_headers(user_trust: Validate):

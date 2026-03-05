@@ -31,8 +31,6 @@ from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
     OAuthTransport,
-    RequestConfig,
-    ResponseConfig,
     StaticEndpoint,
     serialize,
 )
@@ -84,12 +82,7 @@ class AccountLoginServiceRequestBody(BodyModel):
 class AccountLoginRequest(
     BaseRequest[AccountLoginRequestHeaders, AccountLoginRequestCookies, AccountLoginRequestBody, AccountLoginEndpoint]
 ):
-    _config = RequestConfig(
-        headers=AccountLoginRequestHeaders,
-        cookies=AccountLoginRequestCookies,
-        body=AccountLoginRequestBody,
-        endpoint=AccountLoginEndpoint,
-    )
+    pass
 
 
 # For One factor Authentication
@@ -101,12 +94,7 @@ class AccountLoginServiceRequest(
         AccountLoginEndpoint,
     ]
 ):
-    _config = RequestConfig(
-        headers=AccountLoginServiceRequestHeaders,
-        cookies=AccountLoginRequestCookies,
-        body=AccountLoginServiceRequestBody,
-        endpoint=AccountLoginEndpoint,
-    )
+    pass
 
 
 ##
@@ -129,11 +117,7 @@ class AccountLoginResponseBody(DynamicBodyModel): ...
 class AccountLoginResponse(
     BaseResponse[AccountLoginResponseHeaders, AccountLoginResponseCookies, AccountLoginResponseBody]
 ):
-    _config = ResponseConfig(
-        headers=AccountLoginResponseHeaders,
-        cookies=AccountLoginResponseCookies,
-        body=AccountLoginResponseBody,
-    )
+    pass
 
 
 ##
@@ -141,10 +125,4 @@ class AccountLoginResponse(
 ##
 @serialize
 class AccountLogin(OAuthTransport[AccountLoginRequest | AccountLoginServiceRequest, AccountLoginResponse]):
-    @property
-    def response_cls(self) -> type[AccountLoginResponse]:
-        return AccountLoginResponse
-
-    @property
-    def request_cls(self) -> type[AccountLoginRequest | AccountLoginServiceRequest]:
-        return AccountLoginServiceRequest if "service" in self._data else AccountLoginRequest
+    pass

@@ -18,8 +18,6 @@ from pyicloud.sessions import (
     BaseRequest,
     BaseResponse,
     OAuthTransport,
-    RequestConfig,
-    ResponseConfig,
     StaticEndpoint,
     serialize,
 )
@@ -56,12 +54,7 @@ class ValidateRequestBody(NullModel): ...
 class ValidateRequest(
     BaseRequest[ValidateRequestHeaders, ValidateRequestCookies, ValidateRequestBody, ValidateEndpoint]
 ):
-    _config = RequestConfig(
-        headers=ValidateRequestHeaders,
-        cookies=ValidateRequestCookies,
-        body=ValidateRequestBody,
-        endpoint=ValidateEndpoint,
-    )
+    pass
 
 
 ##
@@ -80,11 +73,7 @@ class ValidateResponseBody(SessionBody): ...
 
 
 class ValidateResponse(BaseResponse[ValidateResponseHeaders, ValidateResponseCookies, ValidateResponseBody]):
-    _config = ResponseConfig(
-        headers=ValidateResponseHeaders,
-        cookies=ValidateResponseCookies,
-        body=ValidateResponseBody,
-    )
+    pass
 
 
 ##
@@ -92,10 +81,4 @@ class ValidateResponse(BaseResponse[ValidateResponseHeaders, ValidateResponseCoo
 ##
 @serialize
 class Validate(OAuthTransport[ValidateRequest, ValidateResponse]):
-    @property
-    def response_cls(self) -> type[ValidateResponse]:
-        return ValidateResponse
-
-    @property
-    def request_cls(self) -> type[ValidateRequest]:
-        return ValidateRequest
+    pass
