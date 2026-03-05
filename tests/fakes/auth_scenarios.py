@@ -327,13 +327,13 @@ class _DeterministicCoreServices(CoreServicesApi):
         raise KeyError(f"Device not found: {device_id}")
 
     # Device
-    def list_devices(self, *, username: str):
+    async def list_devices(self, *, username: str):
         return copy.deepcopy(self._DEVICE_FIXTURES.get(username, []))
 
-    def device_location(self, *, username: str, device_id: str):
+    async def device_location(self, *, username: str, device_id: str):
         return copy.deepcopy(self._device(username=username, device_id=device_id)["location"])
 
-    def device_status(self, *, username: str, device_id: str):
+    async def device_status(self, *, username: str, device_id: str):
         device = self._device(username=username, device_id=device_id)
         return {
             "id": device["id"],
@@ -343,20 +343,20 @@ class _DeterministicCoreServices(CoreServicesApi):
             "batteryStatus": device["batteryStatus"],
         }
 
-    def device_play_sound(self, *, username: str, device_id: str, subject: str):  # noqa: ARG002
+    async def device_play_sound(self, *, username: str, device_id: str, subject: str):  # noqa: ARG002
         self._device(username=username, device_id=device_id)
         return None
 
-    def device_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool):  # noqa: ARG002
+    async def device_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool):  # noqa: ARG002
         self._device(username=username, device_id=device_id)
         return None
 
-    def device_lost_mode(self, *, username: str, device_id: str, number: str, text: str, newpasscode: str):  # noqa: ARG002
+    async def device_lost_mode(self, *, username: str, device_id: str, number: str, text: str, newpasscode: str):  # noqa: ARG002
         self._device(username=username, device_id=device_id)
         return None
 
     # Account
-    def account_devices(self, *, username: str):
+    async def account_devices(self, *, username: str):
         devices = self._DEVICE_FIXTURES.get(username, [])
         return [
             {
@@ -369,18 +369,18 @@ class _DeterministicCoreServices(CoreServicesApi):
             for device in devices
         ]
 
-    def account_family(self, *, username: str):
+    async def account_family(self, *, username: str):
         return copy.deepcopy(self._ACCOUNT_FAMILY_FIXTURES.get(username, []))
 
-    def account_storage(self, *, username: str):
+    async def account_storage(self, *, username: str):
         return copy.deepcopy(self._ACCOUNT_STORAGE_FIXTURES.get(username, {"usage": {}, "usages_by_media": {}}))
 
     # Calendar
-    def calendars(self, *, username: str):
+    async def calendars(self, *, username: str):
         fixtures = self._CALENDAR_FIXTURES.get(username, {})
         return copy.deepcopy(fixtures.get("calendars", []))
 
-    def events(
+    async def events(
         self,
         *,
         username: str,
@@ -406,7 +406,7 @@ class _DeterministicCoreServices(CoreServicesApi):
             filtered.append(event)
         return filtered
 
-    def event_detail(self, *, username: str, calendar_guid: str, event_guid: str):
+    async def event_detail(self, *, username: str, calendar_guid: str, event_guid: str):
         fixtures = self._CALENDAR_FIXTURES.get(username, {})
         details = fixtures.get("details", {})
         key = f"{calendar_guid}:{event_guid}"
@@ -417,7 +417,7 @@ class _DeterministicCoreServices(CoreServicesApi):
         return copy.deepcopy(detail)
 
     # Contacts
-    def all_contacts(self, *, username: str):
+    async def all_contacts(self, *, username: str):
         return copy.deepcopy(self._CONTACTS_FIXTURES.get(username, []))
 
     # Reminders
@@ -429,10 +429,10 @@ class _DeterministicCoreServices(CoreServicesApi):
         self._reminder_lists_by_user[username] = lists
         return lists
 
-    def reminder_lists(self, *, username: str):
+    async def reminder_lists(self, *, username: str):
         return copy.deepcopy(self._reminder_lists(username=username))
 
-    def create_reminder(
+    async def create_reminder(
         self,
         *,
         username: str,
@@ -461,12 +461,12 @@ class _DeterministicCoreServices(CoreServicesApi):
             return {}
         return copy.deepcopy(data)
 
-    def photos_albums(self, *, username: str):
+    async def photos_albums(self, *, username: str):
         fixtures = self._PHOTOS_FIXTURES.get(username, {})
         albums = fixtures.get("albums", [])
         return copy.deepcopy(albums)
 
-    def photos_assets(
+    async def photos_assets(
         self,
         *,
         username: str,
@@ -480,14 +480,14 @@ class _DeterministicCoreServices(CoreServicesApi):
         assets = assets_by_album[album][offset : offset + limit]
         return [self._strip_photo_content(asset) for asset in assets]
 
-    def photo_asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos"):
-        assets = self.photos_assets(username=username, album=album, limit=10000, offset=0)
+    async def photo_asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos"):
+        assets = await self.photos_assets(username=username, album=album, limit=10000, offset=0)
         for asset in assets:
             if str(asset["id"]) == asset_id:
                 return copy.deepcopy(asset)
         raise KeyError(f"Photo asset not found: {asset_id}")
 
-    def photo_asset_content(
+    async def photo_asset_content(
         self,
         *,
         username: str,
@@ -555,17 +555,17 @@ class _DeterministicCoreServices(CoreServicesApi):
             children.append(self._ubiquity_metadata(child_path, node))
         return sorted(children, key=lambda item: str(item["name"]))
 
-    def ubiquity_tree(self, *, username: str, path: str):
+    async def ubiquity_tree(self, *, username: str, path: str):
         normalized_path, node = self._ubiquity_node(username=username, path=path)
         data = self._ubiquity_metadata(normalized_path, node)
         data["children"] = self._ubiquity_children(username=username, path=normalized_path)
         return data
 
-    def ubiquity_file_metadata(self, *, username: str, path: str):
+    async def ubiquity_file_metadata(self, *, username: str, path: str):
         normalized_path, node = self._ubiquity_node(username=username, path=path)
         return self._ubiquity_metadata(normalized_path, node)
 
-    def ubiquity_file_content(self, *, username: str, path: str):
+    async def ubiquity_file_content(self, *, username: str, path: str):
         _, node = self._ubiquity_node(username=username, path=path)
         if str(node.get("type")) != "file":
             raise KeyError("Ubiquity path is not a file")
@@ -642,17 +642,17 @@ class _DeterministicCoreServices(CoreServicesApi):
             children.append(self._node_metadata(child_path, node))
         return sorted(children, key=lambda item: str(item["name"]))
 
-    def drive_tree(self, *, username: str, path: str):
+    async def drive_tree(self, *, username: str, path: str):
         normalized_path, node = self._drive_node(username=username, path=path)
         data = self._node_metadata(normalized_path, node)
         data["children"] = self._drive_children(username=username, path=normalized_path)
         return data
 
-    def drive_file_metadata(self, *, username: str, path: str):  # noqa: ARG002
+    async def drive_file_metadata(self, *, username: str, path: str):  # noqa: ARG002
         normalized_path, node = self._drive_node(username=username, path=path)
         return self._node_metadata(normalized_path, node)
 
-    def drive_file_content(self, *, username: str, path: str):  # noqa: ARG002
+    async def drive_file_content(self, *, username: str, path: str):  # noqa: ARG002
         _, node = self._drive_node(username=username, path=path)
         if str(node.get("type")) != "file":
             raise KeyError("Drive path is not a file")
@@ -663,7 +663,7 @@ class _DeterministicCoreServices(CoreServicesApi):
             return bytes(content)
         return bytes(str(content), encoding="utf-8")
 
-    def drive_create_folder(self, *, username: str, parent_path: str, name: str):
+    async def drive_create_folder(self, *, username: str, parent_path: str, name: str):
         parent_normalized, parent = self._drive_node(username=username, path=parent_path)
         if str(parent.get("type")) != "folder":
             raise KeyError("Parent path is not a folder")
@@ -677,7 +677,7 @@ class _DeterministicCoreServices(CoreServicesApi):
         nodes[child_path] = {"name": child_name, "type": "folder"}
         return None
 
-    def drive_upload_file(self, *, username: str, parent_path: str, filename: str, content: bytes):
+    async def drive_upload_file(self, *, username: str, parent_path: str, filename: str, content: bytes):
         parent_normalized, parent = self._drive_node(username=username, path=parent_path)
         if str(parent.get("type")) != "folder":
             raise KeyError("Parent path is not a folder")
@@ -689,7 +689,7 @@ class _DeterministicCoreServices(CoreServicesApi):
         nodes[file_path] = {"name": file_name, "type": "file", "content": bytes(content)}
         return None
 
-    def drive_rename_node(self, *, username: str, path: str, new_name: str):
+    async def drive_rename_node(self, *, username: str, path: str, new_name: str):
         source_path, source_node = self._drive_node(username=username, path=path)
         if source_path == "/":
             raise RuntimeError("Cannot rename root node")
@@ -722,7 +722,7 @@ class _DeterministicCoreServices(CoreServicesApi):
             nodes[target_path]["name"] = target_name
         return None
 
-    def drive_delete_node(self, *, username: str, path: str):
+    async def drive_delete_node(self, *, username: str, path: str):
         target_path, _ = self._drive_node(username=username, path=path)
         if target_path == "/":
             raise RuntimeError("Cannot delete root node")

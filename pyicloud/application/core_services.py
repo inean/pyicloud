@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -44,46 +45,49 @@ class CoreServicesApi:
         self._ubiquity = ubiquity
 
     @staticmethod
-    def _run_with_operation[T](
+    async def _run_with_operation[T](
         *,
         username: str,
         operation: str,
-        call: Callable[[], T],
+        call: Callable[[], Awaitable[T] | T],
     ) -> T:
         step = "find_devices" if operation == "devices.list" else operation.split(".")[-1]
         with bind_upstream_context(username=username, operation=operation, step=step):
-            return call()
+            result = await asyncio.to_thread(call)
+            if hasattr(result, "__await__"):
+                return await result  # type: ignore[return-value]
+            return result
 
-    def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return await self._run_with_operation(
             username=username,
             operation="devices.list",
             call=lambda: self._devices.list_devices(username=username),
         )
 
-    def device_location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def device_location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="devices.location",
             call=lambda: self._devices.location(username=username, device_id=device_id),
         )
 
-    def device_status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def device_status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="devices.status",
             call=lambda: self._devices.status(username=username, device_id=device_id),
         )
 
-    def device_play_sound(self, *, username: str, device_id: str, subject: str) -> None:
-        self._run_with_operation(
+    async def device_play_sound(self, *, username: str, device_id: str, subject: str) -> None:
+        await self._run_with_operation(
             username=username,
             operation="devices.play_sound",
             call=lambda: self._devices.play_sound(username=username, device_id=device_id, subject=subject),
         )
 
-    def device_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
-        self._run_with_operation(
+    async def device_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
+        await self._run_with_operation(
             username=username,
             operation="devices.message",
             call=lambda: self._devices.display_message(
@@ -95,7 +99,7 @@ class CoreServicesApi:
             ),
         )
 
-    def device_lost_mode(
+    async def device_lost_mode(
         self,
         *,
         username: str,
@@ -104,7 +108,7 @@ class CoreServicesApi:
         text: str,
         newpasscode: str,
     ) -> None:
-        self._run_with_operation(
+        await self._run_with_operation(
             username=username,
             operation="devices.lost_mode",
             call=lambda: self._devices.lost_mode(
@@ -116,57 +120,57 @@ class CoreServicesApi:
             ),
         )
 
-    def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return await self._run_with_operation(
             username=username,
             operation="account.devices",
             call=lambda: self._accounts.account_devices(username=username),
         )
 
-    def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return await self._run_with_operation(
             username=username,
             operation="account.family",
             call=lambda: self._accounts.account_family(username=username),
         )
 
-    def account_storage(self, *, username: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="account.storage",
             call=lambda: self._accounts.account_storage(username=username),
         )
 
-    def drive_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def drive_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="drive.tree",
             call=lambda: self._drive.tree(username=username, path=path),
         )
 
-    def drive_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def drive_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="drive.file_metadata",
             call=lambda: self._drive.file_metadata(username=username, path=path),
         )
 
-    def drive_file_content(self, *, username: str, path: str) -> bytes:
-        return self._run_with_operation(
+    async def drive_file_content(self, *, username: str, path: str) -> bytes:
+        return await self._run_with_operation(
             username=username,
             operation="drive.file_content",
             call=lambda: self._drive.file_content(username=username, path=path),
         )
 
-    def drive_create_folder(self, *, username: str, parent_path: str, name: str) -> None:
-        self._run_with_operation(
+    async def drive_create_folder(self, *, username: str, parent_path: str, name: str) -> None:
+        await self._run_with_operation(
             username=username,
             operation="drive.create_folder",
             call=lambda: self._drive.create_folder(username=username, parent_path=parent_path, name=name),
         )
 
-    def drive_upload_file(self, *, username: str, parent_path: str, filename: str, content: bytes) -> None:
-        self._run_with_operation(
+    async def drive_upload_file(self, *, username: str, parent_path: str, filename: str, content: bytes) -> None:
+        await self._run_with_operation(
             username=username,
             operation="drive.upload_file",
             call=lambda: self._drive.upload_file(
@@ -177,42 +181,42 @@ class CoreServicesApi:
             ),
         )
 
-    def drive_rename_node(self, *, username: str, path: str, new_name: str) -> None:
-        self._run_with_operation(
+    async def drive_rename_node(self, *, username: str, path: str, new_name: str) -> None:
+        await self._run_with_operation(
             username=username,
             operation="drive.rename_node",
             call=lambda: self._drive.rename_node(username=username, path=path, new_name=new_name),
         )
 
-    def drive_delete_node(self, *, username: str, path: str) -> None:
-        self._run_with_operation(
+    async def drive_delete_node(self, *, username: str, path: str) -> None:
+        await self._run_with_operation(
             username=username,
             operation="drive.delete_node",
             call=lambda: self._drive.delete_node(username=username, path=path),
         )
 
-    def calendar_calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+    async def calendar_calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return await self._run_with_operation(
             username=username,
             operation="calendar.calendars",
             call=lambda: self._calendars.calendars(username=username),
         )
 
-    def calendar_events(
+    async def calendar_events(
         self,
         *,
         username: str,
         from_dt: datetime | None = None,
         to_dt: datetime | None = None,
     ) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+        return await self._run_with_operation(
             username=username,
             operation="calendar.events",
             call=lambda: self._calendars.events(username=username, from_dt=from_dt, to_dt=to_dt),
         )
 
-    def calendar_event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def calendar_event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="calendar.event_detail",
             call=lambda: self._calendars.event_detail(
@@ -222,21 +226,21 @@ class CoreServicesApi:
             ),
         )
 
-    def contacts_all(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+    async def contacts_all(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return await self._run_with_operation(
             username=username,
             operation="contacts.all",
             call=lambda: self._contacts.all_contacts(username=username),
         )
 
-    def reminders_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
-        return self._run_with_operation(
+    async def reminders_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+        return await self._run_with_operation(
             username=username,
             operation="reminders.lists",
             call=lambda: self._reminders.reminder_lists(username=username),
         )
 
-    def reminders_create(
+    async def reminders_create(
         self,
         *,
         username: str,
@@ -245,7 +249,7 @@ class CoreServicesApi:
         collection: str | None = None,
         due_date: datetime | None = None,
     ) -> bool:
-        return self._run_with_operation(
+        return await self._run_with_operation(
             username=username,
             operation="reminders.create",
             call=lambda: self._reminders.create_reminder(
@@ -257,14 +261,14 @@ class CoreServicesApi:
             ),
         )
 
-    def photos_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+    async def photos_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        return await self._run_with_operation(
             username=username,
             operation="photos.albums",
             call=lambda: self._photos.list_albums(username=username),
         )
 
-    def photos_assets(
+    async def photos_assets(
         self,
         *,
         username: str,
@@ -272,20 +276,22 @@ class CoreServicesApi:
         limit: int = 100,
         offset: int = 0,
     ) -> Sequence[Mapping[str, Any]]:
-        return self._run_with_operation(
+        return await self._run_with_operation(
             username=username,
             operation="photos.assets",
             call=lambda: self._photos.list_assets(username=username, album=album, limit=limit, offset=offset),
         )
 
-    def photo_asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def photo_asset_metadata(
+        self, *, username: str, asset_id: str, album: str = "All Photos"
+    ) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="photos.asset_metadata",
             call=lambda: self._photos.asset_metadata(username=username, asset_id=asset_id, album=album),
         )
 
-    def photo_asset_content(
+    async def photo_asset_content(
         self,
         *,
         username: str,
@@ -293,7 +299,7 @@ class CoreServicesApi:
         album: str = "All Photos",
         version: str = "original",
     ) -> bytes:
-        return self._run_with_operation(
+        return await self._run_with_operation(
             username=username,
             operation="photos.asset_content",
             call=lambda: self._photos.asset_content(
@@ -304,22 +310,22 @@ class CoreServicesApi:
             ),
         )
 
-    def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="ubiquity.tree",
             call=lambda: self._ubiquity.ubiquity_tree(username=username, path=path),
         )
 
-    def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
-        return self._run_with_operation(
+    async def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+        return await self._run_with_operation(
             username=username,
             operation="ubiquity.file_metadata",
             call=lambda: self._ubiquity.ubiquity_file_metadata(username=username, path=path),
         )
 
-    def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
-        return self._run_with_operation(
+    async def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
+        return await self._run_with_operation(
             username=username,
             operation="ubiquity.file_content",
             call=lambda: self._ubiquity.ubiquity_file_content(username=username, path=path),

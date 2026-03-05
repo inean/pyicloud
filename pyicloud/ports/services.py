@@ -21,7 +21,7 @@ class DeviceServicePort(Protocol):
     Implemented by: DevicesServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         """
         CoreServicesApi calls this method to list devices visible for an authenticated account.
 
@@ -32,7 +32,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Device list cannot be retrieved from upstream services.
         """
 
-    def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch current location data for one device.
 
@@ -44,7 +44,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Location retrieval fails in provider service.
         """
 
-    def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch status information for one device.
 
@@ -56,7 +56,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Status retrieval fails in provider service.
         """
 
-    def play_sound(self, *, username: str, device_id: str, subject: str) -> None:
+    async def play_sound(self, *, username: str, device_id: str, subject: str) -> None:
         """
         CoreServicesApi calls this method to trigger a play-sound action on one device.
 
@@ -68,7 +68,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Upstream device command fails.
         """
 
-    def display_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
+    async def display_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
         """
         CoreServicesApi calls this method to show a message on one device.
 
@@ -80,7 +80,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Upstream device command fails.
         """
 
-    def lost_mode(
+    async def lost_mode(
         self,
         *,
         username: str,
@@ -115,7 +115,7 @@ class AccountServicePort(Protocol):
     Implemented by: AccountServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         """
         CoreServicesApi calls this method to list account-managed device metadata.
 
@@ -126,7 +126,7 @@ class AccountServicePort(Protocol):
             RuntimeError: Account device data cannot be retrieved.
         """
 
-    def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         """
         CoreServicesApi calls this method to fetch family membership details.
 
@@ -137,7 +137,7 @@ class AccountServicePort(Protocol):
             RuntimeError: Family data cannot be retrieved.
         """
 
-    def account_storage(self, *, username: str) -> Mapping[str, Any]:
+    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch account storage summary information.
 
@@ -163,7 +163,7 @@ class DriveServicePort(Protocol):
     Implemented by: DriveServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def tree(self, *, username: str, path: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to list drive node metadata and children for a path.
 
@@ -175,7 +175,7 @@ class DriveServicePort(Protocol):
             RuntimeError: Drive tree retrieval fails.
         """
 
-    def file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch metadata for one drive file path.
 
@@ -187,7 +187,7 @@ class DriveServicePort(Protocol):
             RuntimeError: File metadata retrieval fails.
         """
 
-    def file_content(self, *, username: str, path: str) -> bytes:
+    async def file_content(self, *, username: str, path: str) -> bytes:
         """
         CoreServicesApi calls this method to read binary content for one drive file path.
 
@@ -199,7 +199,7 @@ class DriveServicePort(Protocol):
             RuntimeError: File content retrieval fails.
         """
 
-    def create_folder(self, *, username: str, parent_path: str, name: str) -> None:
+    async def create_folder(self, *, username: str, parent_path: str, name: str) -> None:
         """
         CoreServicesApi calls this method to create a folder in drive.
 
@@ -211,7 +211,7 @@ class DriveServicePort(Protocol):
             RuntimeError: Folder creation fails.
         """
 
-    def upload_file(self, *, username: str, parent_path: str, filename: str, content: bytes) -> None:
+    async def upload_file(self, *, username: str, parent_path: str, filename: str, content: bytes) -> None:
         """
         CoreServicesApi calls this method to upload file content to drive.
 
@@ -223,7 +223,7 @@ class DriveServicePort(Protocol):
             RuntimeError: Upload fails.
         """
 
-    def rename_node(self, *, username: str, path: str, new_name: str) -> None:
+    async def rename_node(self, *, username: str, path: str, new_name: str) -> None:
         """
         CoreServicesApi calls this method to rename a file or folder node.
 
@@ -235,7 +235,7 @@ class DriveServicePort(Protocol):
             RuntimeError: Rename operation fails.
         """
 
-    def delete_node(self, *, username: str, path: str) -> None:
+    async def delete_node(self, *, username: str, path: str) -> None:
         """
         CoreServicesApi calls this method to delete a file or folder node.
 
@@ -262,7 +262,7 @@ class CalendarServicePort(Protocol):
     Implemented by: CalendarServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         """
         CoreServicesApi calls this method to list available calendars for an account.
 
@@ -273,7 +273,7 @@ class CalendarServicePort(Protocol):
             RuntimeError: Calendar collection data cannot be retrieved.
         """
 
-    def events(
+    async def events(
         self,
         *,
         username: str,
@@ -290,7 +290,7 @@ class CalendarServicePort(Protocol):
             RuntimeError: Event data cannot be retrieved.
         """
 
-    def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+    async def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch one calendar event detail payload.
 
@@ -317,7 +317,7 @@ class ContactsServicePort(Protocol):
     Implemented by: ContactsServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         """
         CoreServicesApi calls this method to fetch all contacts for an account.
 
@@ -343,7 +343,7 @@ class RemindersServicePort(Protocol):
     Implemented by: RemindersServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def reminder_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+    async def reminder_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
         """
         CoreServicesApi calls this method to fetch reminders grouped by list title.
 
@@ -354,7 +354,7 @@ class RemindersServicePort(Protocol):
             RuntimeError: Reminder list data cannot be retrieved.
         """
 
-    def create_reminder(
+    async def create_reminder(
         self,
         *,
         username: str,
@@ -388,7 +388,7 @@ class PhotosServicePort(Protocol):
     Implemented by: PhotosServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         """
         CoreServicesApi calls this method to list available photo albums for an account.
 
@@ -399,7 +399,7 @@ class PhotosServicePort(Protocol):
             RuntimeError: Album data cannot be retrieved.
         """
 
-    def list_assets(
+    async def list_assets(
         self,
         *,
         username: str,
@@ -418,7 +418,7 @@ class PhotosServicePort(Protocol):
             RuntimeError: Asset listing fails.
         """
 
-    def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+    async def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch metadata for one photo asset.
 
@@ -430,7 +430,7 @@ class PhotosServicePort(Protocol):
             RuntimeError: Asset metadata retrieval fails.
         """
 
-    def asset_content(
+    async def asset_content(
         self,
         *,
         username: str,
@@ -464,7 +464,7 @@ class UbiquityServicePort(Protocol):
     Implemented by: UbiquityServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to list ubiquity node metadata and children for a path.
 
@@ -476,7 +476,7 @@ class UbiquityServicePort(Protocol):
             RuntimeError: Tree retrieval fails.
         """
 
-    def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
         """
         CoreServicesApi calls this method to fetch metadata for one ubiquity node path.
 
@@ -488,7 +488,7 @@ class UbiquityServicePort(Protocol):
             RuntimeError: Metadata retrieval fails.
         """
 
-    def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
+    async def ubiquity_file_content(self, *, username: str, path: str) -> bytes:
         """
         CoreServicesApi calls this method to fetch binary content for one ubiquity file path.
 
