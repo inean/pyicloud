@@ -388,13 +388,3 @@ XAppleWebauthHsaLoginType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookie
 XAppleWebauthFmipType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_FMIP)]
 XAppleWebauthHsaTrustType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_HSA_TRUST)]
 XAppleWebauthTokenType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_TOKEN)]
-
-
-PcsDocumentsType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_DOCUMENTS)]
-PcsPhotosType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_PHOTOS)]
-PcsCloudkitType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_CLOUDKIT)]
-PcsSafariType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_SAFARI)]
-PcsMailType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_MAIL)]
-PcsNotesType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_NOTES)]
-PcsNewsType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_NEWS)]
-PcsSharingType: TypeAlias = Annotated[MorselModel, Meta(cookie=Cookies.WEBAUTH_PCS_SHARING)]

@@ -6,10 +6,12 @@ class Endpoints:
     AUTH = "https://idmsa.apple.com/appleauth/auth"
 
     # Auth Setup Endpoints
-    SIGNIN_INIT   = "https://idmsa.apple.com/appleauth/auth/signin/init"
+    SIGNIN_INIT     = "https://idmsa.apple.com/appleauth/auth/signin/init"
     SIGNIN_COMPLETE = "https://idmsa.apple.com/appleauth/auth/signin/complete"
-    SECURITY_CODE = "https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
-    TRUST         = "https://idmsa.apple.com/appleauth/auth/2sv/trust"
+
+    # 2FA Endpoints
+    SECURITY_CODE   = "https://idmsa.apple.com/appleauth/auth/verify/trusteddevice/securitycode"
+    TRUST           = "https://idmsa.apple.com/appleauth/auth/2sv/trust"
 
     # Account Endpoints
     ACCOUNT_LOGIN = "https://setup.icloud.com/setup/ws/1/accountLogin"
@@ -59,16 +61,6 @@ class AppleCookies:
     WEBAUTH_FMIP      = "X-APPLE-WEBAUTH-FMIP"
     WEBAUTH_HSA_TRUST = "X-APPLE-WEBAUTH-HSA-TRUST"
     WEBAUTH_TOKEN     = "X-APPLE-WEBAUTH-TOKEN"
-
-    # PCS Cookies
-    WEBAUTH_PCS_DOCUMENTS = "X-APPLE-WEBAUTH-PCS-Documents"
-    WEBAUTH_PCS_PHOTOS    = "X-APPLE-WEBAUTH-PCS-Photos"
-    WEBAUTH_PCS_CLOUDKIT  = "X-APPLE-WEBAUTH-PCS-Cloudkit"
-    WEBAUTH_PCS_SAFARI    = "X-APPLE-WEBAUTH-PCS-Safari"
-    WEBAUTH_PCS_MAIL      = "X-APPLE-WEBAUTH-PCS-Mail"
-    WEBAUTH_PCS_NOTES     = "X-APPLE-WEBAUTH-PCS-Notes"
-    WEBAUTH_PCS_NEWS      = "X-APPLE-WEBAUTH-PCS-News"
-    WEBAUTH_PCS_SHARING   = "X-APPLE-WEBAUTH-PCS-Sharing"
 
     # Secret Cookies
     DES_PATTERN       = r"DES\w+"

@@ -73,11 +73,7 @@ class SetupModelTree(SessionModelTree):
             if not field_info.is_required():
                 continue
             config_path = next(
-                (
-                    meta.config
-                    for meta in field_info.metadata
-                    if isinstance(meta, Meta) and meta.config is not None
-                ),
+                (meta.config for meta in field_info.metadata if isinstance(meta, Meta) and meta.config is not None),
                 None,
             )
             if config_path:

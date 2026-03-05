@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Coroutine, Sequence
 from contextvars import copy_context
-from typing import Any, Coroutine, cast, override
+from typing import Any, cast, override
 
 from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.log import LOGGER
@@ -19,14 +19,6 @@ class SessionModelTree(Tree):
         Cookie.AASP,
         Cookie.ACN01,
         Cookie.WEBAUTH_HSA_LOGIN,
-        Cookie.WEBAUTH_PCS_DOCUMENTS,
-        Cookie.WEBAUTH_PCS_PHOTOS,
-        Cookie.WEBAUTH_PCS_CLOUDKIT,
-        Cookie.WEBAUTH_PCS_SAFARI,
-        Cookie.WEBAUTH_PCS_MAIL,
-        Cookie.WEBAUTH_PCS_NOTES,
-        Cookie.WEBAUTH_PCS_NEWS,
-        Cookie.WEBAUTH_PCS_SHARING,
     )
     DYNAMIC_KB_COOKIE_PREFIX = "X_APPLE_WEB_KB-"
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Protocol, Type, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from httpx import AsyncClient
 
@@ -9,10 +9,10 @@ from pyicloud.models.bodies import BodyModel, DynamicBodyModel, EmptyModel
 from pyicloud.models.cookies import CookiesModel
 from pyicloud.models.fields import (
     AcceptType,
+    DslangCookieType,
     OriginType,
     ScntType,
     SessionIdType,
-    DslangCookieType,
     SiteCookieType,
     XAppleDsWebSessionTokenType,
     XAppleWebauthHsaTrustType,
@@ -123,11 +123,11 @@ def create_session(
     @serialize
     class _Session(Session[_Request, _Response]):
         @property
-        def response_cls(self) -> Type[_Response]:
+        def response_cls(self) -> type[_Response]:
             return _Response
 
         @property
-        def request_cls(self) -> Type[_Request]:
+        def request_cls(self) -> type[_Request]:
             return _Request
 
     return _Session

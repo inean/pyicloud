@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from functools import lru_cache
 from typing import (
     Annotated,
     Any,
-    Callable,
     ClassVar,
-    Collection,
-    Iterator,
     Literal,
-    Mapping,
     Self,
-    Sequence,
     Tuple,
     TypeAlias,
     cast,
@@ -194,18 +190,18 @@ class LeafModel(EventedModel):
 
     @overload
     @classmethod
-    def model_fields_from_meta(cls, *, by_meta: MetaFields) -> Iterator[Tuple[str, str, FieldInfo]]: ...
+    def model_fields_from_meta(cls, *, by_meta: MetaFields) -> Iterator[tuple[str, str, FieldInfo]]: ...
 
     @overload
     @classmethod
     def model_fields_from_meta(
         cls, *, by_meta: Sequence[MetaFields]
-    ) -> Iterator[Tuple[str, Sequence[str], FieldInfo]]: ...
+    ) -> Iterator[tuple[str, Sequence[str], FieldInfo]]: ...
 
     @classmethod
     def model_fields_from_meta(
         cls, *, by_meta: MetaFields | Sequence[MetaFields]
-    ) -> Iterator[Tuple[str, str | Sequence[str], FieldInfo]]:
+    ) -> Iterator[tuple[str, str | Sequence[str], FieldInfo]]:
         by_meta = [by_meta] if isinstance(by_meta, str) else by_meta
 
         for field, info in cls.model_fields.items():

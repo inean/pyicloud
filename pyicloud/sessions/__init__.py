@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from copy import copy
 from dataclasses import asdict, dataclass, field, fields
 from functools import WRAPPER_ASSIGNMENTS, cached_property
 from http.cookiejar import CookieJar
 from typing import (
     Any,
-    Callable,
     ClassVar,
     Generic,
     Literal,
     ParamSpec,
     Self,
-    Sequence,
     Type,
     TypeAlias,
     TypedDict,
@@ -346,12 +345,12 @@ class BaseTransport(Generic[T, K], ABC):
 
     @property
     @abstractmethod
-    def request_cls(self) -> Type[T]:
+    def request_cls(self) -> type[T]:
         """Endpoint to use for the session."""
 
     @property
     @abstractmethod
-    def response_cls(self) -> Type[K]:
+    def response_cls(self) -> type[K]:
         """Endpoint to use for the session."""
 
     def dump_headers(
@@ -569,30 +568,30 @@ class Serialize(BaseSerialize):
 
 
 @overload
-def serialize(cls: Type[BT]) -> Type[BT]: ...
+def serialize(cls: type[BT]) -> type[BT]: ...
 
 
 @overload
 def serialize(
-    cls: Type[BT],
+    cls: type[BT],
     *,
     settings: Serialize | dict[str, Any] | None = None,
     cookies: Serialize | dict[str, Any] | None = None,
-) -> Type[BT]: ...
+) -> type[BT]: ...
 
 
 def serialize(
-    cls: Type[BT] | None = None,
+    cls: type[BT] | None = None,
     *,
     settings: Serialize | dict[str, Any] | None = None,
     cookies: Serialize | dict[str, Any] | None = None,
-) -> Type[BT] | Callable[[Type[BT]], Type[BT]]:
+) -> type[BT] | Callable[[type[BT]], type[BT]]:
     """Load and store session and cookies when entering and exiting the context manager."""
 
     # If no class is provided, return a decorator that will call configure with the provided class
     if cls is None:
 
-        def decorator(cls: Type[BT]) -> Type[BT]:
+        def decorator(cls: type[BT]) -> type[BT]:
             return serialize(
                 cls,
                 settings=settings,

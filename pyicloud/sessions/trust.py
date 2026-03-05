@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Type
-
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import EmptyModel
 from pyicloud.models.cookies import CookiesModel
@@ -115,9 +113,9 @@ class TrustResponse(BaseResponse[TrustResponseHeaders, TrustResponseCookies, Tru
 @serialize
 class Trust(OAuthTransport[TrustRequest, TrustResponse]):
     @property
-    def response_cls(self) -> Type[TrustResponse]:
+    def response_cls(self) -> type[TrustResponse]:
         return TrustResponse
 
     @property
-    def request_cls(self) -> Type[TrustRequest]:
+    def request_cls(self) -> type[TrustRequest]:
         return TrustRequest

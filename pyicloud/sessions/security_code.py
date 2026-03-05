@@ -1,6 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
-from typing import Annotated, Self, Type
+from typing import Annotated, Self
 
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import BodyModel, EmptyModel
@@ -148,9 +148,9 @@ class SecurityCodeResponse(
 @serialize
 class SecurityCode(OAuthTransport[SecurityCodeRequest, SecurityCodeResponse]):
     @property
-    def response_cls(self) -> Type[SecurityCodeResponse]:
+    def response_cls(self) -> type[SecurityCodeResponse]:
         return SecurityCodeResponse
 
     @property
-    def request_cls(self) -> Type[SecurityCodeRequest]:
+    def request_cls(self) -> type[SecurityCodeRequest]:
         return SecurityCodeRequest

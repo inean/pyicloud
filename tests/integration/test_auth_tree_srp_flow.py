@@ -41,7 +41,9 @@ def _build_settings(username: str) -> Settings:
 def _build_setup_model(*, username: str, fake: SrpAuthFlowFake) -> SetupModelTree:
     class SetupModelWithFakeClient(SetupModelTree):
         tree_config = {
-            "client": staticmethod(lambda **kwargs: httpx.AsyncClient(transport=httpx.MockTransport(fake.handler), **kwargs)),
+            "client": staticmethod(
+                lambda **kwargs: httpx.AsyncClient(transport=httpx.MockTransport(fake.handler), **kwargs)
+            ),
             "client_options": {},
         }
 

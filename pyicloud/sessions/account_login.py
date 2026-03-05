@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Type
+from typing import Annotated
 
 from pydantic import Field
 
@@ -142,9 +142,9 @@ class AccountLoginResponse(
 @serialize
 class AccountLogin(OAuthTransport[AccountLoginRequest | AccountLoginServiceRequest, AccountLoginResponse]):
     @property
-    def response_cls(self) -> Type[AccountLoginResponse]:
+    def response_cls(self) -> type[AccountLoginResponse]:
         return AccountLoginResponse
 
     @property
-    def request_cls(self) -> Type[AccountLoginRequest | AccountLoginServiceRequest]:
+    def request_cls(self) -> type[AccountLoginRequest | AccountLoginServiceRequest]:
         return AccountLoginServiceRequest if "service" in self._data else AccountLoginRequest

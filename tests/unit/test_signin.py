@@ -30,7 +30,6 @@ from tests.const import (
     VALID_USERS,
 )
 from tests.const_account_family import APPLE_ID_COUNTRY_CODE
-
 from tests.const_auth import (
     SIGNIN_REQUEST_COOKIES,
     SIGNIN_RESPONSE_2FA_COOKIES,

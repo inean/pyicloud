@@ -137,46 +137,6 @@ DES_COOKIE = Cookie(
     content="DESXXXXXX=1; path=/; path_spec; secure; expires=; version=0",
 )
 
-X_APPLE_WEBAUTH_PCS_DOCUMENTS = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Documents=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_PHOTOS = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Photos=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_CLOUDKIT = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Cloudkit=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_SAFARI = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Safari=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_MAIL = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Mail=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_NOTES = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Notes=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_NEWS = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-News=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
-X_APPLE_WEBAUTH_PCS_SHARING = Cookie(
-    header="Set-Cookie",
-    content="X-APPLE-WEBAUTH-PCS-Sharing=pcs_token; path=/; path_spec; secure; expires=; version=0",
-)
-
 WEB_KB_COOKIE = Cookie(
     header="Set-Cookie",
     content="X_APPLE_WEB_KB-XXXXXX=1; path=/; path_spec; secure; expires=; version=0",
@@ -399,7 +359,6 @@ SESSION_RESPONSE_BODY_OK = {
         "iCloudAppleIdAlias": ICLOUD_ID_EMAIL,
         "notesMigrated": True,
         "hasPaymentInfo": False,
-        "pcsDeleted": False,
         "appleIdAlias": APPLE_ID_EMAIL,
         "brMigrated": True,
         "statusCode": 2,
@@ -415,23 +374,19 @@ SESSION_RESPONSE_BODY_OK = {
         "notes": {"url": "https://p38-notesws.icloud.com:443", "status": "active"},
         "mail": {"url": "https://p38-mailws.icloud.com:443", "status": "active"},
         "ckdatabasews": {
-            "pcsRequired": True,
             "url": "https://p31-ckdatabasews.icloud.com:443",
             "status": "active",
         },
         "photosupload": {
-            "pcsRequired": True,
             "url": "https://p31-uploadphotosws.icloud.com:443",
             "status": "active",
         },
         "photos": {
-            "pcsRequired": True,
             "uploadUrl": "https://p31-uploadphotosws.icloud.com:443",
             "url": "https://p31-photosws.icloud.com:443",
             "status": "active",
         },
         "drivews": {
-            "pcsRequired": True,
             "url": "https://p31-drivews.icloud.com:443",
             "status": "active",
         },
@@ -452,7 +407,6 @@ SESSION_RESPONSE_BODY_OK = {
             "status": "active",
         },
         "docws": {
-            "pcsRequired": True,
             "url": "https://p31-docws.icloud.com:443",
             "status": "active",
         },
@@ -491,7 +445,6 @@ SESSION_RESPONSE_BODY_OK = {
             "status": "active",
         },
     },
-    "pcsEnabled": True,
     "configBag": {
         "urls": {
             "accountCreateUI": "https://appleid.apple.com/widget/account/?widgetKey="
@@ -535,10 +488,8 @@ SESSION_RESPONSE_BODY_OK = {
     ],
     "version": 2,
     "isExtendedLogin": True,
-    "pcsServiceIdentitiesIncluded": True,
     "hsaChallengeRequired": False,
     "requestInfo": {"country": "FR", "timeZone": "GMT+1", "region": "IDF"},
-    "pcsDeleted": False,
     "iCloudInfo": {"SafariBookmarksHasMigratedToCloudKit": True},
     "apps": {
         "calendar": {},
@@ -592,7 +543,6 @@ SESSION_RESPONSE_BODY_2FA = {
         "iCloudAppleIdAlias": ICLOUD_ID_EMAIL,
         "notesMigrated": True,
         "hasPaymentInfo": True,
-        "pcsDeleted": False,
         "appleIdAlias": APPLE_ID_EMAIL,
         "brMigrated": True,
         "statusCode": 2,
@@ -608,23 +558,19 @@ SESSION_RESPONSE_BODY_2FA = {
         "notes": {"url": "https://p38-notesws.icloud.com:443", "status": "active"},
         "mail": {"url": "https://p38-mailws.icloud.com:443", "status": "active"},
         "ckdatabasews": {
-            "pcsRequired": True,
             "url": "https://p31-ckdatabasews.icloud.com:443",
             "status": "active",
         },
         "photosupload": {
-            "pcsRequired": True,
             "url": "https://p31-uploadphotosws.icloud.com:443",
             "status": "active",
         },
         "photos": {
-            "pcsRequired": True,
             "uploadUrl": "https://p31-uploadphotosws.icloud.com:443",
             "url": "https://p31-photosws.icloud.com:443",
             "status": "active",
         },
         "drivews": {
-            "pcsRequired": True,
             "url": "https://p31-drivews.icloud.com:443",
             "status": "active",
         },
@@ -645,7 +591,6 @@ SESSION_RESPONSE_BODY_2FA = {
             "status": "active",
         },
         "docws": {
-            "pcsRequired": True,
             "url": "https://p31-docws.icloud.com:443",
             "status": "active",
         },
@@ -684,7 +629,6 @@ SESSION_RESPONSE_BODY_2FA = {
             "status": "active",
         },
     },
-    "pcsEnabled": True,
     "configBag": {
         "urls": {
             "accountCreateUI": "https://appleid.apple.com/widget/account/?widgetKey="
@@ -728,10 +672,8 @@ SESSION_RESPONSE_BODY_2FA = {
     ],
     "version": 2,
     "isExtendedLogin": True,
-    "pcsServiceIdentitiesIncluded": False,
     "hsaChallengeRequired": True,
     "requestInfo": {"country": "FR", "timeZone": "GMT+1", "region": "IDF"},
-    "pcsDeleted": False,
     "iCloudInfo": {"SafariBookmarksHasMigratedToCloudKit": True},
     "apps": {
         "calendar": {},

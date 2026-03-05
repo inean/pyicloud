@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Sequence, Type, override
+from typing import Annotated, Any, Literal, override
 
 import httpx
 import srp
@@ -174,6 +175,7 @@ class _SrpSigninFlow:
             payload["trustTokens"] = [trust_token]
         return payload
 
+
 ##
 # SignIn Facade Request
 ##
@@ -297,11 +299,11 @@ class SignInInitResponse(
 @serialize
 class SignInInit(OAuthTransport[SignInInitRequest, SignInInitResponse]):
     @property
-    def response_cls(self) -> Type[SignInInitResponse]:
+    def response_cls(self) -> type[SignInInitResponse]:
         return SignInInitResponse
 
     @property
-    def request_cls(self) -> Type[SignInInitRequest]:
+    def request_cls(self) -> type[SignInInitRequest]:
         return SignInInitRequest
 
 
@@ -403,11 +405,11 @@ class SignInCompleteResponse(
 @serialize
 class SignInComplete(OAuthTransport[SignInCompleteRequest, SignInCompleteResponse]):
     @property
-    def response_cls(self) -> Type[SignInCompleteResponse]:
+    def response_cls(self) -> type[SignInCompleteResponse]:
         return SignInCompleteResponse
 
     @property
-    def request_cls(self) -> Type[SignInCompleteRequest]:
+    def request_cls(self) -> type[SignInCompleteRequest]:
         return SignInCompleteRequest
 
 
@@ -421,11 +423,11 @@ SignInResponse = SignInCompleteResponse
 @serialize
 class SignIn(OAuthTransport[SignInRequest, SignInCompleteResponse]):
     @property
-    def response_cls(self) -> Type[SignInCompleteResponse]:
+    def response_cls(self) -> type[SignInCompleteResponse]:
         return SignInCompleteResponse
 
     @property
-    def request_cls(self) -> Type[SignInRequest]:
+    def request_cls(self) -> type[SignInRequest]:
         return SignInRequest
 
     async def send_signin(self, client: httpx.AsyncClient | None = None) -> SignInCompleteResponse:

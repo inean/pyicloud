@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Type
-
 from pyicloud.constants import Endpoints
 from pyicloud.models.bodies import NullModel
 from pyicloud.models.cookies import CookiesModel
@@ -95,9 +93,9 @@ class ValidateResponse(BaseResponse[ValidateResponseHeaders, ValidateResponseCoo
 @serialize
 class Validate(OAuthTransport[ValidateRequest, ValidateResponse]):
     @property
-    def response_cls(self) -> Type[ValidateResponse]:
+    def response_cls(self) -> type[ValidateResponse]:
         return ValidateResponse
 
     @property
-    def request_cls(self) -> Type[ValidateRequest]:
+    def request_cls(self) -> type[ValidateRequest]:
         return ValidateRequest
