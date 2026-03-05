@@ -3,65 +3,24 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
-from itertools import islice
 from typing import Any
 
 from pyicloud.ports import PhotosServicePort
 
-from .runtime import LegacyServicesAdapterBase, LegacyServicesRuntime
+from .clients.common import Pagination
+from .clients.photos import LegacyPhotosClient, PhotosClient
+from .mappers.photos import map_photo_album, map_photo_asset
+from .runtime import LegacyServicesAdapterBase
 
 
 class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
     """Map photo library operations to the photos service port contract."""
 
-    @staticmethod
-    def _photo_asset_metadata(*, album: str, asset: Any) -> dict[str, Any]:
-        created = getattr(asset, "created", None)
-        if isinstance(created, datetime):
-            created_value: str | None = created.isoformat()
-        elif created is None:
-            created_value = None
-        else:
-            created_value = str(created)
-        width, height = asset.dimensions
-        versions = {
-            name: {
-                "filename": value.get("filename"),
-                "width": value.get("width"),
-                "height": value.get("height"),
-                "size": value.get("size"),
-                "type": value.get("type"),
-            }
-            for name, value in asset.versions.items()
-        }
-        return {
-            "id": str(asset.id),
-            "album": album,
-            "filename": str(asset.filename),
-            "size": int(asset.size),
-            "created": created_value,
-            "width": int(width),
-            "height": int(height),
-            "versions": versions,
-        }
-
-    def _photo_album(self, *, username: str, album: str):
-        photos = self._services(username=username).photos
-        albums = photos.albums
-        if album not in albums:
-            raise KeyError(f"Photo album not found: {album}")
-        return albums[album]
-
-    def _photo_asset(self, *, username: str, asset_id: str, album: str):
-        for asset in self._photo_album(username=username, album=album).photos:
-            if str(asset.id) == asset_id:
-                return asset
-        raise KeyError(f"Photo asset not found: {asset_id}")
+    def _photos_client(self, *, username: str) -> PhotosClient:
+        return LegacyPhotosClient(runtime=self._runtime, username=username)
 
     def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        albums = self._services(username=username).photos.albums
-        return [{"name": str(name), "count": len(album)} for name, album in albums.items()]
+        return [map_photo_album(view) for view in self._photos_client(username=username).albums()]
 
     def list_assets(
         self,
@@ -71,13 +30,15 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
         limit: int = 100,
         offset: int = 0,
     ) -> Sequence[Mapping[str, Any]]:
-        album_obj = self._photo_album(username=username, album=album)
-        assets = islice(album_obj.photos, offset, offset + limit)
-        return [self._photo_asset_metadata(album=album, asset=asset) for asset in assets]
+        views = self._photos_client(username=username).assets(
+            album=album,
+            pagination=Pagination(limit=limit, offset=offset),
+        )
+        return [map_photo_asset(view) for view in views]
 
     def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
-        asset = self._photo_asset(username=username, asset_id=asset_id, album=album)
-        return self._photo_asset_metadata(album=album, asset=asset)
+        view = self._photos_client(username=username).asset_metadata(asset_id=asset_id, album=album)
+        return map_photo_asset(view)
 
     def asset_content(
         self,
@@ -87,8 +48,8 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
         album: str = "All Photos",
         version: str = "original",
     ) -> bytes:
-        asset = self._photo_asset(username=username, asset_id=asset_id, album=album)
-        response = asset.download(version=version, stream=True)
-        if response is None:
-            raise KeyError(f"Photo version not found: {version}")
-        return LegacyServicesRuntime.stream_bytes(response)
+        return self._photos_client(username=username).asset_content(
+            asset_id=asset_id,
+            album=album,
+            version=version,
+        )

@@ -160,7 +160,7 @@ def test_legacy_core_services_adapter_photo_operations(monkeypatch: pytest.Monke
         session_store=SimpleNamespace(load=lambda account_id: {}),
         endpoint_factory=SimpleNamespace(),
     )
-    monkeypatch.setattr(adapter, "_services", lambda username: services)
+    monkeypatch.setattr(adapter._runtime, "services", lambda username: services)
 
     albums = adapter.list_albums(username="success@example.com")
     assert albums == [{"name": "All Photos", "count": 2}, {"name": "Favorites", "count": 1}]
@@ -222,7 +222,7 @@ def test_legacy_core_services_adapter_ubiquity_operations(monkeypatch: pytest.Mo
         session_store=SimpleNamespace(load=lambda account_id: {}),
         endpoint_factory=SimpleNamespace(),
     )
-    monkeypatch.setattr(adapter, "_services", lambda username: services)
+    monkeypatch.setattr(adapter._runtime, "services", lambda username: services)
 
     tree = adapter.ubiquity_tree(username="success@example.com", path="/")
     assert [child["name"] for child in tree["children"]] == ["Documents", "Notes"]

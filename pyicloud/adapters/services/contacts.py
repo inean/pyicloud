@@ -7,12 +7,16 @@ from typing import Any
 
 from pyicloud.ports import ContactsServicePort
 
+from .clients.contacts import ContactsClient, LegacyContactsClient
+from .mappers.contacts import map_contact
 from .runtime import LegacyServicesAdapterBase
 
 
 class ContactsServiceAdapter(LegacyServicesAdapterBase, ContactsServicePort):
     """Map contacts operations to the contacts service port contract."""
 
+    def _contacts_client(self, *, username: str) -> ContactsClient:
+        return LegacyContactsClient(runtime=self._runtime, username=username)
+
     def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        contacts = self._services(username=username).contacts.all() or []
-        return [dict(item) for item in contacts]
+        return [map_contact(view) for view in self._contacts_client(username=username).all_contacts()]
