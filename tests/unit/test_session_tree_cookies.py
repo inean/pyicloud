@@ -8,13 +8,28 @@ import pytest
 from pyicloud.constants import AppleCookies as Jar
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
+from pyicloud.ports import AuthStateResetPolicy
 from pyicloud.trees.session import SessionModelTree
 from tests.const import AUTHENTICATED_USER, SCNT, SESSION_ID, VALID_PASSWORD, VALID_TOKEN
 
 
+class _TrackingResetPolicy(AuthStateResetPolicy):
+    def __init__(self):
+        self.calls = 0
+
+    def reset_for_signin_retry(self, *, settings: Settings, cookies: Cookies) -> None:
+        self.calls += 1
+
+
 class DummySessionTree(SessionModelTree):
-    def __init__(self, *, settings: Settings, cookies: Cookies | None = None):
-        super().__init__(settings=settings, cookies=cookies)
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        cookies: Cookies | None = None,
+        auth_reset_policy: AuthStateResetPolicy | None = None,
+    ):
+        super().__init__(settings=settings, cookies=cookies, auth_reset_policy=auth_reset_policy)
 
     @property
     def bhtree(self):
@@ -80,17 +95,12 @@ def test_session_is_expired_when_required_cookie_is_expired(session_tree: DummyS
     assert session_tree._session_is_expired() is True
 
 
-def test_session_reset_cookies_removes_stale_and_dynamic_entries(
+def test_session_reset_cookies_delegates_to_auth_reset_policy(
     session_tree: DummySessionTree,
 ):
-    session_tree.cookies["aasp"] = "aasp_value"
-    session_tree.cookies["acn01"] = "acn01_value"
-    session_tree.cookies["X_APPLE_WEB_KB-ABC"] = "1"
+    policy = _TrackingResetPolicy()
+    session_tree.auth_reset_policy = policy
 
     session_tree._session_reset_cookies()
 
-    assert "aasp" not in session_tree.cookies
-    assert "acn01" not in session_tree.cookies
-    assert "X_APPLE_WEB_KB-ABC" not in session_tree.cookies
-    assert "dslang" in session_tree.cookies
-    assert "site" in session_tree.cookies
+    assert policy.calls == 1

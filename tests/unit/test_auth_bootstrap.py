@@ -35,11 +35,12 @@ class FakeResponse:
 
 
 class FakeSetupModel:
-    def __init__(self, *, settings, cookies, hooks, context):
+    def __init__(self, *, settings, cookies, hooks, context, auth_reset_policy=None):
         self.settings = settings
         self.cookies = cookies if cookies is not None else Cookies.model_validate({})
         self.hooks = hooks
         self.context = context or {}
+        self.auth_reset_policy = auth_reset_policy
 
     async def signin(self, *, refresh_signin: bool):
         return FakeResponse(True)

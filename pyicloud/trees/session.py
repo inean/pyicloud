@@ -6,25 +6,30 @@ from collections.abc import Coroutine, Sequence
 from contextvars import copy_context
 from typing import Any, cast, override
 
-from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.log import LOGGER
 from pyicloud.models.fields import MorselModel
+from pyicloud.ports import AuthStateResetPolicy
 from pyicloud.sessions import BaseResponse
 from pyicloud.sessions.validate import Validate, ValidateRequestCookies
 from pyicloud.trees import BehaveTree, Tree, TreeState, TreeTransitionExtra, blackboard
 
 
-class SessionModelTree(Tree):
-    STALE_SESSION_COOKIES: tuple[str, ...] = (
-        Cookie.AASP,
-        Cookie.ACN01,
-        Cookie.WEBAUTH_HSA_LOGIN,
-    )
-    DYNAMIC_KB_COOKIE_PREFIX = "X_APPLE_WEB_KB-"
+class _NoopAuthStateResetPolicy(AuthStateResetPolicy):
+    def reset_for_signin_retry(self, *, settings, cookies) -> None:  # noqa: ANN001, ARG002
+        return None
 
-    @staticmethod
-    def is_dynamic_kb_cookie(cookie_name: str) -> bool:
-        return cookie_name.startswith(SessionModelTree.DYNAMIC_KB_COOKIE_PREFIX)
+
+class SessionModelTree(Tree):
+    auth_reset_policy: AuthStateResetPolicy
+
+    def __init__(
+        self,
+        *,
+        auth_reset_policy: AuthStateResetPolicy | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.auth_reset_policy = auth_reset_policy or _NoopAuthStateResetPolicy()
 
     @blackboard(fetch=True, remove="refresh_signin")
     def _session_is_valid(self, refresh_signin=False) -> bool:
@@ -83,13 +88,9 @@ class SessionModelTree(Tree):
 
     @blackboard(store="refresh_signin")
     def _session_reset_cookies(self) -> bool:
-        """Reset cookies. Set refresh_sigin to True to force a new session."""
-        LOGGER.debug("Cookies are in an inconsistent state. Resetting ...")
-        for cookie_name in self.STALE_SESSION_COOKIES:
-            self.cookies.pop(cookie_name, None)
-        for cookie_name in list(self.cookies.root.keys()):
-            if self.is_dynamic_kb_cookie(cookie_name):
-                self.cookies.pop(cookie_name, None)
+        """Reset auth artifacts for signin retry through the configured reset policy."""
+        LOGGER.debug("Auth retry state is inconsistent. Applying reset policy ...")
+        self.auth_reset_policy.reset_for_signin_retry(settings=self.settings, cookies=self.cookies)
         return False
 
     @blackboard(store=("api", lambda x: cast(BaseResponse, x).body, lambda x: bool(x)))
