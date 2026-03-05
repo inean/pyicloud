@@ -8,13 +8,12 @@ from collections.abc import Iterator
 from typing import (
     Annotated,
     Any,
-    Callable,
     Protocol,
     Self,
-    Sequence,
     get_args,
     get_origin,
 )
+from collections.abc import Callable, Sequence
 
 from pydantic import (
     BaseModel,
@@ -94,6 +93,22 @@ class Cookies(RootModel):
             if default != self._NO_POP:
                 return default
             raise err
+
+    def retain_only_keys(self, allowed: set[str] | frozenset[str]) -> tuple[set[str], set[str]]:
+        allowed_set = set(allowed)
+        kept: set[str] = set()
+        removed: set[str] = set()
+        filtered: dict[str, MorselModel] = {}
+
+        for cookie in self.root.values():
+            if cookie.key in allowed_set:
+                filtered[cookie.key] = cookie
+                kept.add(cookie.key)
+            else:
+                removed.add(cookie.key)
+
+        self.root = filtered
+        return kept, removed
 
     def model_validate_from_response(self, response: ResponseModel, *, include=None, exclude=None):
         """Create a response from a httpx response."""

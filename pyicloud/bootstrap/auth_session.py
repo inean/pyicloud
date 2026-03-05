@@ -10,6 +10,7 @@ from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.application import AuthSessionService
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
+from pyicloud.ports import AuthStateResetPolicy
 from pyicloud.trees.setup import SetupHooks, SetupModelTree
 
 
@@ -18,6 +19,7 @@ def build_auth_session_service(
     settings: Settings,
     hooks: SetupHooks,
     cookies: Cookies | None = None,
+    auth_reset_policy: AuthStateResetPolicy | None = None,
     context: dict[str, Any] | None = None,
     store_dir: str | Path | None = None,
     setup_model_cls: type[SetupModelTree] = SetupModelTree,
@@ -36,6 +38,7 @@ def build_auth_session_service(
     setup_model = setup_model_cls(
         settings=settings,
         cookies=cookies,
+        auth_reset_policy=auth_reset_policy,
         hooks=hooks,
         context=context,
     )

@@ -75,8 +75,9 @@ class Meta:
         data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         data = data or {}
-        if hasattr(obj, "model_fields"):
-            for name, info in cast(Mapping[str, FieldInfo], obj.model_fields).items():
+        fields = getattr(type(obj), "model_fields", None)
+        if fields is not None:
+            for name, info in cast(Mapping[str, FieldInfo], fields).items():
                 # Extract metadata. Pydantic doesn't like unions outside of Annotated
                 if not (metadata := info.metadata):
                     try:
@@ -85,7 +86,7 @@ class Meta:
                         metadata = []
                 if (meta := next((x for x in metadata if isinstance(x, Meta)), None)) is None:
                     child = getattr(obj, name)
-                    if hasattr(child, "model_fields"):
+                    if getattr(type(child), "model_fields", None) is not None:
                         data = Meta.model_dump_meta(
                             child,
                             by_meta=by_meta,
@@ -180,8 +181,9 @@ class LeafModel(EventedModel):
         raise NotImplementedError
 
     def reset_field(self, field: str, value: Any = None):
-        if field in self.model_fields:
-            info = self.model_fields[field]
+        model_fields = cast(Mapping[str, FieldInfo], type(self).model_fields)
+        if field in model_fields:
+            info = model_fields[field]
             value = value or info.get_default(call_default_factory=True)
             with self.events.blocked():
                 # Set to default and remove from model_fields_set
@@ -310,7 +312,7 @@ class NestedModel(LeafModel):
                 deep_setattr(getattr(model, key), child_key, value, sep)
                 return
 
-            f_info = cast(BaseModel, model).model_fields[key]
+            f_info = cast(Any, type(model)).model_fields[key]
             f_type = get_args(f_info.annotation) or (f_info.annotation,)
             f_type = f_type[0] if len(f_type) == 1 else None
             if f_type is not None and not isinstance(value, f_type):

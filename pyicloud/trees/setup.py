@@ -11,6 +11,7 @@ from typing import Any, cast
 
 import async_btree as bt
 
+from pyicloud.adapters.auth_state_reset import CookieAuthStateResetPolicy
 from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.exceptions import PyiCloudUserCancelledError
@@ -19,6 +20,7 @@ from pyicloud.models.cookies import Cookies
 from pyicloud.models.errors import Error
 from pyicloud.models.fields import Meta
 from pyicloud.models.settings import Settings
+from pyicloud.ports import AuthStateResetPolicy
 from pyicloud.sessions import BaseResponse
 from pyicloud.sessions.account_login import AccountLogin
 from pyicloud.sessions.security_code import SecurityCode, SecurityCodeRequestCookies, SecurityCodeRequestHeaders
@@ -53,9 +55,17 @@ class SetupModelTree(SessionModelTree):
         settings: Settings,
         cookies: Cookies | None = None,
         hooks: SetupHooks,
+        auth_reset_policy: AuthStateResetPolicy | None = None,
         context: dict[str, Any] | None = None,
     ):
-        super().__init__(settings=settings, cookies=cookies, context=context)
+        if auth_reset_policy is None:
+            auth_reset_policy = CookieAuthStateResetPolicy()
+        super().__init__(
+            settings=settings,
+            cookies=cookies,
+            context=context,
+            auth_reset_policy=auth_reset_policy,
+        )
         self.hooks = hooks
 
     @classmethod
