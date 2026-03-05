@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 12 Typed Domain Clients I
   - Phase 13 Typed Domain Clients II
   - Phase 14 Compatibility Facade Migration
   - Phase 15 Auth + Session Hardening
@@ -47,6 +46,7 @@
   - Phase 10 Legacy Cleanup + Hardening
   - Phase 10A Observability Query Abstraction (PromQL/TraceQL/LogQL)
   - Phase 11 Core Adapter Decomposition
+  - Phase 12 Typed Domain Clients I
 - Blocked:
   - None
 
@@ -599,16 +599,49 @@ No monolithic core adapter remains; domain adapters are independently testable a
 
 ## Phase 12: Typed Domain Clients I
 ### Checklist
-- [ ] Implement typed outbound clients for high-traffic domains:
-  - [ ] Find My iPhone (`devices`)
-  - [ ] Account
-  - [ ] Drive
-- [ ] Move provider payload normalization from adapters into dedicated mapper modules.
-- [ ] Ensure adapters depend on typed clients/interfaces, not on broad `PyiCloudServices` objects.
-- [ ] Add contract-oriented tests for mappers and client request/response handling.
+- [x] Implement typed outbound clients for high-traffic domains:
+  - [x] Find My iPhone (`devices`)
+  - [x] Account
+  - [x] Drive
+- [x] Move provider payload normalization from adapters into dedicated mapper modules.
+- [x] Ensure adapters depend on typed clients/interfaces, not on broad `PyiCloudServices` objects.
+- [x] Add contract-oriented tests for mappers and client request/response handling.
 
 ### Exit Criteria
 Devices/account/drive flows run through typed clients and explicit mappers, with no direct domain logic embedded in endpoint glue.
+
+### Handoff: Phase 12 - Typed Domain Clients I
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added typed outbound clients for `devices`, `account`, and `drive` under `pyicloud/adapters/services/clients/`.
+  - Added dedicated mapper modules under `pyicloud/adapters/services/mappers/` and moved normalization logic out of adapters.
+  - Rewired `DevicesServiceAdapter`, `AccountServiceAdapter`, and `DriveServiceAdapter` to depend on typed clients + mappers instead of directly operating on broad `PyiCloudServices` payloads.
+  - Added unit contract coverage for typed clients and mappers and validated behavior parity through existing adapter and vertical suites.
+- Files changed:
+  - `pyicloud/adapters/services/clients/__init__.py`
+  - `pyicloud/adapters/services/clients/devices.py`
+  - `pyicloud/adapters/services/clients/account.py`
+  - `pyicloud/adapters/services/clients/drive.py`
+  - `pyicloud/adapters/services/mappers/__init__.py`
+  - `pyicloud/adapters/services/mappers/devices.py`
+  - `pyicloud/adapters/services/mappers/account.py`
+  - `pyicloud/adapters/services/mappers/drive.py`
+  - `pyicloud/adapters/services/devices.py`
+  - `pyicloud/adapters/services/account.py`
+  - `pyicloud/adapters/services/drive.py`
+  - `tests/unit/test_typed_service_clients.py`
+  - `tests/unit/test_service_mappers.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_typed_service_clients.py tests/unit/test_service_mappers.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/cli/test_devices_cli.py tests/vertical/cli/test_account_cli.py tests/vertical/cli/test_drive_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Typed clients for secondary domains are pending in Phase 13.
+- Next recommended phase: Phase 13 Typed Domain Clients II.
 
 ---
 
@@ -748,5 +781,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 12 from docs/refactor_plan.md
+# Continue Phase 13 from docs/refactor_plan.md
 ```
