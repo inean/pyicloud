@@ -22,7 +22,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 10A Observability Query Abstraction (PromQL/TraceQL/LogQL)
   - Phase 11 Core Adapter Decomposition
   - Phase 12 Typed Domain Clients I
   - Phase 13 Typed Domain Clients II
@@ -46,6 +45,7 @@
   - Phase 8 Secondary Services I
   - Phase 9 Secondary Services II
   - Phase 10 Legacy Cleanup + Hardening
+  - Phase 10A Observability Query Abstraction (PromQL/TraceQL/LogQL)
 - Blocked:
   - None
 
@@ -459,46 +459,86 @@ Core legacy auth/session coupling removed, docs aligned, test suites green.
 
 ## Phase 10A: Observability Query Abstraction (PromQL/TraceQL/LogQL)
 ### Checklist
-- [ ] Add observability query ports and domain contracts:
-  - [ ] Add `pyicloud/ports/observability.py` with protocol ports for PromQL, TraceQL, and LogQL query execution.
-  - [ ] Add request/response TypedDicts (or pydantic domain models) for:
-    - [ ] instant query
-    - [ ] range query
-    - [ ] result envelope (`status`, `language`, `data`, `warnings`, `source`)
-  - [ ] Add domain-level query errors (backend unavailable, unsupported query mode, execution failure) and map them in API.
-  - [ ] Apply skill-aligned port docstrings (`Direction`, `Purpose`, `Implemented by`) plus method-level caller/boundary/raises sections.
-- [ ] Implement default no-dependency adapter:
-  - [ ] Add `pyicloud/adapters/observability/null.py` implementing all observability ports.
-  - [ ] Return deterministic, non-failing "unconfigured" envelopes so the project works without any backend technology.
-  - [ ] Ensure null adapter is the default in application/bootstrap wiring.
-- [ ] Implement optional OTel ecosystem adapter:
-  - [ ] Add `pyicloud/adapters/observability/otel.py` with lazy imports so base install has zero OTel dependency.
-  - [ ] Support backend endpoint configuration via env vars for PromQL/TraceQL/LogQL query APIs.
-  - [ ] Add optional tracing spans around backend calls when OTel packages are installed.
-  - [ ] Fail fast with clear startup error only when `otel` adapter is explicitly selected but optional deps are missing.
-- [ ] Add packaging and composition wiring:
-  - [ ] Add optional dependency group `otel` in `pyproject.toml`.
-  - [ ] Add adapter selection env var(s), defaulting to `null`.
-  - [ ] Wire new observability service(s) in `pyicloud/api/app.py` factory without affecting existing auth/core services.
-- [ ] Expose API + CLI surfaces:
-  - [ ] Add `/v1/observability/promql`, `/v1/observability/traceql`, `/v1/observability/logql` endpoints.
-  - [ ] Add request/response schemas under `pyicloud/api/schemas/`.
-  - [ ] Accept `pronql` as an alias in API/CLI inputs and normalize to `promql`.
-  - [ ] Add `icloud observability promql|traceql|logql` subcommands.
-- [ ] Add deterministic test coverage:
-  - [ ] Unit: null adapter behavior, otel adapter configuration/errors, query request normalization.
-  - [ ] Vertical: API + CLI round trips using null adapter with external network blocked.
-  - [ ] Integration: otel adapter using mocked backend endpoints (no live external calls).
-  - [ ] Guardrail: no direct imports from optional OTel packages outside `adapters/observability/otel.py`.
-- [ ] Update docs:
-  - [ ] Add setup and env-var examples for null vs otel adapter modes.
-  - [ ] Document response envelopes and error mapping for observability query endpoints.
+- [x] Add observability query ports and domain contracts:
+  - [x] Add `pyicloud/ports/observability.py` with protocol ports for PromQL, TraceQL, and LogQL query execution.
+  - [x] Add request/response TypedDicts (or pydantic domain models) for:
+    - [x] instant query
+    - [x] range query
+    - [x] result envelope (`status`, `language`, `data`, `warnings`, `source`)
+  - [x] Add domain-level query errors (backend unavailable, unsupported query mode, execution failure) and map them in API.
+  - [x] Apply skill-aligned port docstrings (`Direction`, `Purpose`, `Implemented by`) plus method-level caller/boundary/raises sections.
+- [x] Implement default no-dependency adapter:
+  - [x] Add `pyicloud/adapters/observability/null.py` implementing all observability ports.
+  - [x] Return deterministic, non-failing "unconfigured" envelopes so the project works without any backend technology.
+  - [x] Ensure null adapter is the default in application/bootstrap wiring.
+- [x] Implement optional OTel ecosystem adapter:
+  - [x] Add `pyicloud/adapters/observability/otel.py` with lazy imports so base install has zero OTel dependency.
+  - [x] Support backend endpoint configuration via env vars for PromQL/TraceQL/LogQL query APIs.
+  - [x] Add optional tracing spans around backend calls when OTel packages are installed.
+  - [x] Fail fast with clear startup error only when `otel` adapter is explicitly selected but optional deps are missing.
+- [x] Add packaging and composition wiring:
+  - [x] Add optional dependency group `otel` in `pyproject.toml`.
+  - [x] Add adapter selection env var(s), defaulting to `null`.
+  - [x] Wire new observability service(s) in `pyicloud/api/app.py` factory without affecting existing auth/core services.
+- [x] Expose API + CLI surfaces:
+  - [x] Add `/v1/observability/promql`, `/v1/observability/traceql`, `/v1/observability/logql` endpoints.
+  - [x] Add request/response schemas under `pyicloud/api/schemas/`.
+  - [x] Accept `pronql` as an alias in API/CLI inputs and normalize to `promql`.
+  - [x] Add `icloud observability promql|traceql|logql` subcommands.
+- [x] Add deterministic test coverage:
+  - [x] Unit: null adapter behavior, otel adapter configuration/errors, query request normalization.
+  - [x] Vertical: API + CLI round trips using null adapter with external network blocked.
+  - [x] Integration: otel adapter using mocked backend endpoints (no live external calls).
+  - [x] Guardrail: no direct imports from optional OTel packages outside `adapters/observability/otel.py`.
+- [x] Update docs:
+  - [x] Add setup and env-var examples for null vs otel adapter modes.
+  - [x] Document response envelopes and error mapping for observability query endpoints.
 
 ### Exit Criteria
 - Project boots and all existing tests pass without installing any OTel or backend-specific dependencies.
 - Observability endpoints and CLI commands return deterministic null-adapter results by default.
 - Installing `.[otel]` and selecting `otel` adapter enables real backend query execution for PromQL/TraceQL/LogQL.
 - Optional dependency boundaries are enforced and covered by tests.
+
+### Handoff: Phase 10A - Observability Query Abstraction (PromQL/TraceQL/LogQL)
+- Date: 2026-03-05
+- Status: Done
+- Summary:
+  - Added observability ports/contracts and domain query errors with skill-aligned port docstrings.
+  - Added default `null` adapter and optional `otel` adapter with lazy OTel imports and fail-fast dependency check when explicitly selected.
+  - Wired `ObservabilityApi` into FastAPI app factory with adapter mode/env configuration.
+  - Added `/v1/observability/{promql|traceql|logql}` plus `/v1/observability/pronql` alias and CLI commands `icloud observability promql|traceql|logql` plus hidden `pronql` alias.
+  - Added deterministic unit/vertical/integration coverage and an OTel import guardrail test.
+  - Added observability documentation with setup, env vars, envelope format, and error mapping.
+- Files changed:
+  - `pyicloud/ports/observability.py`
+  - `pyicloud/domain/api_errors.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/application/observability.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/adapters/observability/*`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/schemas/observability.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `pyicloud/cli/main.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyproject.toml`
+  - `docs/observability.md`
+  - `tests/unit/test_observability_application.py`
+  - `tests/unit/test_observability_null_adapter.py`
+  - `tests/unit/test_observability_otel_adapter.py`
+  - `tests/unit/test_no_direct_otel_imports.py`
+  - `tests/vertical/api/test_observability_api.py`
+  - `tests/vertical/cli/test_observability_cli.py`
+  - `tests/integration/test_observability_otel_adapter.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_observability_application.py tests/unit/test_observability_null_adapter.py tests/unit/test_observability_otel_adapter.py tests/unit/test_no_direct_otel_imports.py tests/vertical/api/test_observability_api.py tests/vertical/cli/test_observability_cli.py tests/integration/test_observability_otel_adapter.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - OTel adapter currently uses generic HTTP query execution; backend-specific advanced query capabilities remain for future hardening.
+  - Observability instrumentation outside query adapter boundaries (domain-level metrics/log spans across all services) is still pending.
+- Next recommended phase: Phase 11 Core Adapter Decomposition.
 
 ---
 
@@ -637,5 +677,5 @@ Project is release-ready with explicit compatibility sunset criteria and no hidd
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 10A from docs/refactor_plan.md
+# Continue Phase 11 from docs/refactor_plan.md
 ```

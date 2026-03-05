@@ -85,6 +85,47 @@ def _print_json(payload: Any) -> None:
     click.echo(json.dumps(payload, indent=2, sort_keys=True, default=str))
 
 
+def _normalize_observability_language(language: str) -> str:
+    clean = language.strip().lower()
+    return "promql" if clean == "pronql" else clean
+
+
+async def _observability_query(
+    *,
+    ctx: click.Context,
+    language: str,
+    query: str,
+    source: str,
+    start: int | None,
+    end: int | None,
+    step: str,
+) -> None:
+    token = _load_token()
+    if token is None:
+        raise click.ClickException("No local token found. Run `icloud auth login` first.")
+
+    payload: dict[str, Any] = {"query": query}
+    if source:
+        payload["source"] = source
+
+    has_range_arg = start is not None or end is not None or bool(step)
+    if has_range_arg:
+        if start is None or end is None or not step:
+            raise click.ClickException("Range query requires --start, --end, and --step together.")
+        payload["start"] = start
+        payload["end"] = end
+        payload["step"] = step
+
+    data = await _api_request(
+        api_url=ctx.obj["api_url"],
+        method="POST",
+        route=f"/v1/observability/{_normalize_observability_language(language)}",
+        token=token,
+        json_body=payload,
+    )
+    _print_json(data)
+
+
 @click.group(help="pyicloud API-driven CLI")
 @click.option("--api-url", default=lambda: os.getenv("PYICLOUD_API_URL", DEFAULT_API_URL), show_default=True)
 @click.pass_context
@@ -669,6 +710,115 @@ async def drive_delete(ctx: click.Context, path: str) -> None:
         params={"path": path},
     )
     _print_json(data)
+
+
+@main.group()
+async def observability() -> None:
+    """Observability query commands."""
+
+
+@observability.command("promql")
+@click.option("--query", required=True)
+@click.option("--source", default="", show_default=False)
+@click.option("--start", type=int, default=None, show_default=False)
+@click.option("--end", type=int, default=None, show_default=False)
+@click.option("--step", default="", show_default=False)
+@click.pass_context
+async def observability_promql(
+    ctx: click.Context,
+    query: str,
+    source: str,
+    start: int | None,
+    end: int | None,
+    step: str,
+) -> None:
+    await _observability_query(
+        ctx=ctx,
+        language="promql",
+        query=query,
+        source=source,
+        start=start,
+        end=end,
+        step=step,
+    )
+
+
+@observability.command("pronql", hidden=True)
+@click.option("--query", required=True)
+@click.option("--source", default="", show_default=False)
+@click.option("--start", type=int, default=None, show_default=False)
+@click.option("--end", type=int, default=None, show_default=False)
+@click.option("--step", default="", show_default=False)
+@click.pass_context
+async def observability_pronql(
+    ctx: click.Context,
+    query: str,
+    source: str,
+    start: int | None,
+    end: int | None,
+    step: str,
+) -> None:
+    await _observability_query(
+        ctx=ctx,
+        language="pronql",
+        query=query,
+        source=source,
+        start=start,
+        end=end,
+        step=step,
+    )
+
+
+@observability.command("traceql")
+@click.option("--query", required=True)
+@click.option("--source", default="", show_default=False)
+@click.option("--start", type=int, default=None, show_default=False)
+@click.option("--end", type=int, default=None, show_default=False)
+@click.option("--step", default="", show_default=False)
+@click.pass_context
+async def observability_traceql(
+    ctx: click.Context,
+    query: str,
+    source: str,
+    start: int | None,
+    end: int | None,
+    step: str,
+) -> None:
+    await _observability_query(
+        ctx=ctx,
+        language="traceql",
+        query=query,
+        source=source,
+        start=start,
+        end=end,
+        step=step,
+    )
+
+
+@observability.command("logql")
+@click.option("--query", required=True)
+@click.option("--source", default="", show_default=False)
+@click.option("--start", type=int, default=None, show_default=False)
+@click.option("--end", type=int, default=None, show_default=False)
+@click.option("--step", default="", show_default=False)
+@click.pass_context
+async def observability_logql(
+    ctx: click.Context,
+    query: str,
+    source: str,
+    start: int | None,
+    end: int | None,
+    step: str,
+) -> None:
+    await _observability_query(
+        ctx=ctx,
+        language="logql",
+        query=query,
+        source=source,
+        start=start,
+        end=end,
+        step=step,
+    )
 
 
 if __name__ == "__main__":
