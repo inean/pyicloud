@@ -31,6 +31,7 @@ from pyicloud.domain import (
 )
 from pyicloud.exceptions import PyiCloudAPIResponseError
 
+from .instrumentation import ApiTelemetryMiddleware, telemetry_enabled
 from .schemas import (
     AccountStorageResponse,
     AuthLoginRequest,
@@ -135,6 +136,8 @@ def create_app(
     validate_upstream_probe_configuration()
 
     app = FastAPI(title="pyicloud API", version="1.0.0")
+    if telemetry_enabled():
+        app.add_middleware(ApiTelemetryMiddleware)
     app.state.auth_service = auth_service or _build_default_auth_service()
     app.state.core_services = core_services or _build_default_core_services()
     app.state.observability_service = observability_service or _build_default_observability_service()
