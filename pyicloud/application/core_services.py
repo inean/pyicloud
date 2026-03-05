@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -52,7 +53,7 @@ class CoreServicesApi:
     ) -> T:
         step = "find_devices" if operation == "devices.list" else operation.split(".")[-1]
         with bind_upstream_context(username=username, operation=operation, step=step):
-            result = call()
+            result = await asyncio.to_thread(call)
             if hasattr(result, "__await__"):
                 return await result  # type: ignore[return-value]
             return result
