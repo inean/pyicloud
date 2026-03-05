@@ -84,6 +84,10 @@ class AuthApiService:
             "expires_at": int(claims.get("exp", int(time()) + self._token_ttl_seconds)),
         }
 
+    @staticmethod
+    def _revocation_key(*, username: str, token_id: str) -> str:
+        return f"{username}:{token_id}"
+
     async def login(self, *, username: str, password: str) -> dict[str, Any]:
         auth_service = self._auth_service_factory(username, password)
         request = AuthFlowRequest(refresh_signin=True, security_code=None, require_trust_token=True)
@@ -147,6 +151,9 @@ class AuthApiService:
         if not username or not token_id or expires_at <= 0:
             raise Unauthorized("Token payload is incomplete")
 
+        token_revocation_key = self._revocation_key(username=username, token_id=token_id)
+        if self._session_query.is_token_revoked(token_revocation_key):
+            raise Unauthorized("Token has been revoked")
         if self._session_query.is_token_revoked(token_id):
             raise Unauthorized("Token has been revoked")
 
@@ -155,4 +162,7 @@ class AuthApiService:
     def logout(self, *, token: str) -> None:
         principal = self.session(token=token)
         ttl_seconds = max(1, principal.expires_at - int(time()))
-        self._session_command.revoke_token(token_id=principal.token_id, ttl_seconds=ttl_seconds)
+        self._session_command.revoke_token(
+            token_id=self._revocation_key(username=principal.username, token_id=principal.token_id),
+            ttl_seconds=ttl_seconds,
+        )

@@ -14,6 +14,14 @@ from pyicloud.ports import TokenSignerPort
 class JwtTokenSigner(TokenSignerPort):
     """Sign and verify JWT bearer tokens for the API layer."""
 
+    _WEAK_SECRETS = {
+        "changeme",
+        "default",
+        "password",
+        "pyicloud-api-dev-secret",
+        "secret",
+    }
+
     def __init__(
         self,
         *,
@@ -21,13 +29,23 @@ class JwtTokenSigner(TokenSignerPort):
         algorithm: str = "HS256",
         issuer: str = "pyicloud-api",
         audience: str = "pyicloud-cli",
+        leeway_seconds: int = 0,
+        enforce_strong_secret: bool = False,
     ):
         if not secret:
             raise RuntimeError("JWT secret cannot be empty")
+        if enforce_strong_secret and self.is_weak_secret(secret):
+            raise RuntimeError("JWT secret is too weak for non-dev runtime")
         self._secret = secret
         self._algorithm = algorithm
         self._issuer = issuer
         self._audience = audience
+        self._leeway_seconds = max(0, int(leeway_seconds))
+
+    @classmethod
+    def is_weak_secret(cls, secret: str) -> bool:
+        normalized = secret.strip().lower()
+        return len(secret) < 32 or normalized in cls._WEAK_SECRETS
 
     def sign(self, *, subject: str, claims: Mapping[str, Any], expires_in_seconds: int) -> str:
         now = datetime.now(tz=UTC)
@@ -59,6 +77,7 @@ class JwtTokenSigner(TokenSignerPort):
                 audience=self._audience,
                 issuer=self._issuer,
                 options={"require": ["exp", "iat", "sub", "jti"]},
+                leeway=self._leeway_seconds,
             )
         except Exception as err:  # noqa: BLE001
             raise RuntimeError("Invalid or expired token") from err

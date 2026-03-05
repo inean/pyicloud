@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
 from pyicloud.adapters.services import build_legacy_core_adapter_bundle
-from pyicloud.adapters.session import InMemoryApiSessionStore
+from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
@@ -45,9 +45,32 @@ from .schemas import (
 
 
 def _build_default_auth_service() -> AuthApiService:
+    runtime_env = os.getenv("PYICLOUD_API_ENV", os.getenv("PYICLOUD_ENV", "dev")).strip().lower()
+    is_non_dev = runtime_env not in {"dev", "development", "local", "test", "testing"}
+
     secret = os.getenv("PYICLOUD_API_JWT_SECRET", "pyicloud-api-dev-secret")
-    signer = JwtTokenSigner(secret=secret)
-    session_store = InMemoryApiSessionStore()
+    if is_non_dev and "PYICLOUD_API_JWT_SECRET" not in os.environ:
+        raise RuntimeError("PYICLOUD_API_JWT_SECRET must be explicitly configured in non-dev runtime")
+
+    leeway_seconds_raw = os.getenv("PYICLOUD_API_JWT_LEEWAY_SECONDS", "0")
+    try:
+        leeway_seconds = int(leeway_seconds_raw)
+    except ValueError as err:
+        raise RuntimeError("PYICLOUD_API_JWT_LEEWAY_SECONDS must be an integer") from err
+
+    signer = JwtTokenSigner(
+        secret=secret,
+        leeway_seconds=leeway_seconds,
+        enforce_strong_secret=is_non_dev,
+    )
+
+    session_backend = os.getenv("PYICLOUD_API_SESSION_BACKEND", "memory").strip().lower()
+    if session_backend in {"memory", "in-memory", "inmemory"}:
+        session_store = InMemoryApiSessionStore()
+    elif session_backend == "file":
+        session_store = FileApiSessionStore(root_dir=os.getenv("PYICLOUD_API_SESSION_STORE_DIR"))
+    else:
+        raise RuntimeError(f"Unsupported auth session backend: {session_backend}")
     store_dir = os.getenv("PYICLOUD_SESSION_STORE_DIR")
     return AuthApiService(
         token_signer=signer,
