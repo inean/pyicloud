@@ -323,56 +323,56 @@ def create_app(
         return _ok(SimpleOkResponse(detail="Logged out"))
 
     @app.get("/v1/devices")
-    def devices_list(
+    async def devices_list(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.list_devices(username=username))
+        return _ok(await service.list_devices(username=username))
 
     @app.get("/v1/devices/{device_id}/location")
-    def devices_location(
+    async def devices_location(
         device_id: str = Path(...),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
         try:
-            return _ok(service.device_location(username=username, device_id=device_id))
+            return _ok(await service.device_location(username=username, device_id=device_id))
         except KeyError as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 
     @app.get("/v1/devices/{device_id}/status")
-    def devices_status(
+    async def devices_status(
         device_id: str = Path(...),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
         try:
-            return _ok(service.device_status(username=username, device_id=device_id))
+            return _ok(await service.device_status(username=username, device_id=device_id))
         except KeyError as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 
     @app.post("/v1/devices/{device_id}/actions/play-sound", response_model=DataEnvelope)
-    def devices_play_sound(
+    async def devices_play_sound(
         payload: DevicePlaySoundRequest,
         device_id: str = Path(...),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
         try:
-            service.device_play_sound(username=username, device_id=device_id, subject=payload.subject)
+            await service.device_play_sound(username=username, device_id=device_id, subject=payload.subject)
         except KeyError as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
         return _ok(SimpleOkResponse(detail="Sound command sent"))
 
     @app.post("/v1/devices/{device_id}/actions/message", response_model=DataEnvelope)
-    def devices_message(
+    async def devices_message(
         payload: DeviceMessageRequest,
         device_id: str = Path(...),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
         try:
-            service.device_message(
+            await service.device_message(
                 username=username,
                 device_id=device_id,
                 subject=payload.subject,
@@ -384,14 +384,14 @@ def create_app(
         return _ok(SimpleOkResponse(detail="Message command sent"))
 
     @app.post("/v1/devices/{device_id}/actions/lost-mode", response_model=DataEnvelope)
-    def devices_lost_mode(
+    async def devices_lost_mode(
         payload: DeviceLostModeRequest,
         device_id: str = Path(...),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
         try:
-            service.device_lost_mode(
+            await service.device_lost_mode(
                 username=username,
                 device_id=device_id,
                 number=payload.number,
@@ -403,44 +403,44 @@ def create_app(
         return _ok(SimpleOkResponse(detail="Lost mode command sent"))
 
     @app.get("/v1/account/devices")
-    def account_devices(
+    async def account_devices(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.account_devices(username=username))
+        return _ok(await service.account_devices(username=username))
 
     @app.get("/v1/account/family")
-    def account_family(
+    async def account_family(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.account_family(username=username))
+        return _ok(await service.account_family(username=username))
 
     @app.get("/v1/account/storage", response_model=DataEnvelope)
-    def account_storage(
+    async def account_storage(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
-        return _ok(AccountStorageResponse.model_validate(service.account_storage(username=username)))
+        return _ok(AccountStorageResponse.model_validate(await service.account_storage(username=username)))
 
     @app.get("/v1/calendar/calendars")
-    def calendar_calendars(
+    async def calendar_calendars(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.calendar_calendars(username=username))
+        return _ok(await service.calendar_calendars(username=username))
 
     @app.get("/v1/calendar/events")
-    def calendar_events(
+    async def calendar_events(
         from_dt: datetime | None = Query(default=None),
         to_dt: datetime | None = Query(default=None),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.calendar_events(username=username, from_dt=from_dt, to_dt=to_dt))
+        return _ok(await service.calendar_events(username=username, from_dt=from_dt, to_dt=to_dt))
 
     @app.get("/v1/calendar/event-detail")
-    def calendar_event_detail(
+    async def calendar_event_detail(
         calendar_guid: str = Query(..., min_length=1),
         event_guid: str = Query(..., min_length=1),
         username: str = Depends(_get_username),
@@ -448,7 +448,7 @@ def create_app(
     ) -> Any:
         try:
             return _ok(
-                service.calendar_event_detail(
+                await service.calendar_event_detail(
                     username=username,
                     calendar_guid=calendar_guid,
                     event_guid=event_guid,
@@ -458,26 +458,26 @@ def create_app(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 
     @app.get("/v1/contacts")
-    def contacts_list(
+    async def contacts_list(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.contacts_all(username=username))
+        return _ok(await service.contacts_all(username=username))
 
     @app.get("/v1/reminders")
-    def reminders_list(
+    async def reminders_list(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.reminders_lists(username=username))
+        return _ok(await service.reminders_lists(username=username))
 
     @app.post("/v1/reminders", response_model=DataEnvelope)
-    def reminders_create(
+    async def reminders_create(
         payload: ReminderCreateRequest,
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
-        created = service.reminders_create(
+        created = await service.reminders_create(
             username=username,
             title=payload.title,
             description=payload.description,
@@ -489,14 +489,14 @@ def create_app(
         return _ok(SimpleOkResponse(detail="Reminder created"))
 
     @app.get("/v1/photos/albums")
-    def photos_albums(
+    async def photos_albums(
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.photos_albums(username=username))
+        return _ok(await service.photos_albums(username=username))
 
     @app.get("/v1/photos/assets")
-    def photos_assets(
+    async def photos_assets(
         album: str = Query(default="All Photos"),
         limit: int = Query(default=100, ge=1, le=1000),
         offset: int = Query(default=0, ge=0),
@@ -504,25 +504,25 @@ def create_app(
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
         try:
-            return _ok(service.photos_assets(username=username, album=album, limit=limit, offset=offset))
+            return _ok(await service.photos_assets(username=username, album=album, limit=limit, offset=offset))
         except KeyError as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 
     @app.get("/v1/photos/asset", response_model=DataEnvelope)
-    def photos_asset(
+    async def photos_asset(
         asset_id: str = Query(..., min_length=1),
         album: str = Query(default="All Photos"),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
         try:
-            metadata = service.photo_asset_metadata(username=username, asset_id=asset_id, album=album)
+            metadata = await service.photo_asset_metadata(username=username, asset_id=asset_id, album=album)
             return _ok(PhotoAssetMetadataResponse.model_validate(metadata))
         except KeyError as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 
     @app.get("/v1/photos/download")
-    def photos_download(
+    async def photos_download(
         asset_id: str = Query(..., min_length=1),
         album: str = Query(default="All Photos"),
         version: str = Query(default="original", min_length=1),
@@ -531,9 +531,9 @@ def create_app(
     ) -> StreamingResponse:
         try:
             metadata = PhotoAssetMetadataResponse.model_validate(
-                service.photo_asset_metadata(username=username, asset_id=asset_id, album=album)
+                await service.photo_asset_metadata(username=username, asset_id=asset_id, album=album)
             )
-            content = service.photo_asset_content(
+            content = await service.photo_asset_content(
                 username=username,
                 asset_id=asset_id,
                 album=album,
@@ -553,18 +553,18 @@ def create_app(
         )
 
     @app.get("/v1/ubiquity/tree")
-    def ubiquity_tree(
+    async def ubiquity_tree(
         path: str = Query(default="/"),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
         try:
-            return _ok(service.ubiquity_tree(username=username, path=path))
+            return _ok(await service.ubiquity_tree(username=username, path=path))
         except KeyError as err:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 
     @app.get("/v1/ubiquity/file")
-    def ubiquity_file(
+    async def ubiquity_file(
         path: str = Query(...),
         download: bool = Query(default=False),
         username: str = Depends(_get_username),
@@ -572,12 +572,12 @@ def create_app(
     ) -> Any:
         try:
             if not download:
-                metadata = service.ubiquity_file_metadata(username=username, path=path)
+                metadata = await service.ubiquity_file_metadata(username=username, path=path)
                 return _ok(UbiquityFileMetadataResponse.model_validate(metadata))
             metadata = UbiquityFileMetadataResponse.model_validate(
-                service.ubiquity_file_metadata(username=username, path=path)
+                await service.ubiquity_file_metadata(username=username, path=path)
             )
-            content = service.ubiquity_file_content(username=username, path=path)
+            content = await service.ubiquity_file_content(username=username, path=path)
         except ValidationError as err:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Invalid ubiquity metadata: {err}"
@@ -617,33 +617,33 @@ def create_app(
         return _ok(_run_observability_query(language="logql", payload=payload, service=service))
 
     @app.get("/v1/drive/tree")
-    def drive_tree(
+    async def drive_tree(
         path: str = Query(default="/"),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
-        return _ok(service.drive_tree(username=username, path=path))
+        return _ok(await service.drive_tree(username=username, path=path))
 
     @app.get("/v1/drive/file")
-    def drive_file(
+    async def drive_file(
         path: str = Query(...),
         download: bool = Query(default=False),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> Any:
         if not download:
-            metadata = service.drive_file_metadata(username=username, path=path)
+            metadata = await service.drive_file_metadata(username=username, path=path)
             return _ok(DriveFileMetadataResponse.model_validate(metadata))
 
         try:
             metadata = DriveFileMetadataResponse.model_validate(
-                service.drive_file_metadata(username=username, path=path)
+                await service.drive_file_metadata(username=username, path=path)
             )
         except ValidationError as err:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Invalid drive metadata: {err}"
             ) from err
-        content = service.drive_file_content(username=username, path=path)
+        content = await service.drive_file_content(username=username, path=path)
         filename = metadata.name.strip() or "file.bin"
         return StreamingResponse(
             iter([content]),
@@ -652,12 +652,12 @@ def create_app(
         )
 
     @app.post("/v1/drive/folders", response_model=DataEnvelope)
-    def drive_folders(
+    async def drive_folders(
         payload: DriveCreateFolderRequest,
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
-        service.drive_create_folder(username=username, parent_path=payload.parent_path, name=payload.name)
+        await service.drive_create_folder(username=username, parent_path=payload.parent_path, name=payload.name)
         return _ok(SimpleOkResponse(detail="Folder created"))
 
     @app.post("/v1/drive/upload", response_model=DataEnvelope)
@@ -668,7 +668,7 @@ def create_app(
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
         content = await file.read()
-        service.drive_upload_file(
+        await service.drive_upload_file(
             username=username,
             parent_path=parent_path,
             filename=file.filename or "upload.bin",
@@ -677,21 +677,21 @@ def create_app(
         return _ok(SimpleOkResponse(detail="File uploaded"))
 
     @app.patch("/v1/drive/node", response_model=DataEnvelope)
-    def drive_rename(
+    async def drive_rename(
         payload: DriveRenameNodeRequest,
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
-        service.drive_rename_node(username=username, path=payload.path, new_name=payload.new_name)
+        await service.drive_rename_node(username=username, path=payload.path, new_name=payload.new_name)
         return _ok(SimpleOkResponse(detail="Node renamed"))
 
     @app.delete("/v1/drive/node", response_model=DataEnvelope)
-    def drive_delete(
+    async def drive_delete(
         path: str = Query(...),
         username: str = Depends(_get_username),
         service: CoreServicesApi = Depends(get_core_services),
     ) -> DataEnvelope:
-        service.drive_delete_node(username=username, path=path)
+        await service.drive_delete_node(username=username, path=path)
         return _ok(SimpleOkResponse(detail="Node deleted"))
 
     return app
