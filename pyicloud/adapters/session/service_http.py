@@ -18,7 +18,7 @@ from pyicloud.log.httpx import LoggerHook, LogTransport
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
-from pyicloud.upstream import build_error_event, build_request_event, build_response_event
+from pyicloud.platform.telemetry.upstream import build_error_event, build_request_event, build_response_event
 
 
 class LegacyServiceSessionAdapter(httpx.Client):

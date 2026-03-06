@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 
 from pyicloud.contexts.services.contracts.services import DriveServicePort
 from pyicloud.domain import DriveNodeDTO
-from pyicloud.upstream import bind_upstream_context
+from pyicloud.platform.telemetry.upstream import bind_upstream_context
 
 
 class DriveApplicationService:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pyicloud.upstream.classification import classify_upstream_request
+from pyicloud.platform.telemetry.upstream.classification import classify_upstream_request
 
 
 def test_classification_maps_auth_steps():

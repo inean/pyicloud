@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from pyicloud.domain import AuthFlowRequest, AuthFlowResult, AuthStep, SecurityCodeRequired
+from pyicloud.platform.telemetry.upstream import bind_upstream_context, inject_flow_into_payload
 from pyicloud.ports import AuthSessionPort, SessionStorePort
-from pyicloud.upstream import bind_upstream_context, inject_flow_into_payload
 
 
 class AuthSessionService:

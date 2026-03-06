@@ -7,7 +7,7 @@ from datetime import datetime
 
 from pyicloud.contexts.services.contracts.services import RemindersServicePort
 from pyicloud.domain import ReminderListsDTO
-from pyicloud.upstream import bind_upstream_context
+from pyicloud.platform.telemetry.upstream import bind_upstream_context
 
 
 class RemindersApplicationService:

@@ -6,7 +6,7 @@ from pyicloud.models.errors import Error, ServiceErrorsModel
 from pyicloud.models.fields import ContentTypeType
 from pyicloud.models.headers import HeadersModel
 from pyicloud.models.settings import Settings
-from pyicloud.upstream import get_upstream_probe, upstream_capture_body_max_bytes
+from pyicloud.platform.telemetry.upstream import get_upstream_probe, upstream_capture_body_max_bytes
 
 from ._contracts import (
     BaseRequest,

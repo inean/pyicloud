@@ -12,9 +12,9 @@ from pyicloud.constants import AppleHeaders
 from pyicloud.domain import AuthFlowRequest
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
+from pyicloud.platform.telemetry.upstream import bind_upstream_context
 from pyicloud.ports import UpstreamErrorEvent, UpstreamRequestEvent, UpstreamResponseEvent
 from pyicloud.trees.setup import SetupHooks, SetupModelTree
-from pyicloud.upstream import bind_upstream_context
 from tests.const import REQUIRES_2FA_USER, VALID_2FA_CODE, VALID_PASSWORD
 from tests.fakes.srp_auth_flow import SrpAuthFlowFake
 
