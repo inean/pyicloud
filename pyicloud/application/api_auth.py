@@ -84,6 +84,67 @@ class AuthApiService:
             "expires_at": int(claims.get("exp", int(time()) + self._token_ttl_seconds)),
         }
 
+    def _issue_challenge(
+        self,
+        *,
+        account_id: str,
+        challenge_type: str,
+        next_step: str,
+        flow_id: str | None = None,
+        retryable: bool = True,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        challenge_id = str(uuid4())
+        flow = flow_id or str(uuid4())
+        expires_at = int(time()) + self._challenge_ttl_seconds
+        challenge_payload = {
+            "account_id": account_id,
+            "challenge_type": challenge_type,
+            "flow_id": flow,
+            "next_step": next_step,
+            "retryable": retryable,
+        }
+        if payload:
+            challenge_payload.update(payload)
+        self._session_command.put_challenge(
+            challenge_id=challenge_id,
+            payload=challenge_payload,
+            ttl_seconds=self._challenge_ttl_seconds,
+        )
+        return {
+            "challenge_id": challenge_id,
+            "challenge_ttl": self._challenge_ttl_seconds,
+            "challenge_type": challenge_type,
+            "account_id": account_id,
+            "flow_id": flow,
+            "expires_at": expires_at,
+            "next_step": next_step,
+            "retryable": retryable,
+        }
+
+    def issue_operation_challenge(
+        self,
+        *,
+        account_id: str,
+        upstream_status: int | None,
+        operation: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        challenge = self._issue_challenge(
+            account_id=account_id,
+            challenge_type="session_refresh",
+            next_step="auth.login",
+            retryable=True,
+            payload={
+                "upstream_status": upstream_status,
+                "operation": operation,
+                "reason": reason,
+            },
+        )
+        challenge["upstream_status"] = upstream_status
+        challenge["operation"] = operation
+        return challenge
+
     @staticmethod
     def _revocation_key(*, username: str, token_id: str) -> str:
         return f"{username}:{token_id}"
@@ -100,17 +161,15 @@ class AuthApiService:
         try:
             await auth_service.run(account_id=username, request=request)
         except SecurityCodeRequired:
-            challenge_id = str(uuid4())
-            self._session_command.put_challenge(
-                challenge_id=challenge_id,
-                payload={"username": username, "password": password, "flow_id": flow_id},
-                ttl_seconds=self._challenge_ttl_seconds,
+            challenge = self._issue_challenge(
+                account_id=username,
+                challenge_type="security_code",
+                next_step="auth.security_code",
+                flow_id=flow_id,
             )
             return {
                 "status": "challenge_required",
-                "challenge_id": challenge_id,
-                "challenge_ttl": self._challenge_ttl_seconds,
-                "flow_id": flow_id,
+                **challenge,
             }
         except RuntimeError as err:
             raise InvalidCredentials(str(err) or "Invalid credentials") from err
@@ -122,13 +181,24 @@ class AuthApiService:
             **token_data,
         }
 
-    async def security_code(self, *, challenge_id: str, code: str) -> dict[str, Any]:
+    async def security_code(
+        self,
+        *,
+        challenge_id: str,
+        code: str,
+        password: str,
+        username: str | None = None,
+    ) -> dict[str, Any]:
         challenge = self._session_query.get_challenge(challenge_id)
         if challenge is None:
             raise ChallengeExpired("Challenge is missing or expired")
 
-        username = str(challenge.get("username", ""))
-        password = str(challenge.get("password", ""))
+        challenge_username = str(challenge.get("account_id") or challenge.get("username") or "").strip()
+        username = (username or challenge_username).strip()
+        if not username:
+            raise InvalidCredentials("Challenge is missing account context")
+        if not password:
+            raise InvalidCredentials("Password is required to complete challenge")
         flow_id = str(challenge.get("flow_id", "")).strip() or str(uuid4())
         auth_service = self._auth_service_factory(username, password)
 

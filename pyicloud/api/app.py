@@ -179,12 +179,16 @@ def create_app(
     async def _http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
         details: Any | None = None
         message = str(exc.detail)
+        explicit_code: str | None = None
         if isinstance(exc.detail, dict):
+            maybe_code = exc.detail.get("code")
+            if isinstance(maybe_code, str) and maybe_code.strip():
+                explicit_code = maybe_code.strip()
             message = str(exc.detail.get("message", exc.detail))
             details = exc.detail
         payload = {
             "error": {
-                "code": _error_code(exc.status_code),
+                "code": explicit_code or _error_code(exc.status_code),
                 "message": message,
                 "status": exc.status_code,
                 "details": details,
@@ -193,8 +197,35 @@ def create_app(
         return JSONResponse(status_code=exc.status_code, content=payload)
 
     @app.exception_handler(PyiCloudAPIResponseError)
-    async def _pyicloud_api_error_handler(_: Request, exc: PyiCloudAPIResponseError) -> JSONResponse:
+    async def _pyicloud_api_error_handler(request: Request, exc: PyiCloudAPIResponseError) -> JSONResponse:
         upstream_status = _coerce_upstream_status(exc.code)
+        if upstream_status in {401, 421, 450}:
+            authorization = request.headers.get("authorization", "")
+            token = authorization.split(" ", 1)[1].strip() if authorization.startswith("Bearer ") else ""
+            principal = None
+            if token:
+                try:
+                    principal = request.app.state.auth_service.session(token=token)
+                except Unauthorized:
+                    principal = None
+            if principal is not None:
+                challenge = request.app.state.auth_service.issue_operation_challenge(
+                    account_id=principal.username,
+                    upstream_status=upstream_status,
+                    operation=f"{request.method} {request.url.path}",
+                    reason=str(exc.reason or ""),
+                )
+                return await _http_exception_handler(
+                    request,
+                    HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail={
+                            "code": "auth_challenge_required",
+                            "message": "Apple session expired or requires re-authentication",
+                            **challenge,
+                        },
+                    ),
+                )
         detail_payload: dict[str, Any] = {
             "message": str(exc.reason or "Upstream iCloud request failed"),
             "upstream_status": upstream_status,
@@ -204,7 +235,7 @@ def create_app(
         if upstream_status in {421, 450}:
             detail_payload["hint"] = "Run `icloud auth login` again to refresh the Apple upstream session."
         return await _http_exception_handler(
-            _,
+            request,
             HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail_payload),
         )
 
@@ -288,7 +319,12 @@ def create_app(
         service: AuthApiService = Depends(get_auth_service),
     ) -> DataEnvelope:
         try:
-            result = await service.security_code(challenge_id=payload.challenge_id, code=payload.code)
+            result = await service.security_code(
+                challenge_id=payload.challenge_id,
+                code=payload.code,
+                password=payload.password,
+                username=payload.username,
+            )
         except ChallengeExpired as err:
             raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(err)) from err
         except InvalidSecurityCode as err:
