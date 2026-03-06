@@ -28,9 +28,13 @@
 
 ## Phase Board
 - Planned:
-  - None
+  - Phase 29 Access Control Plane (Whitelist + Admin)
+  - Phase 30 Unified Auth Challenge Endpoint
+  - Phase 31 Operation Suspension Pattern (Server-Side)
+  - Phase 32 Abuse/Safety Hardening for New Flows
+  - Phase 33 Migration, Compatibility, and Cutover
 - In Progress:
-  - None
+  - Phase 28 Credential Custody Hardening
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -1572,11 +1576,189 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
   - `uv run --extra test pytest -q`
 - Risks / TBD:
   - None for this phase.
-- Next recommended phase: None (current refactor plan scope completed).
+- Next recommended phase: Phase 28 Credential Custody Hardening.
+
+---
+
+## Phase 28-33 Program: Secure Auth, Access Control, Unified Challenge, and Operation Suspension
+### Summary (locked)
+- `password` custody in CLI only (encrypted at rest), never persisted by backend.
+- Hybrid access-control model:
+  - `dev/local`: relaxed onboarding for iteration speed.
+  - `staging/prod`: strict allowlist + admin + durable stores mandatory.
+- Single auth entrypoint `POST /v1/auth/challenge` with explicit challenge state machine.
+- Server-side Operation Suspension Pattern for challenge-driven resume after Apple reauth/MFA.
+
+### Public API / Interface Changes (locked)
+- New endpoint:
+  - `POST /v1/auth/challenge` (state-machine contract).
+- New admin endpoints (JWT admin role required):
+  - `GET /v1/admin/allowlist`
+  - `POST /v1/admin/allowlist`
+  - `DELETE /v1/admin/allowlist/{username}`
+  - `POST /v1/admin/allowlist/{username}/role`
+- Updated challenge details in protected-route errors:
+  - include `challenge_id`, `challenge_type`, `session_id`, `operation_id`, `next_step`.
+- JWT claims extension:
+  - `role` and `acl_version` (for stale-admin invalidation).
+- Keep `/v1/auth/login` and `/v1/auth/security-code` as temporary compatibility shims during migration window.
+
+### Program Test Plan (locked)
+- Unit:
+  - challenge state-machine transitions and invalid-transition rejection.
+  - backend serialization/store tests proving no password persistence.
+  - allowlist/admin authorization matrix and bootstrap-admin path.
+- Integration:
+  - operation suspension for read/mutation routes with resume success/failure/timeout.
+  - anti-replay, attempt-limit, and rate-limit behavior.
+- Vertical CLI/API:
+  - unified challenge flow including 2FA and resumed operation.
+- Regression:
+  - existing `auth_challenge_required` envelope remains backward-compatible during migration window.
+
+### Risk Evaluation and Mitigation Strategy (locked)
+- Custom crypto mistakes for `password_cyphered`:
+  - Use standard sealed-box libs (libsodium/PyNaCl), versioned key IDs, key rotation support, no custom primitives.
+- Replay/double-execution on suspended mutations:
+  - Mandatory idempotency keys, one-time resume tokens, terminal operation states.
+- Challenge hijack/cross-account completion:
+  - Bind challenge to `username + session_id + client fingerprint`; single-use step tokens; short TTL.
+- Allowlist misconfiguration/admin lockout:
+  - Bootstrap-admin break-glass flow in non-dev; immutable audit log; explicit last-admin removal guard.
+- DoS via unbounded pending challenges/operations:
+  - Per-user/global quotas, TTL sweeper, payload caps, request rate limits.
+- Multi-instance consistency gaps:
+  - Durable shared stores required in `staging/prod`; memory backends only in `dev/local`.
+
+### Assumptions and Defaults (locked)
+- Keep `401` for `auth_challenge_required` to preserve existing client semantics.
+- Backend never persists Apple password at rest.
+- CLI is the only component allowed to store Apple password locally, and only encrypted at rest.
+
+---
+
+## Phase 28: Credential Custody Hardening
+### Goal
+Ensure backend handles Apple password only in memory, never at rest, while enabling secure CLI-side credential storage.
+
+### Checklist
+- [ ] Remove backend password persistence from settings/session serialization paths.
+- [ ] Add explicit guard tests proving backend stores/files never persist plaintext password artifacts.
+- [ ] Add CLI credential vault adapter:
+  - [ ] OS keyring backend first.
+  - [ ] encrypted-file fallback explicitly disabled by default.
+- [ ] Wire CLI auth commands/challenge middleware to consume credential vault where available.
+
+### Exit Criteria
+- Backend writes zero plaintext password artifacts in config/session/challenge stores.
+- CLI can securely store/retrieve encrypted credential locally for challenge continuation.
+
+---
+
+## Phase 29: Access Control Plane (Whitelist + Admin)
+### Goal
+Prevent arbitrary Apple accounts from using backend by enforcing admin-managed allowlist policies.
+
+### Checklist
+- [ ] Introduce allowlist/admin domain model:
+  - [ ] fields include `username`, `roles`, `status`, `created_by`, timestamps.
+- [ ] Add persistence adapter for access-control state.
+- [ ] Enforce allowlist gate before auth flow starts.
+- [ ] Add bootstrap-admin mechanism for first setup in non-dev environments.
+- [ ] Add admin API for allowlist management:
+  - [ ] list/add/remove/promote/demote.
+- [ ] Add role-aware JWT claim issuance/validation (`role`, `acl_version`) and stale-ACL invalidation behavior.
+
+### Exit Criteria
+- Unauthorized Apple accounts are rejected with `403` before auth/challenge execution.
+- Admin can manage allowlist lifecycle without direct file edits.
+
+---
+
+## Phase 30: Unified Auth Challenge Endpoint
+### Goal
+Consolidate interactive authentication into one state-machine endpoint.
+
+### Checklist
+- [ ] Introduce `POST /v1/auth/challenge` as the canonical interactive auth endpoint.
+- [ ] Support staged request inputs:
+  - [ ] `username`
+  - [ ] `challenge_id`
+  - [ ] `password_envelope`
+  - [ ] `security_code`
+- [ ] Standardize response contract:
+  - [ ] explicit `challenge_type` in `password_required | security_code_required | authenticated | operation_resume_required`.
+  - [ ] include `challenge_id`, `session_id`, `expires_at`, `retryable`.
+- [ ] Keep `/v1/auth/login` and `/v1/auth/security-code` as temporary compatibility shims forwarding internally to challenge service.
+- [ ] Add strict transition validation to reject invalid or replayed challenge steps.
+
+### Exit Criteria
+- Auth handshake is represented by one explicit server-side state machine and one public interactive entrypoint.
+- Legacy auth endpoints remain operational only as compatibility wrappers.
+
+---
+
+## Phase 31: Operation Suspension Pattern (Server-Side)
+### Goal
+Pause protected operations while auth challenges complete, then resume server-side safely.
+
+### Checklist
+- [ ] Add suspended-operation store with TTL and explicit states:
+  - [ ] `pending_auth`, `resuming`, `completed`, `failed`, `expired`.
+- [ ] On upstream reauth errors, return `401 auth_challenge_required` including `operation_id`.
+- [ ] On successful challenge completion, resume suspended operation in backend and return final operation result.
+- [ ] Enforce idempotency key requirement for mutating operations during suspend/resume.
+- [ ] Enforce terminal-state semantics to prevent duplicate resume execution.
+
+### Exit Criteria
+- Client no longer needs to manually replay original business operations after MFA.
+- Mutating operations remain replay-safe under retries and partial failures.
+
+---
+
+## Phase 32: Abuse/Safety Hardening for New Flows
+### Goal
+Bound abuse surface introduced by challenge and operation-suspension state.
+
+### Checklist
+- [ ] Add challenge attempt limits, lockout windows, and rate limits per account/IP/session.
+- [ ] Add anti-replay controls:
+  - [ ] single-use challenge steps.
+  - [ ] nonce/session binding.
+  - [ ] strict transition graph enforcement.
+- [ ] Add quotas and payload caps for suspended operations:
+  - [ ] per user
+  - [ ] global
+- [ ] Add audit events:
+  - [ ] admin changes
+  - [ ] allowlist decisions
+  - [ ] challenge lifecycle
+  - [ ] operation resume outcomes
+- [ ] Add TTL sweepers and cleanup determinism tests for all new stores.
+
+### Exit Criteria
+- Auth/challenge/suspension paths have bounded resource usage, replay protections, and auditable security events.
+
+---
+
+## Phase 33: Migration, Compatibility, and Cutover
+### Goal
+Migrate clients safely to unified challenge + suspension model and retire old auth endpoints.
+
+### Checklist
+- [ ] Update CLI to use unified challenge endpoint and operation-resume semantics.
+- [ ] Roll out compatibility window for legacy auth endpoints.
+- [ ] Remove legacy `/v1/auth/login` and `/v1/auth/security-code` once cutover criteria are met.
+- [ ] Update docs/contracts/examples for new auth and admin surfaces.
+- [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on post-cutover path.
+
+### Exit Criteria
+- No active clients depend on legacy auth endpoints.
+- Unified challenge + suspension path is the only supported authentication flow.
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Refactor plan scope complete (Phases 0-27 done).
+# Continue with Phase 28: Credential Custody Hardening.
 ```
