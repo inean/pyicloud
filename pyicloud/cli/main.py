@@ -10,7 +10,7 @@ from typing import Any
 import asyncclick as click
 import httpx
 
-from . import token_store, transport
+from . import credential_vault, token_store, transport
 from .commands import (
     register_account_commands,
     register_auth_commands,
@@ -26,6 +26,7 @@ from .commands import (
 
 DEFAULT_API_URL = "http://127.0.0.1:8000"
 TOKEN_FILE_ENV = token_store.TOKEN_FILE_ENV
+_CREDENTIAL_VAULT = credential_vault.build_default_vault()
 
 
 def _token_file() -> Path:
@@ -42,6 +43,33 @@ def _save_token(token: str) -> None:
 
 def _clear_token() -> None:
     token_store.clear_token(path=_token_file())
+
+
+def _load_password(username: str) -> str | None:
+    if _CREDENTIAL_VAULT is None:
+        return None
+    try:
+        return _CREDENTIAL_VAULT.load(username=username)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _save_password(username: str, password: str) -> None:
+    if _CREDENTIAL_VAULT is None:
+        return None
+    try:
+        _CREDENTIAL_VAULT.save(username=username, password=password)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _clear_password(username: str) -> None:
+    if _CREDENTIAL_VAULT is None:
+        return None
+    try:
+        _CREDENTIAL_VAULT.clear(username=username)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 async def _send_request(
@@ -98,6 +126,8 @@ async def _complete_auth_challenge(*, api_url: str, challenge: dict[str, Any]) -
         challenge=challenge,
         request_json_data_fn=_request_json_data,
         save_token_fn=_save_token,
+        load_password_fn=_load_password,
+        save_password_fn=_save_password,
     )
 
 
@@ -149,6 +179,8 @@ register_auth_commands(
     load_token=lambda: _load_token(),
     save_token=lambda token: _save_token(token),
     clear_token=lambda: _clear_token(),
+    load_password=lambda username: _load_password(username),
+    save_password=lambda username, password: _save_password(username, password),
     api_request=lambda **kwargs: _api_request(**kwargs),
     print_json=lambda payload: _print_json(payload),
 )
