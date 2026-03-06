@@ -1,6 +1,9 @@
-"""Observability adapter implementations."""
+"""Compatibility shims for observability query-side adapters."""
 
-from .null import NullObservabilityAdapter
-from .otel import OTelObservabilityAdapter, ensure_otel_dependencies
+from pyicloud.contexts.crosscutting.observability.adapters import (
+    NullObservabilityAdapter,
+    OTelObservabilityAdapter,
+    ensure_otel_dependencies,
+)
 
 __all__ = ["NullObservabilityAdapter", "OTelObservabilityAdapter", "ensure_otel_dependencies"]

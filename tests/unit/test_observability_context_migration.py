@@ -24,6 +24,24 @@ def test_active_api_path_uses_context_observability_service() -> None:
     assert api_runtime.ObservabilityApi.__module__.startswith(
         "pyicloud.contexts.crosscutting.observability.application."
     )
+    assert api_runtime.NullObservabilityAdapter.__module__.startswith(
+        "pyicloud.contexts.crosscutting.observability.adapters."
+    )
+    assert api_runtime.OTelObservabilityAdapter.__module__.startswith(
+        "pyicloud.contexts.crosscutting.observability.adapters."
+    )
+
+
+def test_observability_adapter_shims_reexport_context_adapters() -> None:
+    legacy_null_module = importlib.import_module("pyicloud.adapters.observability.null")
+    legacy_otel_module = importlib.import_module("pyicloud.adapters.observability.otel")
+
+    canonical_null_module = importlib.import_module("pyicloud.contexts.crosscutting.observability.adapters.null")
+    canonical_otel_module = importlib.import_module("pyicloud.contexts.crosscutting.observability.adapters.otel")
+
+    assert legacy_null_module.NullObservabilityAdapter is canonical_null_module.NullObservabilityAdapter
+    assert legacy_otel_module.OTelObservabilityAdapter is canonical_otel_module.OTelObservabilityAdapter
+    assert legacy_otel_module.ensure_otel_dependencies is canonical_otel_module.ensure_otel_dependencies
 
 
 def test_upstream_probe_shims_reexport_context_runtime() -> None:
