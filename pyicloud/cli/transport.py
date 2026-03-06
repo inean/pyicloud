@@ -11,6 +11,8 @@ import httpx
 SendRequest = Callable[..., Awaitable[httpx.Response]]
 LoadToken = Callable[[], str | None]
 SaveToken = Callable[[str], None]
+LoadPassword = Callable[[str], str | None]
+SavePassword = Callable[[str, str], None]
 ParseErrorPayload = Callable[[httpx.Response], tuple[str, dict[str, Any] | None]]
 ExtractChallengeDetails = Callable[[httpx.Response], dict[str, Any] | None]
 RequestJsonData = Callable[..., Awaitable[Any]]
@@ -100,12 +102,16 @@ async def complete_auth_challenge(
     challenge: dict[str, Any],
     request_json_data_fn: RequestJsonData,
     save_token_fn: SaveToken,
+    load_password_fn: LoadPassword | None = None,
+    save_password_fn: SavePassword | None = None,
 ) -> None:
     username = str(challenge.get("account_id", "")).strip()
     flow_id = str(challenge.get("flow_id", "")).strip() or None
     if not username:
         username = click.prompt("Apple ID", type=str).strip()
-    password = click.prompt(f"Password for {username}", hide_input=True, type=str)
+    password = load_password_fn(username) if load_password_fn is not None else None
+    if not password:
+        password = click.prompt(f"Password for {username}", hide_input=True, type=str)
     login_payload: dict[str, Any] = {"username": username, "password": password}
     if flow_id:
         login_payload["flow_id"] = flow_id
@@ -138,6 +144,8 @@ async def complete_auth_challenge(
     token = auth_result.get("access_token")
     if token:
         save_token_fn(str(token))
+    if save_password_fn is not None and username and password:
+        save_password_fn(username, password)
 
 
 async def api_request(

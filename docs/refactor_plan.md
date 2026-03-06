@@ -28,13 +28,12 @@
 
 ## Phase Board
 - Planned:
-  - Phase 29 Access Control Plane (Whitelist + Admin)
   - Phase 30 Unified Auth Challenge Endpoint
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
 - In Progress:
-  - Phase 28 Credential Custody Hardening
+  - Phase 29 Access Control Plane (Whitelist + Admin)
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -67,6 +66,7 @@
   - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
+  - Phase 28 Credential Custody Hardening
 - Blocked:
   - None
 
@@ -1642,16 +1642,40 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
 Ensure backend handles Apple password only in memory, never at rest, while enabling secure CLI-side credential storage.
 
 ### Checklist
-- [ ] Remove backend password persistence from settings/session serialization paths.
-- [ ] Add explicit guard tests proving backend stores/files never persist plaintext password artifacts.
+- [x] Remove backend password persistence from settings/session serialization paths.
+- [x] Add explicit guard tests proving backend stores/files never persist plaintext password artifacts.
 - [ ] Add CLI credential vault adapter:
-  - [ ] OS keyring backend first.
-  - [ ] encrypted-file fallback explicitly disabled by default.
-- [ ] Wire CLI auth commands/challenge middleware to consume credential vault where available.
+  - [x] OS keyring backend first.
+  - [x] encrypted-file fallback explicitly disabled by default.
+- [x] Wire CLI auth commands/challenge middleware to consume credential vault where available.
 
 ### Exit Criteria
 - Backend writes zero plaintext password artifacts in config/session/challenge stores.
 - CLI can securely store/retrieve encrypted credential locally for challenge continuation.
+
+### Handoff: Phase 28 - Credential Custody Hardening
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Enforced password-redaction at persistence boundary by hardening `SettingsFile.save()` to always exclude `account.password`.
+  - Added backend guard tests verifying neither settings persistence nor legacy session update writes plaintext password to disk.
+  - Added optional OS-keyring credential vault adapter for CLI and wired it into auth login + challenge completion flow without enabling file fallback.
+- Files changed:
+  - `pyicloud/paths.py`
+  - `tests/unit/test_paths.py`
+  - `tests/unit/test_session_adapter.py`
+  - `pyicloud/cli/credential_vault.py`
+  - `pyicloud/cli/commands/auth.py`
+  - `pyicloud/cli/transport.py`
+  - `pyicloud/cli/main.py`
+  - `tests/unit/test_cli_credential_vault.py`
+  - `tests/unit/test_cli_transport.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_paths.py tests/unit/test_session_adapter.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_cli_credential_vault.py tests/unit/test_cli_transport.py tests/vertical/cli/test_auth_cli.py`
+- Risks / TBD:
+  - Keyring remains optional (`import keyring` best-effort); non-keyring environments fall back to prompt-based password entry (no at-rest storage).
+- Next recommended phase: Phase 29 Access Control Plane (Whitelist + Admin).
 
 ---
 
@@ -1760,5 +1784,5 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 28: Credential Custody Hardening.
+# Continue with Phase 29: Access Control Plane (Whitelist + Admin).
 ```
