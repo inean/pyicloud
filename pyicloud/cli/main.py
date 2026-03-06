@@ -120,14 +120,18 @@ async def _request_json_data(
 
 async def _complete_auth_challenge(*, api_url: str, challenge: dict[str, Any]) -> None:
     username = str(challenge.get("account_id", "")).strip()
+    flow_id = str(challenge.get("flow_id", "")).strip() or None
     if not username:
         username = click.prompt("Apple ID", type=str).strip()
     password = click.prompt(f"Password for {username}", hide_input=True, type=str)
+    login_payload: dict[str, Any] = {"username": username, "password": password}
+    if flow_id:
+        login_payload["flow_id"] = flow_id
     auth_result = await _request_json_data(
         api_url=api_url,
         method="POST",
         route="/v1/auth/login",
-        json_body={"username": username, "password": password},
+        json_body=login_payload,
     )
     if isinstance(auth_result, dict) and auth_result.get("status") == "challenge_required":
         challenge_id = str(auth_result.get("challenge_id", "")).strip()
