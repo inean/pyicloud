@@ -10,6 +10,13 @@ from typing import Any
 import asyncclick as click
 import httpx
 
+from .commands import (
+    register_account_commands,
+    register_auth_commands,
+    register_devices_commands,
+    register_drive_commands,
+)
+
 DEFAULT_API_URL = "http://127.0.0.1:8000"
 TOKEN_FILE_ENV = "PYICLOUD_API_TOKEN_FILE"
 
@@ -353,205 +360,32 @@ async def main(ctx: click.Context, api_url: str) -> None:
     ctx.obj["api_url"] = api_url.rstrip("/")
 
 
-@main.group()
-async def auth() -> None:
-    """Authentication commands."""
-
-
-@auth.command("login")
-@click.option("--username", required=True)
-@click.option("--password", required=True, prompt=True, hide_input=True)
-@click.pass_context
-async def auth_login(ctx: click.Context, username: str, password: str) -> None:
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route="/v1/auth/login",
-        json_body={"username": username, "password": password},
-    )
-    token = data.get("access_token") if isinstance(data, dict) else None
-    if token:
-        _save_token(str(token))
-    _print_json(data)
-
-
-@auth.command("security-code")
-@click.option("--challenge-id", required=True)
-@click.option("--code", required=True)
-@click.option("--password", required=True, prompt=True, hide_input=True)
-@click.pass_context
-async def auth_security_code(ctx: click.Context, challenge_id: str, code: str, password: str) -> None:
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route="/v1/auth/security-code",
-        json_body={"challenge_id": challenge_id, "code": code, "password": password},
-    )
-    token = data.get("access_token") if isinstance(data, dict) else None
-    if token:
-        _save_token(str(token))
-    _print_json(data)
-
-
-@auth.command("session")
-@click.pass_context
-async def auth_session(ctx: click.Context) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/auth/session", token=token)
-    _print_json(data)
-
-
-@auth.command("logout")
-@click.pass_context
-async def auth_logout(ctx: click.Context) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found.")
-    data = await _api_request(api_url=ctx.obj["api_url"], method="POST", route="/v1/auth/logout", token=token)
-    _clear_token()
-    _print_json(data)
-
-
-@main.group()
-async def devices() -> None:
-    """Find My iPhone device commands."""
-
-
-@devices.command("list")
-@click.pass_context
-async def devices_list(ctx: click.Context) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/devices", token=token)
-    _print_json(data)
-
-
-@devices.command("location")
-@click.argument("device_id")
-@click.pass_context
-async def devices_location(ctx: click.Context, device_id: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="GET",
-        route=f"/v1/devices/{device_id}/location",
-        token=token,
-    )
-    _print_json(data)
-
-
-@devices.command("status")
-@click.argument("device_id")
-@click.pass_context
-async def devices_status(ctx: click.Context, device_id: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="GET",
-        route=f"/v1/devices/{device_id}/status",
-        token=token,
-    )
-    _print_json(data)
-
-
-@devices.command("play-sound")
-@click.argument("device_id")
-@click.option("--subject", default="Find My iPhone Alert", show_default=True)
-@click.pass_context
-async def devices_play_sound(ctx: click.Context, device_id: str, subject: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route=f"/v1/devices/{device_id}/actions/play-sound",
-        token=token,
-        json_body={"subject": subject},
-    )
-    _print_json(data)
-
-
-@devices.command("message")
-@click.argument("device_id")
-@click.option("--subject", default="Find My iPhone Alert", show_default=True)
-@click.option("--message", required=True)
-@click.option("--sounds/--no-sounds", default=False)
-@click.pass_context
-async def devices_message(ctx: click.Context, device_id: str, subject: str, message: str, sounds: bool) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route=f"/v1/devices/{device_id}/actions/message",
-        token=token,
-        json_body={"subject": subject, "message": message, "sounds": sounds},
-    )
-    _print_json(data)
-
-
-@devices.command("lost-mode")
-@click.argument("device_id")
-@click.option("--number", required=True)
-@click.option("--text", default="This iPhone has been lost. Please call me.", show_default=True)
-@click.option("--newpasscode", default="", show_default=True)
-@click.pass_context
-async def devices_lost_mode(ctx: click.Context, device_id: str, number: str, text: str, newpasscode: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route=f"/v1/devices/{device_id}/actions/lost-mode",
-        token=token,
-        json_body={"number": number, "text": text, "newpasscode": newpasscode},
-    )
-    _print_json(data)
-
-
-@main.group()
-async def account() -> None:
-    """Account commands."""
-
-
-@account.command("devices")
-@click.pass_context
-async def account_devices(ctx: click.Context) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/account/devices", token=token)
-    _print_json(data)
-
-
-@account.command("family")
-@click.pass_context
-async def account_family(ctx: click.Context) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/account/family", token=token)
-    _print_json(data)
-
-
-@account.command("storage")
-@click.pass_context
-async def account_storage(ctx: click.Context) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(api_url=ctx.obj["api_url"], method="GET", route="/v1/account/storage", token=token)
-    _print_json(data)
+register_auth_commands(
+    main,
+    load_token=lambda: _load_token(),
+    save_token=lambda token: _save_token(token),
+    clear_token=lambda: _clear_token(),
+    api_request=lambda **kwargs: _api_request(**kwargs),
+    print_json=lambda payload: _print_json(payload),
+)
+register_devices_commands(
+    main,
+    load_token=lambda: _load_token(),
+    api_request=lambda **kwargs: _api_request(**kwargs),
+    print_json=lambda payload: _print_json(payload),
+)
+register_account_commands(
+    main,
+    load_token=lambda: _load_token(),
+    api_request=lambda **kwargs: _api_request(**kwargs),
+    print_json=lambda payload: _print_json(payload),
+)
+register_drive_commands(
+    main,
+    load_token=lambda: _load_token(),
+    api_request=lambda **kwargs: _api_request(**kwargs),
+    print_json=lambda payload: _print_json(payload),
+)
 
 
 @main.group()
@@ -800,136 +634,6 @@ async def ubiquity_file(ctx: click.Context, path: str, download_to: str) -> None
     assert isinstance(content, bytes | bytearray), "Expected binary response from download endpoint"
     output.write_bytes(bytes(content))
     _print_json({"ok": True, "detail": f"Downloaded to {output}"})
-
-
-@main.group()
-async def drive() -> None:
-    """Drive commands."""
-
-
-@drive.command("tree")
-@click.option("--path", default="/", show_default=True)
-@click.pass_context
-async def drive_tree(ctx: click.Context, path: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="GET",
-        route="/v1/drive/tree",
-        token=token,
-        params={"path": path},
-    )
-    _print_json(data)
-
-
-@drive.command("file")
-@click.option("--path", required=True)
-@click.option("--download-to", default="", help="If set, download file bytes to this path.")
-@click.pass_context
-async def drive_file(ctx: click.Context, path: str, download_to: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-
-    if not download_to:
-        data = await _api_request(
-            api_url=ctx.obj["api_url"],
-            method="GET",
-            route="/v1/drive/file",
-            token=token,
-            params={"path": path, "download": "false"},
-        )
-        _print_json(data)
-        return
-
-    content = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="GET",
-        route="/v1/drive/file",
-        token=token,
-        params={"path": path, "download": "true"},
-    )
-    output = Path(download_to)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    assert isinstance(content, bytes | bytearray), "Expected binary response from download endpoint"
-    output.write_bytes(bytes(content))
-    _print_json({"ok": True, "detail": f"Downloaded to {output}"})
-
-
-@drive.command("mkdir")
-@click.option("--parent-path", default="/", show_default=True)
-@click.option("--name", required=True)
-@click.pass_context
-async def drive_mkdir(ctx: click.Context, parent_path: str, name: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route="/v1/drive/folders",
-        token=token,
-        json_body={"parent_path": parent_path, "name": name},
-    )
-    _print_json(data)
-
-
-@drive.command("upload")
-@click.option("--parent-path", default="/", show_default=True)
-@click.option("--file", "file_path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.pass_context
-async def drive_upload(ctx: click.Context, parent_path: str, file_path: Path) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-
-    files = {"file": (file_path.name, file_path.read_bytes(), "application/octet-stream")}
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="POST",
-        route="/v1/drive/upload",
-        token=token,
-        params={"parent_path": parent_path},
-        files=files,
-    )
-    _print_json(data)
-
-
-@drive.command("rename")
-@click.option("--path", required=True)
-@click.option("--new-name", required=True)
-@click.pass_context
-async def drive_rename(ctx: click.Context, path: str, new_name: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="PATCH",
-        route="/v1/drive/node",
-        token=token,
-        json_body={"path": path, "new_name": new_name},
-    )
-    _print_json(data)
-
-
-@drive.command("delete")
-@click.option("--path", required=True)
-@click.pass_context
-async def drive_delete(ctx: click.Context, path: str) -> None:
-    token = _load_token()
-    if token is None:
-        raise click.ClickException("No local token found. Run `icloud auth login` first.")
-    data = await _api_request(
-        api_url=ctx.obj["api_url"],
-        method="DELETE",
-        route="/v1/drive/node",
-        token=token,
-        params={"path": path},
-    )
-    _print_json(data)
 
 
 @main.group()
