@@ -1922,8 +1922,8 @@ Bound abuse surface introduced by challenge and operation-suspension state.
 Migrate clients safely to unified challenge + suspension model and retire old auth endpoints.
 
 ### Checklist
-- [ ] Update CLI to use unified challenge endpoint and operation-resume semantics.
-- [ ] Roll out compatibility window for legacy auth endpoints.
+- [x] Update CLI to use unified challenge endpoint and operation-resume semantics.
+- [x] Roll out compatibility window for legacy auth endpoints.
 - [ ] Remove legacy `/v1/auth/login` and `/v1/auth/security-code` once cutover criteria are met.
 - [ ] Update docs/contracts/examples for new auth and admin surfaces.
 - [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on post-cutover path.
@@ -1931,6 +1931,25 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 ### Exit Criteria
 - No active clients depend on legacy auth endpoints.
 - Unified challenge + suspension path is the only supported authentication flow.
+
+### Handoff: Phase 33 - Migration, Compatibility, and Cutover (In Progress)
+- Date: 2026-03-06
+- Status: In Progress
+- Progress:
+  - Migrated CLI auth and challenge middleware flows to `POST /v1/auth/challenge`.
+  - Updated CLI auto-recovery to consume server-side `operation_result` and avoid redundant client-side replay when operation suspension resumes server-side.
+  - Added automatic `Idempotency-Key` propagation for mutating CLI requests during challenge/retry handling.
+- Files changed (current slice):
+  - `pyicloud/cli/commands/auth.py`
+  - `pyicloud/cli/transport.py`
+  - `pyicloud/cli/main.py`
+  - `tests/unit/test_cli_transport.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+- Tests executed (current slice):
+  - `uv run pytest -q -o addopts='' tests/unit/test_cli_transport.py tests/vertical/cli/test_auth_cli.py`
+- Remaining:
+  - Retire legacy `/v1/auth/login` + `/v1/auth/security-code` endpoints after cutover callers migrate.
+  - Update docs/contracts/examples and run full gate.
 
 ## Next Session Start Here
 ```bash
