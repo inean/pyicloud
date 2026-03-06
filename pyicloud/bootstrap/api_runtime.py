@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from pyicloud.adapters.access import FileAccessControlStore, InMemoryAccessControlStore
 from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
 from pyicloud.adapters.services import build_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
+from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
@@ -33,10 +35,18 @@ class _ApiSetupHooks(SetupHooks):
         return None
 
 
+def _runtime_env() -> str:
+    return os.getenv("PYICLOUD_API_ENV", os.getenv("PYICLOUD_ENV", "dev")).strip().lower()
+
+
+def _is_non_dev_runtime(runtime_env: str) -> bool:
+    return runtime_env not in {"dev", "development", "local", "test", "testing"}
+
+
 def build_default_auth_api_service() -> AuthApiService:
     """Compose the default auth service used by the HTTP API runtime."""
-    runtime_env = os.getenv("PYICLOUD_API_ENV", os.getenv("PYICLOUD_ENV", "dev")).strip().lower()
-    is_non_dev = runtime_env not in {"dev", "development", "local", "test", "testing"}
+    runtime_env = _runtime_env()
+    is_non_dev = _is_non_dev_runtime(runtime_env)
 
     secret = os.getenv("PYICLOUD_API_JWT_SECRET", "pyicloud-api-dev-secret")
     if is_non_dev and "PYICLOUD_API_JWT_SECRET" not in os.environ:
@@ -74,6 +84,30 @@ def build_default_auth_api_service() -> AuthApiService:
         session_command=session_store,
         auth_service_factory=auth_service_factory,
     )
+
+
+def build_default_access_control_api() -> AccessControlApiService:
+    """Compose default allowlist/admin access-control service for API runtime."""
+    runtime_env = _runtime_env()
+    is_non_dev = _is_non_dev_runtime(runtime_env)
+
+    backend_default = "file" if is_non_dev else "memory"
+    backend_name = os.getenv("PYICLOUD_API_ACL_BACKEND", backend_default).strip().lower()
+    if backend_name in {"memory", "in-memory", "inmemory"}:
+        if is_non_dev:
+            raise RuntimeError("PYICLOUD_API_ACL_BACKEND must use file storage in non-dev runtime")
+        store = InMemoryAccessControlStore()
+    elif backend_name == "file":
+        store = FileAccessControlStore(root_dir=os.getenv("PYICLOUD_API_ACL_STORE_DIR"))
+    else:
+        raise RuntimeError(f"Unsupported access-control backend: {backend_name}")
+
+    service = AccessControlApiService(query=store, command=store)
+    service.ensure_bootstrap_admin(
+        strict_mode=is_non_dev,
+        bootstrap_username=os.getenv("PYICLOUD_API_BOOTSTRAP_ADMIN"),
+    )
+    return service
 
 
 def build_default_core_services_api() -> CoreServicesApi:
