@@ -39,8 +39,8 @@ PROTECTED_DOMAIN_CASES = [
 
 async def _login_token(client: AsyncClient) -> str:
     response = await client.post(
-        "/v1/auth/login",
-        json={"username": "success@example.com", "password": "secret"},
+        "/v1/auth/challenge",
+        json={"username": "success@example.com", "password_envelope": "secret"},
     )
     assert response.status_code == 200
     return str(response.json()["data"]["access_token"])

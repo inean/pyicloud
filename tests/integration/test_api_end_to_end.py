@@ -22,12 +22,12 @@ def app(tmp_path: Path):
 async def test_successful_auth_and_core_service_flow(app, tmp_path: Path):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         login = await client.post(
-            "/v1/auth/login",
-            json={"username": "success@example.com", "password": "secret"},
+            "/v1/auth/challenge",
+            json={"username": "success@example.com", "password_envelope": "secret"},
         )
         assert login.status_code == 200
         payload = login.json()["data"]
-        assert payload["status"] == "authenticated"
+        assert payload["challenge_type"] == "authenticated"
         token = payload["access_token"]
 
         session_file = tmp_path / "sessions" / "successexamplecom.json"
@@ -79,22 +79,32 @@ async def test_successful_auth_and_core_service_flow(app, tmp_path: Path):
 async def test_security_code_challenge_flow(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         challenge = await client.post(
-            "/v1/auth/login",
-            json={"username": "requires2fa@example.com", "password": "secret"},
+            "/v1/auth/challenge",
+            json={"username": "requires2fa@example.com", "password_envelope": "secret"},
         )
         assert challenge.status_code == 200
         challenge_payload = challenge.json()["data"]
-        assert challenge_payload["status"] == "challenge_required"
+        assert challenge_payload["challenge_type"] == "security_code_required"
 
         invalid = await client.post(
-            "/v1/auth/security-code",
-            json={"challenge_id": challenge_payload["challenge_id"], "code": "000000", "password": "secret"},
+            "/v1/auth/challenge",
+            json={
+                "challenge_id": challenge_payload["challenge_id"],
+                "security_code": "000000",
+                "password_envelope": "secret",
+                "session_id": challenge_payload["session_id"],
+            },
         )
         assert invalid.status_code == 401
 
         valid = await client.post(
-            "/v1/auth/security-code",
-            json={"challenge_id": challenge_payload["challenge_id"], "code": "123456", "password": "secret"},
+            "/v1/auth/challenge",
+            json={
+                "challenge_id": challenge_payload["challenge_id"],
+                "security_code": "123456",
+                "password_envelope": "secret",
+                "session_id": challenge_payload["session_id"],
+            },
         )
         assert valid.status_code == 200
         token = valid.json()["data"]["access_token"]

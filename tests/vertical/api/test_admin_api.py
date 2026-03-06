@@ -37,8 +37,8 @@ def app(tmp_path: Path):
 
 async def _login_token(client: AsyncClient, username: str) -> str:
     response = await client.post(
-        "/v1/auth/login",
-        json={"username": username, "password": "secret"},
+        "/v1/auth/challenge",
+        json={"username": username, "password_envelope": "secret"},
     )
     assert response.status_code == 200
     return str(response.json()["data"]["access_token"])
@@ -48,8 +48,8 @@ async def _login_token(client: AsyncClient, username: str) -> str:
 async def test_non_allowlisted_login_is_rejected_with_403(app):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         response = await client.post(
-            "/v1/auth/login",
-            json={"username": "outside@example.com", "password": "secret"},
+            "/v1/auth/challenge",
+            json={"username": "outside@example.com", "password_envelope": "secret"},
         )
 
     assert response.status_code == 403

@@ -106,8 +106,8 @@ async def test_auth_challenge_resumes_suspended_operation_server_side(app):
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         login = await client.post(
-            "/v1/auth/login",
-            json={"username": "success@example.com", "password": "secret"},
+            "/v1/auth/challenge",
+            json={"username": "success@example.com", "password_envelope": "secret"},
         )
         token = login.json()["data"]["access_token"]
 
