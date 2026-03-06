@@ -46,7 +46,7 @@
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 35 Context Skeleton + Initial Moves
+  - Phase 36 API/CLI Externalization to Interfaces
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -86,6 +86,7 @@
   - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
   - Phase 34 Semantic Taxonomy + Guardrails
+  - Phase 35 Context Skeleton + Initial Moves
 - Blocked:
   - None
 
@@ -2043,21 +2044,39 @@ CI falla ante nuevas violaciones semánticas y el baseline queda verde.
 Crear estructura base de contextos y mover contratos iniciales con compatibilidad temporal.
 
 ### Checklist
-- [ ] Crear árboles `contexts/*`, `shared/kernel`, `platform`, `interfaces/*`.
-- [ ] Mover contratos de alto nivel de `domain/ports` a la nueva estructura de contextos.
-- [ ] Crear shims temporales para mantener runtime y tests durante la transición.
+- [x] Crear árboles `contexts/*`, `shared/kernel`, `platform`, `interfaces/*`.
+- [x] Mover contratos de alto nivel de `domain/ports` a la nueva estructura de contextos.
+- [x] Crear shims temporales para mantener runtime y tests durante la transición.
 
 ### Exit Criteria
 La nueva estructura compila sin romper el runtime actual.
 
 ### Handoff: Phase 35 - Context Skeleton + Initial Moves
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Added semantic package roots for Program 34+ (`contexts`, `shared/kernel`, `platform`, `interfaces`).
+  - Moved high-level port contracts from `pyicloud/ports/*` into context-scoped contract modules under `pyicloud/contexts/*/contracts/*`.
+  - Replaced legacy `pyicloud/ports/*` modules with temporary compatibility shims that re-export canonical context contracts.
+  - Added shim-conformance tests asserting old port imports and new context contracts resolve to identical symbols.
 - Files changed:
+  - `pyicloud/contexts/**/*`
+  - `pyicloud/shared/**/*`
+  - `pyicloud/platform/__init__.py`
+  - `pyicloud/interfaces/**/*`
+  - `pyicloud/ports/*.py`
+  - `tests/unit/test_context_contract_shims.py`
+  - `tests/unit/test_context_taxonomy_guardrails.py`
+  - `docs/refactor_plan.md`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_context_taxonomy_guardrails.py tests/unit/test_legacy_import_ratchet.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_context_contract_shims.py tests/unit/test_context_taxonomy_guardrails.py tests/unit/test_legacy_import_ratchet.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - API/CLI runtime still lives under `pyicloud/api` and `pyicloud/cli`; relocation to `pyicloud/interfaces/*` is pending in Phase 36.
+  - Port shims are transitional and must be retired in later cutover phases.
 - Next recommended phase:
+  - Phase 36 API/CLI Externalization to Interfaces.
 
 ---
 
@@ -2199,6 +2218,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 35 Context Skeleton + Initial Moves.
-# Start by creating context trees and moving high-level contracts with shims.
+# Continue with: Phase 36 API/CLI Externalization to Interfaces.
+# Start by relocating API/CLI packages under pyicloud/interfaces with compatibility shims.
 ```
