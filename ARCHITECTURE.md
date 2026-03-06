@@ -56,7 +56,9 @@ Responsabilidad: definir interfaces estables para separar dominio e infraestruct
 - `pyicloud/adapters/session/*`
 - `pyicloud/adapters/store/*`
 - `pyicloud/contexts/services/*/adapters/*`
-- `pyicloud/adapters/services/*` (shims + runtime/clientes/mappers en migracion)
+- `pyicloud/platform/provider/runtime.py`
+- `pyicloud/platform/storage/session_store.py`
+- `pyicloud/adapters/services/*` (shims + clientes/mappers en migracion)
 - `pyicloud/contexts/crosscutting/observability/adapters/*`
 - `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`
 
@@ -84,6 +86,7 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 - `pyicloud/interfaces/cli/`: capa CLI.
 - `pyicloud/contexts/crosscutting/*/application`: casos de uso transversales.
 - `pyicloud/contexts/services/*/{application,adapters}`: casos de uso y adapters por bounded context.
+- `pyicloud/platform/{provider,storage,telemetry}`: infraestructura tecnica transversal.
 - `pyicloud/application/`: shims de compatibilidad + casos de uso heredados en migracion.
 - `pyicloud/ports/`: contratos hexagonales.
 - `pyicloud/adapters/`: infraestructura.

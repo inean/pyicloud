@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pyicloud.adapters.services.clients.ubiquity import LegacyUbiquityClient, UbiquityClient
 from pyicloud.adapters.services.mappers.ubiquity import map_ubiquity_node
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import UbiquityServicePort
 from pyicloud.domain import UbiquityNodeDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class UbiquityServiceAdapter(ServicesAdapterBase, UbiquityServicePort):

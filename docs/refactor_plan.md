@@ -530,7 +530,7 @@ Cada servicio queda aislado por bounded context con dependencias semánticas exp
 Extraer infraestructura técnica transversal y eliminar rutas legacy activas.
 
 ### Checklist
-- [ ] Mover runtime de proveedor, storage y telemetry infra a `platform`.
+- [x] Mover runtime de proveedor, storage y telemetry infra a `platform`.
 - [ ] Eliminar `sessions/trees` y rutas legacy equivalentes del path activo.
 
 ### Exit Criteria
@@ -542,19 +542,34 @@ Cero rutas de ejecución activas hacia paquetes legacy retirados.
 - Summary:
   - Extracted upstream telemetry infrastructure from `pyicloud/upstream/*` into `pyicloud/platform/telemetry/upstream/*`.
   - Converted `pyicloud/upstream/*` modules into compatibility shims that re-export platform implementations.
+  - Extracted provider runtime and session storage infrastructure into `pyicloud/platform/provider/runtime.py` and `pyicloud/platform/storage/session_store.py`.
+  - Converted `pyicloud/adapters/services/runtime.py` and `pyicloud/adapters/store/file_session_store.py` into compatibility modules backed by platform implementations.
+  - Rewired active composition/bootstrap imports to consume platform provider/storage modules where safe.
   - Added migration tests asserting shim identity and active transport path resolution against platform modules.
 - Files changed:
   - `pyicloud/platform/telemetry/*`
   - `pyicloud/platform/telemetry/upstream/*`
+  - `pyicloud/platform/provider/*`
+  - `pyicloud/platform/storage/*`
   - `pyicloud/upstream/*`
+  - `pyicloud/adapters/services/runtime.py`
+  - `pyicloud/adapters/store/{__init__.py,file_session_store.py}`
+  - `pyicloud/bootstrap/{api_runtime.py,auth_session.py,session_endpoint_restore.py}`
+  - `pyicloud/adapters/auth/session_endpoint_restore.py`
+  - `pyicloud/adapters/services/{__init__.py,composition.py,legacy_core.py,content.py,clients/*}`
+  - `pyicloud/contexts/services/*/adapters/service.py`
   - `tests/unit/test_platform_upstream_migration.py`
+  - `tests/unit/test_platform_runtime_storage_migration.py`
 - Tests executed:
   - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_upstream_migration.py tests/unit/test_upstream_probe_classification.py tests/unit/test_upstream_probe_sanitize.py tests/unit/test_upstream_probe_context.py tests/unit/test_upstream_probe_runtime.py tests/integration/test_upstream_flow_sequence.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_file_session_store_adapter.py tests/unit/test_service_runtime_containment.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_platform_upstream_migration.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_service_runtime_containment.py tests/unit/test_file_session_store_adapter.py tests/unit/test_auth_bootstrap.py tests/unit/test_api_app_auth_config.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
-  - Provider runtime and storage infrastructure remain in legacy adapter locations and still need extraction to `platform/*`.
-  - Active path still imports legacy `pyicloud.upstream` package name (now shim); direct imports can be switched to `pyicloud.platform.telemetry.upstream` in a follow-up slice.
+  - Legacy package paths remain intentionally as compatibility shims and still need final cleanup/removal in Phase 41.
+  - `sessions/trees` legacy runtime path remains available and must be removed from active execution paths before closing Phase 40.
 - Next recommended phase:
-  - Continue Phase 40 with provider runtime/storage extraction and legacy active-path deletion.
+  - Continue Phase 40 by deleting `sessions/trees` from active paths and removing equivalent legacy execution routes.
 
 ---
 

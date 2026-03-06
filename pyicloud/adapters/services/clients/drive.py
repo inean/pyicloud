@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from pyicloud.adapters.services.runtime import NamedBytesIO, ServiceRuntime
+from pyicloud.platform.provider.runtime import NamedBytesIO, ServiceRuntime
 
 
 @dataclass(frozen=True)

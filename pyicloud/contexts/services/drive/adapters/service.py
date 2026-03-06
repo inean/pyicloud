@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pyicloud.adapters.services.clients.drive import DriveClient, LegacyDriveClient
 from pyicloud.adapters.services.mappers.drive import map_drive_node
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import DriveServicePort
 from pyicloud.domain import DriveNodeDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class DriveServiceAdapter(ServicesAdapterBase, DriveServicePort):

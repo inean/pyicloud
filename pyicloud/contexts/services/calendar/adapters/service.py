@@ -8,9 +8,9 @@ from datetime import datetime
 from pyicloud.adapters.services.clients.calendar import CalendarClient, LegacyCalendarClient
 from pyicloud.adapters.services.clients.common import TimeRangeFilter
 from pyicloud.adapters.services.mappers.calendar import map_calendar, map_calendar_event, map_calendar_event_detail
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import CalendarServicePort
 from pyicloud.domain import CalendarDTO, CalendarEventDetailDTO, CalendarEventDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class CalendarServiceAdapter(ServicesAdapterBase, CalendarServicePort):

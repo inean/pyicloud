@@ -7,11 +7,11 @@ from typing import Any
 
 from pyicloud.adapters.auth import TreeAuthSessionAdapter
 from pyicloud.adapters.auth_state_reset import CookieAuthStateResetPolicy
-from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.adapters.tree_runtime import FileBackedTreeRuntimeAdapter
 from pyicloud.application import AuthSessionService
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
+from pyicloud.platform.storage import FileSessionStoreAdapter
 from pyicloud.ports import AuthStateResetPolicy
 from pyicloud.trees.setup import SetupHooks, SetupModelTree
 

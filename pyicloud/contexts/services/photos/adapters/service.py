@@ -7,9 +7,9 @@ from collections.abc import Sequence
 from pyicloud.adapters.services.clients.common import Pagination
 from pyicloud.adapters.services.clients.photos import LegacyPhotosClient, PhotosClient
 from pyicloud.adapters.services.mappers.photos import map_photo_album, map_photo_asset
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import PhotosServicePort
 from pyicloud.domain import PhotoAlbumDTO, PhotoAssetDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class PhotosServiceAdapter(ServicesAdapterBase, PhotosServicePort):

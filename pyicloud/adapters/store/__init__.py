@@ -1,4 +1,4 @@
-"""Session store adapter implementations."""
+"""Compatibility exports for session store adapters."""
 
 from .file_session_store import FileSessionStoreAdapter
 
