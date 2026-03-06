@@ -6,9 +6,9 @@ from collections.abc import Sequence
 
 from pyicloud.adapters.services.clients.contacts import ContactsClient, LegacyContactsClient
 from pyicloud.adapters.services.mappers.contacts import map_contact
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import ContactsServicePort
 from pyicloud.domain import ContactDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class ContactsServiceAdapter(ServicesAdapterBase, ContactsServicePort):

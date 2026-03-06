@@ -44,10 +44,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 40 Platform Extraction + Legacy Deletion
+  - None
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -58,6 +57,7 @@
   - Phase 37 Crosscutting Auth Rewrite
   - Phase 38 Telemetry/Observability Split
   - Phase 39 Services Context Migration
+  - Phase 40 Platform Extraction + Legacy Deletion
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -530,20 +530,47 @@ Cada servicio queda aislado por bounded context con dependencias semánticas exp
 Extraer infraestructura técnica transversal y eliminar rutas legacy activas.
 
 ### Checklist
-- [ ] Mover runtime de proveedor, storage y telemetry infra a `platform`.
-- [ ] Eliminar `sessions/trees` y rutas legacy equivalentes del path activo.
+- [x] Mover runtime de proveedor, storage y telemetry infra a `platform`.
+- [x] Eliminar `sessions/trees` y rutas legacy equivalentes del path activo.
 
 ### Exit Criteria
 Cero rutas de ejecución activas hacia paquetes legacy retirados.
 
 ### Handoff: Phase 40 - Platform Extraction + Legacy Deletion
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Extracted upstream telemetry infrastructure from `pyicloud/upstream/*` into `pyicloud/platform/telemetry/upstream/*`.
+  - Converted `pyicloud/upstream/*` modules into compatibility shims that re-export platform implementations.
+  - Extracted provider runtime and session storage infrastructure into `pyicloud/platform/provider/runtime.py` and `pyicloud/platform/storage/session_store.py`.
+  - Converted `pyicloud/adapters/services/runtime.py` and `pyicloud/adapters/store/file_session_store.py` into compatibility modules backed by platform implementations.
+  - Rewired active composition/bootstrap imports to consume platform provider/storage modules where safe.
+  - Removed the `legacy_tree` API auth backend route from `build_default_auth_api_service`, leaving challenge-driven auth backends as the active path.
+  - Deferred `pyicloud.sessions` imports inside legacy provider refresh helpers so importing active service runtime paths no longer eagerly loads legacy sessions modules.
+  - Added migration tests asserting shim identity and active transport path resolution against platform modules.
 - Files changed:
+  - `pyicloud/platform/telemetry/*`
+  - `pyicloud/platform/telemetry/upstream/*`
+  - `pyicloud/platform/provider/*`
+  - `pyicloud/platform/storage/*`
+  - `pyicloud/upstream/*`
+  - `pyicloud/adapters/services/runtime.py`
+  - `pyicloud/adapters/store/{__init__.py,file_session_store.py}`
+  - `pyicloud/bootstrap/{api_runtime.py,auth_session.py,session_endpoint_restore.py}`
+  - `pyicloud/adapters/auth/session_endpoint_restore.py`
+  - `pyicloud/adapters/services/{__init__.py,composition.py,legacy_core.py,content.py,clients/*}`
+  - `pyicloud/contexts/services/*/adapters/service.py`
+  - `tests/unit/test_platform_upstream_migration.py`
+  - `tests/unit/test_platform_runtime_storage_migration.py`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_upstream_migration.py tests/unit/test_upstream_probe_classification.py tests/unit/test_upstream_probe_sanitize.py tests/unit/test_upstream_probe_context.py tests/unit/test_upstream_probe_runtime.py tests/integration/test_upstream_flow_sequence.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_file_session_store_adapter.py tests/unit/test_service_runtime_containment.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_platform_upstream_migration.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_service_runtime_containment.py tests/unit/test_file_session_store_adapter.py tests/unit/test_auth_bootstrap.py tests/unit/test_api_app_auth_config.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - Legacy package paths remain intentionally as compatibility shims and still need final cleanup/removal in Phase 41.
 - Next recommended phase:
+  - Phase 41 Shim Removal + Final Cutover.
 
 ---
 
@@ -572,6 +599,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 40 Platform Extraction + Legacy Deletion.
-# Start by extracting shared provider runtime/storage/telemetry infrastructure into platform/*.
+# Continue with: Phase 41 Shim Removal + Final Cutover.
+# Start by removing temporary migration shims and hardening structural ratchets.
 ```

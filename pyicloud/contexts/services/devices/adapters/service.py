@@ -6,9 +6,9 @@ from collections.abc import Sequence
 
 from pyicloud.adapters.services.clients.devices import DevicesClient, LegacyDevicesClient
 from pyicloud.adapters.services.mappers.devices import map_device_location, map_device_snapshot, map_device_status
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import DeviceServicePort
 from pyicloud.domain import DeviceRecordDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class DevicesServiceAdapter(ServicesAdapterBase, DeviceServicePort):

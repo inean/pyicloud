@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from pyicloud.adapters.services.clients.common import Pagination, TimeRangeFilter
-from pyicloud.adapters.services.runtime import ServiceRuntime
+from pyicloud.platform.provider.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)

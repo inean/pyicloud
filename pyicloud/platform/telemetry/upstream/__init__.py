@@ -1,20 +1,15 @@
-"""Compatibility exports for upstream telemetry helpers moved to platform."""
+"""Upstream telemetry platform helpers shared across transports."""
 
-from pyicloud.platform.telemetry.upstream import (
+from .classification import classify_upstream_request
+from .context import (
     bind_upstream_context,
-    build_error_event,
-    build_request_event,
-    build_response_event,
-    classify_upstream_request,
     current_flow_id,
     current_upstream_context,
     ensure_upstream_context,
-    get_upstream_probe,
-    hydrate_from_context,
     inject_flow_into_payload,
-    snapshot_context,
-    upstream_capture_body_max_bytes,
 )
+from .events import build_error_event, build_request_event, build_response_event, hydrate_from_context, snapshot_context
+from .runtime import get_upstream_probe, upstream_capture_body_max_bytes
 
 __all__ = [
     "bind_upstream_context",

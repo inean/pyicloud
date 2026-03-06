@@ -105,6 +105,18 @@ async def test_build_default_auth_service_uses_scenario_backend_without_tree_run
     assert challenge["status"] == "challenge_required"
 
 
+@pytest.mark.asyncio
+async def test_build_default_auth_service_rejects_legacy_tree_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
+    monkeypatch.setenv("PYICLOUD_API_AUTH_BACKEND", "legacy_tree")
+
+    service = _build_default_auth_service()
+
+    with pytest.raises(RuntimeError, match="Unsupported PYICLOUD_API_AUTH_BACKEND"):
+        await service.login(username="success@example.com", password="secret")
+
+
 def test_build_default_access_control_service_uses_memory_backend_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_auth_env(monkeypatch)
     monkeypatch.setenv("PYICLOUD_API_ENV", "dev")

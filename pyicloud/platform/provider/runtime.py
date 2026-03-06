@@ -1,4 +1,4 @@
-"""Compatibility runtime module for legacy-backed service adapters."""
+"""Shared runtime support for legacy-backed provider adapters."""
 
 from __future__ import annotations
 
@@ -86,12 +86,3 @@ class ServicesAdapterBase:
 
     def _services(self, *, username: str) -> PyiCloudServices:
         return self._runtime.services(username=username)
-
-
-__all__ = [
-    "NamedBytesIO",
-    "PyiCloudServices",
-    "ServiceRuntime",
-    "ServicesAdapterBase",
-    "FileSessionStoreAdapter",
-]

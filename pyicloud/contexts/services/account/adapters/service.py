@@ -10,9 +10,9 @@ from pyicloud.adapters.services.mappers.account import (
     map_account_family_member,
     map_account_storage,
 )
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import AccountServicePort
 from pyicloud.domain import AccountDeviceDTO, AccountFamilyMemberDTO, AccountStorageDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class AccountServiceAdapter(ServicesAdapterBase, AccountServicePort):

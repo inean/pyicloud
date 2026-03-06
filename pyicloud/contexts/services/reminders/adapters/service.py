@@ -6,9 +6,9 @@ from datetime import datetime
 
 from pyicloud.adapters.services.clients.reminders import LegacyRemindersClient, RemindersClient
 from pyicloud.adapters.services.mappers.reminders import map_reminder_collections
-from pyicloud.adapters.services.runtime import ServicesAdapterBase
 from pyicloud.contexts.services.contracts.services import RemindersServicePort
 from pyicloud.domain import ReminderListsDTO
+from pyicloud.platform.provider.runtime import ServicesAdapterBase
 
 
 class RemindersServiceAdapter(ServicesAdapterBase, RemindersServicePort):
