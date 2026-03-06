@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse
 
 from pyicloud.domain import Unauthorized
 from pyicloud.exceptions import PyiCloudAPIResponseError
+
+LOGGER = logging.getLogger("pyicloud.audit")
 
 
 def _error_code(status_code: int) -> str:
@@ -67,6 +70,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         if upstream_status in {401, 421, 450}:
             resume_operation_id = request.headers.get("x-pyicloud-operation-resume", "").strip()
             if resume_operation_id:
+                LOGGER.info("audit_event type=operation_resume_failed operation_id=%s", resume_operation_id)
                 return await _http_exception_handler(
                     request,
                     HTTPException(
@@ -90,6 +94,11 @@ def register_exception_handlers(app: FastAPI) -> None:
                 mutating_method = request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
                 idempotency_key = request.headers.get("idempotency-key")
                 if mutating_method and not idempotency_key:
+                    LOGGER.info(
+                        "audit_event type=idempotency_key_required method=%s path=%s",
+                        request.method,
+                        request.url.path,
+                    )
                     return await _http_exception_handler(
                         request,
                         HTTPException(
@@ -121,6 +130,11 @@ def register_exception_handlers(app: FastAPI) -> None:
                 request.app.state.operation_suspension_service.attach_challenge(
                     operation_id=operation.operation_id,
                     challenge_id=str(challenge["challenge_id"]),
+                )
+                LOGGER.info(
+                    "audit_event type=challenge_issued challenge_type=session_refresh account_id=%s operation_id=%s",
+                    principal.username,
+                    operation.operation_id,
                 )
                 return await _http_exception_handler(
                     request,

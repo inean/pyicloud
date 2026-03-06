@@ -113,6 +113,26 @@ async def test_challenge_rejects_invalid_transition_inputs() -> None:
 
 
 @pytest.mark.asyncio
+async def test_challenge_rejects_username_or_session_mismatch() -> None:
+    service = _build_service()
+    first = await service.challenge(username="success@example.com")
+
+    with pytest.raises(InvalidChallengeTransition, match="username does not match"):
+        await service.challenge(
+            challenge_id=str(first["challenge_id"]),
+            username="other@example.com",
+            password_envelope="secret",
+        )
+
+    with pytest.raises(InvalidChallengeTransition, match="session_id does not match"):
+        await service.challenge(
+            challenge_id=str(first["challenge_id"]),
+            session_id="unexpected-session",
+            password_envelope="secret",
+        )
+
+
+@pytest.mark.asyncio
 async def test_challenge_step_is_single_use_after_completion() -> None:
     service = _build_service()
     first = await service.challenge(username="success@example.com")

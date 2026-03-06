@@ -36,6 +36,11 @@ class InMemorySuspendedOperationStore(SuspendedOperationQueryPort, SuspendedOper
         self._cleanup()
         return self._operations.get(operation_id)
 
+    def list_operations(self) -> tuple[SuspendedOperation, ...]:
+        self._cleanup()
+        ordered = sorted(self._operations.values(), key=lambda operation: operation.created_at)
+        return tuple(ordered)
+
     def save_operation(self, operation: SuspendedOperation) -> None:
         self._cleanup()
         self._operations[operation.operation_id] = operation

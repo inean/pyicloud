@@ -22,10 +22,16 @@ class OperationSuspensionService:
         query: SuspendedOperationQueryPort,
         command: SuspendedOperationCommandPort,
         ttl_seconds: int = 300,
+        max_pending_per_user: int = 25,
+        max_pending_global: int = 500,
+        max_payload_bytes: int = 65536,
     ):
         self._query = query
         self._command = command
         self._ttl_seconds = max(30, int(ttl_seconds))
+        self._max_pending_per_user = max(1, int(max_pending_per_user))
+        self._max_pending_global = max(1, int(max_pending_global))
+        self._max_payload_bytes = max(1, int(max_payload_bytes))
 
     @property
     def query_port(self) -> SuspendedOperationQueryPort:
@@ -52,10 +58,23 @@ class OperationSuspensionService:
         content_type: str | None,
         idempotency_key: str | None,
     ) -> SuspendedOperation:
+        normalized_account_id = str(account_id).strip()
+        payload_size = len(body_text.encode("utf-8")) if body_text else 0
+        if payload_size > self._max_payload_bytes:
+            raise Conflict("Suspended operation payload exceeds configured size limit")
+
+        existing = self._query.list_operations()
+        active = [operation for operation in existing if operation.state not in _TERMINAL_STATES]
+        if len(active) >= self._max_pending_global:
+            raise Conflict("Global suspended operation quota exceeded")
+        active_for_user = [operation for operation in active if operation.account_id == normalized_account_id]
+        if len(active_for_user) >= self._max_pending_per_user:
+            raise Conflict("Per-user suspended operation quota exceeded")
+
         now = int(time())
         operation = SuspendedOperation(
             operation_id=str(uuid4()),
-            account_id=str(account_id).strip(),
+            account_id=normalized_account_id,
             method=str(method).strip().upper(),
             path=str(path).strip(),
             query_string=str(query_string or ""),

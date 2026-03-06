@@ -7,6 +7,7 @@ from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, 
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.api.app import (
     _build_default_access_control_service,
+    _build_default_auth_abuse_guard,
     _build_default_auth_service,
     _build_default_operation_suspension,
 )
@@ -25,6 +26,14 @@ def _clear_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PYICLOUD_API_OPERATION_BACKEND", raising=False)
     monkeypatch.delenv("PYICLOUD_API_OPERATION_STORE_DIR", raising=False)
     monkeypatch.delenv("PYICLOUD_API_OPERATION_TTL_SECONDS", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_OPERATION_MAX_PENDING_PER_USER", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_OPERATION_MAX_PENDING_GLOBAL", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_OPERATION_MAX_PAYLOAD_BYTES", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_RATE_WINDOW_SECONDS", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_LOCKOUT_SECONDS", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_ACCOUNT", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_IP", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_SESSION", raising=False)
 
 
 def test_non_dev_runtime_requires_explicit_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -137,3 +146,22 @@ def test_build_default_operation_suspension_service_uses_file_in_non_dev(
 
     assert isinstance(service._query, FileSuspendedOperationStore)
     assert isinstance(service._command, FileSuspendedOperationStore)
+
+
+def test_build_default_operation_suspension_service_rejects_invalid_limit_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
+    monkeypatch.setenv("PYICLOUD_API_OPERATION_MAX_PENDING_GLOBAL", "invalid")
+
+    with pytest.raises(RuntimeError, match="configuration values must be integers"):
+        _build_default_operation_suspension()
+
+
+def test_build_default_auth_abuse_guard_rejects_invalid_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_IP", "invalid")
+
+    with pytest.raises(RuntimeError, match="must be integers"):
+        _build_default_auth_abuse_guard()

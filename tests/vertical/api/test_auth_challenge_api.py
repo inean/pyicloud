@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.exceptions import PyiCloudAPIResponseError
 
 
@@ -64,6 +65,12 @@ async def test_auth_challenge_rejects_invalid_transition(app):
         assert invalid.status_code == 400
         assert invalid.json()["error"]["code"] == "http_error"
 
+        mismatch = await client.post(
+            "/v1/auth/challenge",
+            json={"challenge_id": challenge_id, "session_id": "wrong-session", "password_envelope": "secret"},
+        )
+        assert mismatch.status_code == 400
+
 
 @pytest.mark.asyncio
 async def test_auth_challenge_operation_resume_contract(app):
@@ -124,3 +131,19 @@ async def test_auth_challenge_resumes_suspended_operation_server_side(app):
         assert payload["challenge_type"] == "authenticated"
         assert payload["operation_status"] == 200
         assert isinstance(payload["operation_result"]["data"], list)
+
+
+@pytest.mark.asyncio
+async def test_auth_challenge_rate_limit_returns_429(app):
+    app.state.auth_abuse_guard_service = AuthAbuseGuardService(
+        max_attempts_per_account=1,
+        max_attempts_per_ip=1,
+        max_attempts_per_session=1,
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        first = await client.post("/v1/auth/challenge", json={"username": "success@example.com"})
+        assert first.status_code == 200
+
+        second = await client.post("/v1/auth/challenge", json={"username": "success@example.com"})
+        assert second.status_code == 429
+        assert second.json()["error"]["code"] == "auth_rate_limited"

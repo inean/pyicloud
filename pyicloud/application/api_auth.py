@@ -217,6 +217,7 @@ class AuthApiService:
     ) -> dict[str, Any]:
         normalized_username = str(username or "").strip()
         normalized_challenge_id = str(challenge_id or "").strip()
+        normalized_session_id = str(session_id or "").strip()
         normalized_password = str(password_envelope or "")
         normalized_security_code = str(security_code or "").strip()
 
@@ -231,13 +232,13 @@ class AuthApiService:
                     account_id=normalized_username,
                     challenge_type="password_required",
                     next_step="auth.challenge.password",
-                    flow_id=session_id,
+                    flow_id=normalized_session_id or None,
                 )
                 return self._to_password_required_response(challenge=challenge)
             login_result = await self.login(
                 username=normalized_username,
                 password=normalized_password,
-                flow_id=session_id,
+                flow_id=normalized_session_id or None,
             )
             return self._to_login_challenge_response(login_result=login_result)
 
@@ -245,8 +246,13 @@ class AuthApiService:
         if challenge_payload is None:
             raise ChallengeExpired("Challenge is missing or expired")
         challenge_type = str(challenge_payload.get("challenge_type", "")).strip().lower()
-        resolved_username = self._challenge_identity(username=normalized_username, challenge=challenge_payload)
+        challenge_username = self._challenge_identity(username=None, challenge=challenge_payload)
+        resolved_username = challenge_username or normalized_username
         resolved_flow_id = str(challenge_payload.get("flow_id", "")).strip() or None
+        if normalized_username and challenge_username and normalized_username != challenge_username:
+            raise InvalidChallengeTransition("username does not match challenge context")
+        if normalized_session_id and resolved_flow_id and normalized_session_id != resolved_flow_id:
+            raise InvalidChallengeTransition("session_id does not match challenge context")
 
         if challenge_type == "password_required":
             if normalized_security_code:

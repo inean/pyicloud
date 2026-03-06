@@ -168,6 +168,13 @@ class FileSuspendedOperationStore(SuspendedOperationQueryPort, SuspendedOperatio
             self._store_operations(operations)
         return operations.get(operation_id)
 
+    def list_operations(self) -> tuple[SuspendedOperation, ...]:
+        operations = self._load_operations()
+        if self._expire_operations(operations):
+            self._store_operations(operations)
+        ordered = sorted(operations.values(), key=lambda operation: operation.created_at)
+        return tuple(ordered)
+
     def save_operation(self, operation: SuspendedOperation) -> None:
         operations = self._load_operations()
         self._expire_operations(operations)

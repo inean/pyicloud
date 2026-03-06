@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from pyicloud.application.access_control import AccessControlApiService
@@ -19,6 +21,7 @@ from ..schemas import (
 )
 
 router = APIRouter()
+LOGGER = logging.getLogger("pyicloud.audit")
 
 
 def _to_allowlist_entry_response(entry: AccessControlEntry) -> AllowlistEntryResponse:
@@ -39,6 +42,7 @@ def admin_allowlist_list(
     service: AccessControlApiService = Depends(get_access_control_service),
 ) -> DataEnvelope:
     entries = service.list_entries(actor=principal)
+    LOGGER.info("audit_event type=allowlist_list actor=%s count=%s", principal.username, len(entries))
     payload = AllowlistListResponse(entries=[_to_allowlist_entry_response(entry) for entry in entries])
     return ok(payload)
 
@@ -58,6 +62,13 @@ def admin_allowlist_add(
         )
     except Forbidden as err:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
+    LOGGER.info(
+        "audit_event type=allowlist_add actor=%s target=%s role=%s status=%s",
+        principal.username,
+        entry.username,
+        entry.role,
+        entry.status,
+    )
     return ok(_to_allowlist_entry_response(entry))
 
 
@@ -72,9 +83,12 @@ def admin_allowlist_remove(
     except Forbidden as err:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     except Conflict as err:
+        LOGGER.info("audit_event type=allowlist_remove_denied actor=%s target=%s", principal.username, username)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
     if not removed:
+        LOGGER.info("audit_event type=allowlist_remove_missing actor=%s target=%s", principal.username, username)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Allowlist entry not found: {username}")
+    LOGGER.info("audit_event type=allowlist_remove actor=%s target=%s", principal.username, username)
     return ok(SimpleOkResponse(detail="Allowlist entry removed"))
 
 
@@ -90,7 +104,15 @@ def admin_allowlist_set_role(
     except Forbidden as err:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     except Conflict as err:
+        LOGGER.info("audit_event type=allowlist_role_denied actor=%s target=%s", principal.username, username)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
     if entry is None:
+        LOGGER.info("audit_event type=allowlist_role_missing actor=%s target=%s", principal.username, username)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Allowlist entry not found: {username}")
+    LOGGER.info(
+        "audit_event type=allowlist_role actor=%s target=%s role=%s",
+        principal.username,
+        entry.username,
+        entry.role,
+    )
     return ok(_to_allowlist_entry_response(entry))

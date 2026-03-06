@@ -32,6 +32,17 @@ class SuspendedOperationQueryPort(Protocol):
             RuntimeError: Suspended operation state cannot be read safely from persistence.
         """
 
+    def list_operations(self) -> tuple[SuspendedOperation, ...]:
+        """
+        OperationSuspensionService calls this method to evaluate quotas and inspect pending operation volume.
+
+        The adapter translates backend-specific iteration into stable SuspendedOperation records so
+        abuse-protection policies can apply per-user and global limits consistently.
+
+        Raises:
+            RuntimeError: Suspended operation state cannot be enumerated reliably.
+        """
+
 
 class SuspendedOperationCommandPort(Protocol):
     """
