@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib
 
+import pyicloud.adapters.session.service_http as service_http
 import pyicloud.bootstrap.api_runtime as api_runtime
+import pyicloud.interfaces.api.app as api_app
 import pyicloud.interfaces.api.dependencies as api_dependencies
 
 
@@ -21,4 +23,27 @@ def test_active_api_path_uses_context_observability_service() -> None:
     )
     assert api_runtime.ObservabilityApi.__module__.startswith(
         "pyicloud.contexts.crosscutting.observability.application."
+    )
+
+
+def test_upstream_probe_shims_reexport_context_runtime() -> None:
+    legacy_runtime = importlib.import_module("pyicloud.adapters.upstream_probe.runtime")
+    canonical_runtime = importlib.import_module(
+        "pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe.runtime"
+    )
+
+    assert legacy_runtime.get_upstream_probe is canonical_runtime.get_upstream_probe
+    assert (
+        legacy_runtime.validate_upstream_probe_configuration is canonical_runtime.validate_upstream_probe_configuration
+    )
+    assert legacy_runtime.upstream_capture_body_max_bytes is canonical_runtime.upstream_capture_body_max_bytes
+    assert legacy_runtime.reset_upstream_probe_cache is canonical_runtime.reset_upstream_probe_cache
+
+
+def test_active_api_and_transport_paths_use_context_telemetry_runtime() -> None:
+    assert api_app.validate_upstream_probe_configuration.__module__.startswith(
+        "pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe."
+    )
+    assert service_http.get_upstream_probe.__module__.startswith(
+        "pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe."
     )

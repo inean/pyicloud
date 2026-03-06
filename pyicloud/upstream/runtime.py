@@ -13,7 +13,7 @@ def get_upstream_probe() -> UpstreamTrafficProbePort:
     modules decoupled from direct adapter imports.
     """
 
-    from pyicloud.adapters.upstream_probe import get_upstream_probe as resolve_probe
+    from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import get_upstream_probe as resolve_probe
 
     return resolve_probe()
 
@@ -26,7 +26,9 @@ def upstream_capture_body_max_bytes() -> int:
     modules decoupled from direct adapter imports.
     """
 
-    from pyicloud.adapters.upstream_probe import upstream_capture_body_max_bytes as resolve_max_bytes
+    from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import (
+        upstream_capture_body_max_bytes as resolve_max_bytes,
+    )
 
     return resolve_max_bytes()
 

@@ -8,7 +8,10 @@ from typing import Any
 
 import httpx
 
-from pyicloud.adapters.upstream_probe import get_upstream_probe, upstream_capture_body_max_bytes
+from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import (
+    get_upstream_probe,
+    upstream_capture_body_max_bytes,
+)
 from pyicloud.exceptions import PyiCloudAPIResponseError
 from pyicloud.log import LOGGER
 from pyicloud.log.httpx import LoggerHook, LogTransport

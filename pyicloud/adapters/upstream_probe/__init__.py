@@ -1,8 +1,9 @@
-"""Upstream traffic probe adapter implementations."""
+"""Compatibility shims for telemetry upstream probe adapters."""
 
-from .null import NullUpstreamTrafficProbeAdapter
-from .otel import OTelUpstreamTrafficProbeAdapter, ensure_otel_upstream_dependencies
-from .runtime import (
+from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import (
+    NullUpstreamTrafficProbeAdapter,
+    OTelUpstreamTrafficProbeAdapter,
+    ensure_otel_upstream_dependencies,
     get_upstream_probe,
     reset_upstream_probe_cache,
     upstream_capture_body_max_bytes,
