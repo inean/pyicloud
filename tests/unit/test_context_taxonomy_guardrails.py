@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -8,11 +9,23 @@ PYICLOUD_ROOT = REPO_ROOT / "pyicloud"
 CONTEXTS_ROOT = PYICLOUD_ROOT / "contexts"
 
 LOCKED_CONTEXT_ROOTS = {"core", "services", "crosscutting"}
+LOCKED_SERVICE_CONTEXTS = {
+    "devices",
+    "account",
+    "drive",
+    "calendar",
+    "contacts",
+    "reminders",
+    "photos",
+    "ubiquity",
+}
+LOCKED_CROSSCUTTING_CONTEXTS = {"auth", "telemetry", "observability"}
 STRICT_INWARD_POLICY = {
     "core": {"core"},
     "services": {"services", "core", "crosscutting"},
     "crosscutting": {"crosscutting", "core"},
 }
+SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 def _child_dir_names(path: Path) -> set[str]:
@@ -24,6 +37,37 @@ def test_context_taxonomy_roots_match_locked_semantic_groups() -> None:
         return
     unexpected = sorted(_child_dir_names(CONTEXTS_ROOT) - LOCKED_CONTEXT_ROOTS)
     assert unexpected == [], f"Unexpected semantic context roots found: {unexpected}"
+
+
+def test_context_names_follow_snake_case_convention() -> None:
+    if not CONTEXTS_ROOT.exists():
+        return
+    invalid_root_names = sorted(
+        name for name in _child_dir_names(CONTEXTS_ROOT) if SNAKE_CASE_PATTERN.fullmatch(name) is None
+    )
+    assert invalid_root_names == [], f"Invalid context root names (must be snake_case): {invalid_root_names}"
+
+
+def test_services_context_catalog_matches_locked_taxonomy() -> None:
+    services_root = CONTEXTS_ROOT / "services"
+    if not services_root.exists():
+        return
+    names = _child_dir_names(services_root)
+    unexpected = sorted(names - LOCKED_SERVICE_CONTEXTS)
+    invalid_names = sorted(name for name in names if SNAKE_CASE_PATTERN.fullmatch(name) is None)
+    assert unexpected == [], f"Unexpected services contexts found: {unexpected}"
+    assert invalid_names == [], f"Invalid services context names (must be snake_case): {invalid_names}"
+
+
+def test_crosscutting_context_catalog_matches_locked_taxonomy() -> None:
+    crosscutting_root = CONTEXTS_ROOT / "crosscutting"
+    if not crosscutting_root.exists():
+        return
+    names = _child_dir_names(crosscutting_root)
+    unexpected = sorted(names - LOCKED_CROSSCUTTING_CONTEXTS)
+    invalid_names = sorted(name for name in names if SNAKE_CASE_PATTERN.fullmatch(name) is None)
+    assert unexpected == [], f"Unexpected crosscutting contexts found: {unexpected}"
+    assert invalid_names == [], f"Invalid crosscutting context names (must be snake_case): {invalid_names}"
 
 
 def _module_name_for_path(path: Path) -> str:
