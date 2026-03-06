@@ -5,11 +5,11 @@ from __future__ import annotations
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from pyicloud.application.core_services import CoreServicesApi
-from pyicloud.application.observability import ObservabilityApi
 from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
 from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
 from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
+from pyicloud.contexts.crosscutting.observability.application import ObservabilityApi
 from pyicloud.domain import AuthPrincipal, Unauthorized
 
 
