@@ -7,7 +7,6 @@ from time import time
 from typing import Any
 from uuid import uuid4
 
-from pyicloud.bootstrap import build_auth_session_service
 from pyicloud.domain import (
     AuthPrincipal,
     ChallengeExpired,
@@ -17,26 +16,7 @@ from pyicloud.domain import (
     Unauthorized,
 )
 from pyicloud.domain.auth_flow import AuthFlowRequest
-from pyicloud.models.settings import Settings
 from pyicloud.ports import SessionCommandPort, SessionQueryPort, TokenSignerPort
-from pyicloud.trees.setup import SetupHooks
-
-
-class _ApiSetupHooks(SetupHooks):
-    """Non-interactive setup hooks used by API authentication flows."""
-
-    def __init__(self, *, password: str):
-        self._password = password
-
-    def get_password(self, username: str) -> str:  # noqa: ARG002
-        return self._password
-
-    def get_security_code(self, device: Any = None) -> str:  # noqa: ARG002
-        return ""
-
-    def get_trusted_device(self, devices):  # noqa: ANN001, ARG002
-        return None
-
 
 AuthServiceFactory = Callable[[str, str], Any]
 
@@ -50,23 +30,16 @@ class AuthApiService:
         token_signer: TokenSignerPort,
         session_query: SessionQueryPort,
         session_command: SessionCommandPort,
-        auth_service_factory: AuthServiceFactory | None = None,
-        store_dir: str | None = None,
+        auth_service_factory: AuthServiceFactory,
         token_ttl_seconds: int = 3600,
         challenge_ttl_seconds: int = 300,
     ):
         self._token_signer = token_signer
         self._session_query = session_query
         self._session_command = session_command
-        self._store_dir = store_dir
         self._token_ttl_seconds = token_ttl_seconds
         self._challenge_ttl_seconds = challenge_ttl_seconds
-        self._auth_service_factory = auth_service_factory or self._default_auth_service_factory
-
-    def _default_auth_service_factory(self, username: str, password: str):
-        settings = Settings.create(username=username, password=password or None)
-        hooks = _ApiSetupHooks(password=password)
-        return build_auth_session_service(settings=settings, hooks=hooks, store_dir=self._store_dir)
+        self._auth_service_factory = auth_service_factory
 
     def _issue_token(self, *, username: str) -> dict[str, Any]:
         token_id = str(uuid4())

@@ -28,12 +28,11 @@
 
 ## Phase Board
 - Planned:
-  - Phase 24 Async Port/Adapter Contract Convergence
   - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
 - In Progress:
-  - Phase 23 Layer Boundary Purification (Hexagonal)
+  - Phase 24 Async Port/Adapter Contract Convergence
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -61,6 +60,7 @@
   - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
   - Phase 21 Challenge-Driven API + Credential Hygiene
   - Phase 22 Challenge Execution Flow + CLI Auto-Retry
+  - Phase 23 Layer Boundary Purification (Hexagonal)
 - Blocked:
   - None
 
@@ -1336,19 +1336,46 @@ Make CLI behavior truly challenge-driven and ergonomic: operation-first executio
 Enforce strict dependency direction across layers and remove known boundary leaks.
 
 ### Checklist
-- [ ] Remove `application -> bootstrap/trees/models` coupling in auth application services.
-- [ ] Replace concrete auth service construction inside `application` with injected ports/factories.
-- [ ] Remove `adapters -> cli` imports and invert control to composition/bootstrap.
-- [ ] Move composition/default wiring to dedicated bootstrap modules.
+- [x] Remove `application -> bootstrap/trees/models` coupling in auth application services.
+- [x] Replace concrete auth service construction inside `application` with injected ports/factories.
+- [x] Remove `adapters -> cli` imports and invert control to composition/bootstrap.
+- [x] Move composition/default wiring to dedicated bootstrap modules.
 - [ ] Add architecture dependency rules:
-  - [ ] `domain` must not import `application/adapters/api/cli/bootstrap`.
-  - [ ] `application` must not import `adapters/api/cli/bootstrap/trees`.
-  - [ ] `adapters` must not import `cli`.
-- [ ] Add enforcement tests for forbidden imports and expected package boundaries.
+  - [x] `domain` must not import `application/adapters/api/cli/bootstrap`.
+  - [x] `application` must not import `adapters/api/cli/bootstrap/trees`.
+  - [x] `adapters` must not import `cli`.
+- [x] Add enforcement tests for forbidden imports and expected package boundaries.
 
 ### Exit Criteria
-- [ ] Import-sweep checks pass for all forbidden dependency directions.
-- [ ] Auth and challenge flows compile/run with boundary-compliant wiring only.
+- [x] Import-sweep checks pass for all forbidden dependency directions.
+- [x] Auth and challenge flows compile/run with boundary-compliant wiring only.
+
+### Handoff: Phase 23 - Layer Boundary Purification (Hexagonal)
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Removed `application`-layer auth composition leakage by requiring injected auth service factories in `AuthApiService`.
+  - Removed `adapters -> cli_auth` fallback import in legacy endpoint auth flow and enforced explicit runner injection.
+  - Moved default API wiring (`auth/core/observability`) into dedicated bootstrap module `pyicloud/bootstrap/api_runtime.py`.
+  - Added architecture boundary guard tests that block forbidden import directions for domain/application/adapters layers.
+- Files changed:
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/adapters/auth/session_endpoint_restore.py`
+  - `tests/unit/test_legacy_cli_auth_adapter.py`
+  - `tests/unit/test_hexagonal_import_boundaries.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_api.py tests/vertical/cli/test_auth_cli.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_cli_auth_adapter.py tests/unit/test_service_endpoint_restore.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_app_auth_config.py tests/unit/test_api_telemetry_middleware.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_upstream_error_mapping.py tests/smoke/test_smoke.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_api_app_auth_config.py tests/unit/test_legacy_cli_auth_adapter.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - API entrypoint (`pyicloud/api/app.py`) still centralizes routing/error handling; full module decomposition remains in Phase 25.
+  - Async contract drift in service adapters remains pending in Phase 24.
+- Next recommended phase: Phase 24 Async Port/Adapter Contract Convergence.
 
 ---
 
@@ -1439,5 +1466,5 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 23, then 24/25/26/27.
+# Continue Phase 24, then 25/26/27.
 ```
