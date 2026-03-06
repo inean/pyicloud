@@ -28,11 +28,10 @@
 
 ## Phase Board
 - Planned:
-  - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
 - In Progress:
-  - Phase 31 Operation Suspension Pattern (Server-Side)
+  - Phase 32 Abuse/Safety Hardening for New Flows
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -68,6 +67,7 @@
   - Phase 28 Credential Custody Hardening
   - Phase 29 Access Control Plane (Whitelist + Admin)
   - Phase 30 Unified Auth Challenge Endpoint
+  - Phase 31 Operation Suspension Pattern (Server-Side)
 - Blocked:
   - None
 
@@ -1801,16 +1801,55 @@ Consolidate interactive authentication into one state-machine endpoint.
 Pause protected operations while auth challenges complete, then resume server-side safely.
 
 ### Checklist
-- [ ] Add suspended-operation store with TTL and explicit states:
-  - [ ] `pending_auth`, `resuming`, `completed`, `failed`, `expired`.
-- [ ] On upstream reauth errors, return `401 auth_challenge_required` including `operation_id`.
-- [ ] On successful challenge completion, resume suspended operation in backend and return final operation result.
-- [ ] Enforce idempotency key requirement for mutating operations during suspend/resume.
-- [ ] Enforce terminal-state semantics to prevent duplicate resume execution.
+- [x] Add suspended-operation store with TTL and explicit states:
+  - [x] `pending_auth`, `resuming`, `completed`, `failed`, `expired`.
+- [x] On upstream reauth errors, return `401 auth_challenge_required` including `operation_id`.
+- [x] On successful challenge completion, resume suspended operation in backend and return final operation result.
+- [x] Enforce idempotency key requirement for mutating operations during suspend/resume.
+- [x] Enforce terminal-state semantics to prevent duplicate resume execution.
 
 ### Exit Criteria
 - Client no longer needs to manually replay original business operations after MFA.
 - Mutating operations remain replay-safe under retries and partial failures.
+
+### Handoff: Phase 31 - Operation Suspension Pattern (Server-Side)
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added suspended-operation persistence model with explicit lifecycle states and TTL expiry behavior (`pending_auth`, `resuming`, `completed`, `failed`, `expired`).
+  - Extended upstream challenge mapping to persist suspended operation context and include `operation_id` in `auth_challenge_required` responses.
+  - Implemented server-side operation replay from `POST /v1/auth/challenge` after successful auth completion, returning replay status/payload in challenge response.
+  - Enforced `Idempotency-Key` requirement for mutating operations when suspension is triggered and added terminal-state guards to avoid duplicate resume execution.
+- Files changed:
+  - `pyicloud/domain/api_models.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/ports/operation_suspension.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyicloud/adapters/operation_suspension/__init__.py`
+  - `pyicloud/adapters/operation_suspension/in_memory_operation_store.py`
+  - `pyicloud/adapters/operation_suspension/file_operation_store.py`
+  - `pyicloud/application/operation_suspension.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/dependencies.py`
+  - `pyicloud/api/errors.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `tests/unit/test_operation_suspension_store.py`
+  - `tests/unit/test_operation_suspension_service.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_operation_suspension_store.py tests/unit/test_operation_suspension_service.py tests/unit/test_api_app_auth_config.py tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_upstream_error_mapping.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_auth_service.py tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py tests/vertical/api`
+- Risks / TBD:
+  - Operation replay currently re-dispatches requests in-process and assumes JSON/text request bodies; broader content-type support requires follow-up hardening.
+  - Distributed concurrency controls and replay-abuse quotas remain pending for Phase 32.
+- Next recommended phase: Phase 32 Abuse/Safety Hardening for New Flows.
 
 ---
 
@@ -1858,5 +1897,5 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 31: Operation Suspension Pattern (Server-Side).
+# Continue with Phase 32: Abuse/Safety Hardening for New Flows.
 ```
