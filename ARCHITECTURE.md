@@ -26,16 +26,16 @@ La libreria ya no expone superficies legacy sincronas para uso publico.
 
 ### 1) Interface layer
 
-- `pyicloud/api/app.py`: rutas FastAPI `/v1/*`.
-- `pyicloud/cli/main.py`: comandos `icloud`.
+- `pyicloud/interfaces/api/app.py`: rutas FastAPI `/v1/*`.
+- `pyicloud/interfaces/cli/main.py`: comandos `icloud`.
 
 Responsabilidad: validar I/O, mapear errores y llamar casos de uso.
 
 ### 2) Application layer
 
-- `pyicloud/application/api_auth.py`
+- `pyicloud/contexts/crosscutting/auth/application/api_auth.py`
 - `pyicloud/application/core_services.py`
-- `pyicloud/application/observability.py`
+- `pyicloud/contexts/crosscutting/observability/application/observability.py`
 
 Responsabilidad: orquestar casos de uso de autenticacion, dominios core y observabilidad.
 
@@ -55,8 +55,8 @@ Responsabilidad: definir interfaces estables para separar dominio e infraestruct
 - `pyicloud/adapters/session/*`
 - `pyicloud/adapters/store/*`
 - `pyicloud/adapters/services/*`
-- `pyicloud/adapters/observability/*`
-- `pyicloud/adapters/upstream_probe/*`
+- `pyicloud/contexts/crosscutting/observability/adapters/*`
+- `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`
 
 Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, telemetria, etc.).
 
@@ -78,9 +78,10 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 
 ## Estructura del codigo (resumen)
 
-- `pyicloud/api/`: capa HTTP.
-- `pyicloud/cli/`: capa CLI.
-- `pyicloud/application/`: casos de uso.
+- `pyicloud/interfaces/api/`: capa HTTP.
+- `pyicloud/interfaces/cli/`: capa CLI.
+- `pyicloud/contexts/crosscutting/*/application`: casos de uso transversales.
+- `pyicloud/application/`: shims de compatibilidad + casos de uso heredados en migracion.
 - `pyicloud/ports/`: contratos hexagonales.
 - `pyicloud/adapters/`: infraestructura.
 - `pyicloud/domain/`: modelos/errores de dominio.
@@ -90,8 +91,9 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 ## Observabilidad
 
 - Consultas: PromQL, TraceQL y LogQL via API/CLI.
-- Instrumentacion de rutas disponible en `pyicloud/api/instrumentation.py`.
-- Probes upstream en `pyicloud/adapters/upstream_probe/*`.
+- Instrumentacion de rutas disponible en `pyicloud/interfaces/api/instrumentation.py`.
+- Query-side en `pyicloud/contexts/crosscutting/observability/*`.
+- Write-side de trazabilidad en `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`.
 - La aplicacion debe funcionar sin dependencias de observabilidad (adaptadores `null`).
 
 ## Reglas de evolucion

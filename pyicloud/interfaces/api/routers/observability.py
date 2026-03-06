@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from pyicloud.application.observability import ObservabilityApi
+from pyicloud.contexts.crosscutting.observability.application import ObservabilityApi
 from pyicloud.domain import BackendUnavailable, QueryExecutionFailed, UnsupportedQueryMode
 
 from ..dependencies import get_observability_service, get_username

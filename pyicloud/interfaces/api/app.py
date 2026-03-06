@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from pyicloud.adapters.upstream_probe import validate_upstream_probe_configuration
 from pyicloud.application.core_services import CoreServicesApi
-from pyicloud.application.observability import ObservabilityApi
 from pyicloud.bootstrap import (
     build_default_access_control_api,
     build_default_auth_abuse_guard_service,
@@ -19,6 +17,8 @@ from pyicloud.contexts.crosscutting.auth.application.access_control import Acces
 from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
 from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
+from pyicloud.contexts.crosscutting.observability.application import ObservabilityApi
+from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import validate_upstream_probe_configuration
 
 from .errors import register_exception_handlers
 from .instrumentation import ApiTelemetryMiddleware, telemetry_enabled

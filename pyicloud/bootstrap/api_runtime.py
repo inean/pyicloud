@@ -7,19 +7,23 @@ import os
 
 from pyicloud.adapters.access import FileAccessControlStore, InMemoryAccessControlStore
 from pyicloud.adapters.auth.fake_scenario_auth import FakeScenarioAuthSessionAdapter
-from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
 from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, InMemorySuspendedOperationStore
 from pyicloud.adapters.services import build_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.application.core_services import CoreServicesApi
-from pyicloud.application.observability import ObservabilityApi
 from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
 from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
 from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
+from pyicloud.contexts.crosscutting.observability.adapters import (
+    NullObservabilityAdapter,
+    OTelObservabilityAdapter,
+    ensure_otel_dependencies,
+)
+from pyicloud.contexts.crosscutting.observability.application import ObservabilityApi
 from pyicloud.ports import AccessControlQueryPort
 
 _DEFAULT_AUTH_SCENARIOS = {
