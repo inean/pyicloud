@@ -48,6 +48,12 @@ define require_uv
   exit 1; \
 fi
 endef
+define require_jq
+@if ! command -v jq >/dev/null 2>&1; then \
+  printf "$(YELLOW)jq not found. Install jq to use this target.$(RESET)\n" >&2; \
+  exit 1; \
+fi
+endef
 
 .PHONY: help \
 		format format-fix lint lint-fix typecheck test test-ratchet test-validate check ci \
@@ -236,14 +242,12 @@ flow-timeline: ## Render flow timeline (requires FLOW_ID; optional FLOW_FORMAT=t
 
 auth-flow: ## Execute login + optional 2FA + devices list and print FLOW_ID (requires APPLE_ID and APPLE_PASSWORD)
 	$(call require_uv)
+	$(call require_jq)
 	@if [[ -z "$${APPLE_ID:-}" || -z "$${APPLE_PASSWORD:-}" ]]; then \
 	  printf "$(YELLOW)Set APPLE_ID and APPLE_PASSWORD before running this target.$(RESET)\n" >&2; \
 	  exit 1; \
 	fi
-	@if ! command -v jq >/dev/null 2>&1; then \
-	  printf "$(YELLOW)jq is required for auth-flow target. Install jq and retry.$(RESET)\n" >&2; \
-	  exit 1; \
-	fi
+
 	@set -euo pipefail; \
 	login_json="$$(PYICLOUD_API_URL=$(API_URL) $(UV_RUN) icloud auth login --username "$$APPLE_ID" --password "$$APPLE_PASSWORD")"; \
 	printf "%s\n" "$$login_json"; \
