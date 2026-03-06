@@ -28,9 +28,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 33 Migration, Compatibility, and Cutover
+  - None
 - In Progress:
-  - Phase 33 Migration, Compatibility, and Cutover
+  - None
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -68,6 +68,7 @@
   - Phase 30 Unified Auth Challenge Endpoint
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
+  - Phase 33 Migration, Compatibility, and Cutover
 - Blocked:
   - None
 
@@ -1922,19 +1923,64 @@ Bound abuse surface introduced by challenge and operation-suspension state.
 Migrate clients safely to unified challenge + suspension model and retire old auth endpoints.
 
 ### Checklist
-- [ ] Update CLI to use unified challenge endpoint and operation-resume semantics.
-- [ ] Roll out compatibility window for legacy auth endpoints.
-- [ ] Remove legacy `/v1/auth/login` and `/v1/auth/security-code` once cutover criteria are met.
-- [ ] Update docs/contracts/examples for new auth and admin surfaces.
-- [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on post-cutover path.
+- [x] Update CLI to use unified challenge endpoint and operation-resume semantics.
+- [x] Roll out compatibility window for legacy auth endpoints.
+- [x] Remove legacy `/v1/auth/login` and `/v1/auth/security-code` once cutover criteria are met.
+- [x] Update docs/contracts/examples for new auth and admin surfaces.
+- [x] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on post-cutover path.
 
 ### Exit Criteria
 - No active clients depend on legacy auth endpoints.
 - Unified challenge + suspension path is the only supported authentication flow.
 
+### Handoff: Phase 33 - Migration, Compatibility, and Cutover
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Migrated CLI auth and challenge middleware flows to `POST /v1/auth/challenge`.
+  - Updated CLI auto-recovery to consume server-side `operation_result` and avoid redundant client-side replay when operation suspension resumes server-side.
+  - Added automatic `Idempotency-Key` propagation for mutating CLI requests during challenge/retry handling.
+- Files changed:
+  - `pyicloud/cli/commands/auth.py`
+  - `pyicloud/cli/transport.py`
+  - `pyicloud/cli/main.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `README.md`
+  - `CODE_SAMPLES.md`
+  - `tests/integration/test_api_contracts.py`
+  - `tests/integration/test_api_end_to_end.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `tests/unit/test_api_auth_service.py`
+  - `tests/unit/test_api_telemetry_middleware.py`
+  - `tests/vertical/api/test_account_api.py`
+  - `tests/vertical/api/test_admin_api.py`
+  - `tests/vertical/api/test_auth_api.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+  - `tests/vertical/api/test_calendar_api.py`
+  - `tests/vertical/api/test_contacts_api.py`
+  - `tests/vertical/api/test_devices_api.py`
+  - `tests/vertical/api/test_drive_api.py`
+  - `tests/vertical/api/test_observability_api.py`
+  - `tests/vertical/api/test_photos_api.py`
+  - `tests/vertical/api/test_reminders_api.py`
+  - `tests/vertical/api/test_ubiquity_api.py`
+  - `tests/vertical/api/test_upstream_error_mapping.py`
+  - `pyicloud/application/api_auth.py`
+  - `tests/unit/test_cli_transport.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+- Tests executed:
+  - `make check`
+  - `uv run pytest -q -o addopts='' tests/unit/test_cli_transport.py tests/vertical/cli/test_auth_cli.py`
+- Risks / TBD:
+  - None identified in this phase after cutover and gate execution.
+- Next recommended phase:
+  - None (phase plan complete).
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 33: Migration, Compatibility, and Cutover.
+# Phase 28-33 plan completed; continue from new planning input.
 ```

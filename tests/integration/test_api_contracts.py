@@ -18,13 +18,13 @@ def app(tmp_path: Path):
 
 async def _login_token(client: AsyncClient) -> str:
     response = await client.post(
-        "/v1/auth/login",
-        json={"username": "success@example.com", "password": "secret"},
+        "/v1/auth/challenge",
+        json={"username": "success@example.com", "password_envelope": "secret"},
     )
     assert response.status_code == 200
     payload = response.json()
     assert set(payload.keys()) == {"data"}
-    assert set(payload["data"].keys()) >= {"status", "access_token", "token_type", "expires_in"}
+    assert set(payload["data"].keys()) >= {"challenge_type", "access_token", "token_type", "expires_in"}
     return str(payload["data"]["access_token"])
 
 

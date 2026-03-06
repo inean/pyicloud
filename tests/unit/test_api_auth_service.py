@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from pyicloud.application.api_auth import AuthApiService
-from pyicloud.domain import InvalidCredentials, SecurityCodeRequired, Unauthorized
+from pyicloud.domain import InvalidChallengeTransition, InvalidCredentials, SecurityCodeRequired, Unauthorized
 
 
 class _FakeTokenSigner:
@@ -53,6 +53,18 @@ class _RecordingSessionStore:
 
 class _SecurityCodeRequiredAuthService:
     async def run(self, *, account_id: str, request):  # noqa: ANN001, ARG002
+        raise SecurityCodeRequired("security code required")
+
+
+class _SuccessAuthService:
+    async def run(self, *, account_id: str, request):  # noqa: ANN001, ARG002
+        return None
+
+
+class _TwoFactorAuthService:
+    async def run(self, *, account_id: str, request):  # noqa: ANN001, ARG002
+        if str(request.security_code or "") == "123456":
+            return None
         raise SecurityCodeRequired("security code required")
 
 
@@ -133,3 +145,113 @@ async def test_security_code_requires_password() -> None:
 
     with pytest.raises(InvalidCredentials, match="Password is required"):
         await service.security_code(challenge_id="challenge-id", code="123456", password="")
+
+
+def _challenge_service(store: _RecordingSessionStore) -> AuthApiService:
+    claims_by_token: dict[str, dict[str, Any]] = {}
+    signer = _FakeTokenSigner(claims_by_token)
+
+    def _factory(username: str, password: str):  # noqa: ARG001
+        if username == "requires2fa@example.com":
+            return _TwoFactorAuthService()
+        return _SuccessAuthService()
+
+    return AuthApiService(
+        token_signer=signer,
+        session_query=store,
+        session_command=store,
+        auth_service_factory=_factory,
+    )
+
+
+@pytest.mark.asyncio
+async def test_unified_challenge_password_step_authenticates() -> None:
+    store = _RecordingSessionStore()
+    service = _challenge_service(store)
+
+    started = await service.challenge(username="success@example.com")
+    challenge_id = str(started["challenge_id"])
+    session_id = str(started["session_id"])
+    assert started["challenge_type"] == "password_required"
+
+    completed = await service.challenge(
+        challenge_id=challenge_id,
+        session_id=session_id,
+        password_envelope="secret",
+    )
+    assert completed["challenge_type"] == "authenticated"
+    assert completed["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_unified_challenge_rejects_username_and_session_mismatch() -> None:
+    store = _RecordingSessionStore()
+    service = _challenge_service(store)
+
+    started = await service.challenge(username="success@example.com")
+    challenge_id = str(started["challenge_id"])
+
+    with pytest.raises(InvalidChallengeTransition, match="username does not match"):
+        await service.challenge(
+            challenge_id=challenge_id,
+            username="other@example.com",
+            password_envelope="secret",
+        )
+
+    with pytest.raises(InvalidChallengeTransition, match="session_id does not match"):
+        await service.challenge(
+            challenge_id=challenge_id,
+            session_id="mismatch",
+            password_envelope="secret",
+        )
+
+
+@pytest.mark.asyncio
+async def test_unified_challenge_operation_resume_flow_propagates_operation_id() -> None:
+    store = _RecordingSessionStore()
+    service = _challenge_service(store)
+    challenge = service.issue_operation_challenge(
+        account_id="success@example.com",
+        upstream_status=450,
+        operation="GET /v1/devices",
+        reason="expired",
+        operation_id="operation-1",
+    )
+
+    pending = await service.challenge(challenge_id=str(challenge["challenge_id"]))
+    assert pending["challenge_type"] == "operation_resume_required"
+    assert pending["operation_id"] == "operation-1"
+
+    completed = await service.challenge(
+        challenge_id=str(challenge["challenge_id"]),
+        session_id=str(pending["session_id"]),
+        password_envelope="secret",
+    )
+    assert completed["challenge_type"] == "authenticated"
+    assert completed["operation_id"] == "operation-1"
+
+
+@pytest.mark.asyncio
+async def test_unified_challenge_security_code_transition() -> None:
+    store = _RecordingSessionStore()
+    service = _challenge_service(store)
+    challenge = await service.challenge(
+        username="requires2fa@example.com",
+        password_envelope="secret",
+    )
+    assert challenge["challenge_type"] == "security_code_required"
+
+    with pytest.raises(InvalidChallengeTransition, match="security_code is required"):
+        await service.challenge(
+            challenge_id=str(challenge["challenge_id"]),
+            session_id=str(challenge["session_id"]),
+            password_envelope="secret",
+        )
+
+    completed = await service.challenge(
+        challenge_id=str(challenge["challenge_id"]),
+        session_id=str(challenge["session_id"]),
+        password_envelope="secret",
+        security_code="123456",
+    )
+    assert completed["challenge_type"] == "authenticated"

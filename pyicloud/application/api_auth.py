@@ -150,7 +150,7 @@ class AuthApiService:
     def _challenge_expires_at(challenge: dict[str, Any], *, fallback_ttl_seconds: int) -> int:
         raw_expires = challenge.get("expires_at")
         try:
-            expires_at = int(raw_expires)
+            expires_at = int(str(raw_expires))
         except (TypeError, ValueError):
             expires_at = int(time()) + fallback_ttl_seconds
         return expires_at

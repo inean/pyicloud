@@ -81,6 +81,7 @@ async def _send_request(
     json_body: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
     files: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> httpx.Response:
     return await transport.send_request(
         api_url=api_url,
@@ -90,6 +91,7 @@ async def _send_request(
         json_body=json_body,
         params=params,
         files=files,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -120,8 +122,8 @@ async def _request_json_data(
     )
 
 
-async def _complete_auth_challenge(*, api_url: str, challenge: dict[str, Any]) -> None:
-    await transport.complete_auth_challenge(
+async def _complete_auth_challenge(*, api_url: str, challenge: dict[str, Any]) -> dict[str, Any]:
+    return await transport.complete_auth_challenge(
         api_url=api_url,
         challenge=challenge,
         request_json_data_fn=_request_json_data,
@@ -142,8 +144,8 @@ async def _api_request(
     files: dict[str, Any] | None = None,
     allow_challenge_retry: bool = True,
 ) -> Any:
-    async def _handle_challenge(challenge: dict[str, Any]) -> None:
-        await _complete_auth_challenge(api_url=api_url, challenge=challenge)
+    async def _handle_challenge(challenge: dict[str, Any]) -> dict[str, Any]:
+        return await _complete_auth_challenge(api_url=api_url, challenge=challenge)
 
     return await transport.api_request(
         api_url=api_url,
