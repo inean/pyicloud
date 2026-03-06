@@ -34,6 +34,9 @@ def _clear_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_ACCOUNT", raising=False)
     monkeypatch.delenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_IP", raising=False)
     monkeypatch.delenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_SESSION", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_BACKEND", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_DEFAULT_SCENARIO", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_AUTH_SCENARIO_OVERRIDES", raising=False)
 
 
 def test_non_dev_runtime_requires_explicit_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,6 +85,24 @@ def test_build_default_auth_service_rejects_invalid_jwt_leeway(monkeypatch: pyte
 
     with pytest.raises(RuntimeError, match="must be an integer"):
         _build_default_auth_service()
+
+
+@pytest.mark.asyncio
+async def test_build_default_auth_service_uses_scenario_backend_without_tree_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
+    monkeypatch.setenv("PYICLOUD_SESSION_STORE_DIR", str(tmp_path))
+    monkeypatch.setenv("PYICLOUD_API_AUTH_BACKEND", "scenario")
+
+    service = _build_default_auth_service()
+    success = await service.login(username="success@example.com", password="secret")
+    challenge = await service.login(username="requires2fa@example.com", password="secret")
+
+    assert success["status"] == "authenticated"
+    assert challenge["status"] == "challenge_required"
 
 
 def test_build_default_access_control_service_uses_memory_backend_by_default(monkeypatch: pytest.MonkeyPatch) -> None:

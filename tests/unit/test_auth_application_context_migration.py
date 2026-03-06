@@ -81,6 +81,7 @@ def _iter_import_modules(path: Path) -> list[str]:
 
 def test_active_auth_api_path_has_no_direct_trees_or_sessions_imports() -> None:
     guarded_files = (
+        REPO_ROOT / "pyicloud/bootstrap/__init__.py",
         REPO_ROOT / "pyicloud/bootstrap/api_runtime.py",
         REPO_ROOT / "pyicloud/interfaces/api/app.py",
         REPO_ROOT / "pyicloud/interfaces/api/dependencies.py",
