@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -10,7 +9,9 @@ from typing import Any
 import asyncclick as click
 import httpx
 
-from . import credential_vault, token_store, transport
+from pyicloud.platform.composition.cli import CliRuntime, build_default_cli_container
+
+from . import token_store
 from .commands import (
     register_account_commands,
     register_auth_commands,
@@ -26,11 +27,16 @@ from .commands import (
 
 DEFAULT_API_URL = "http://127.0.0.1:8000"
 TOKEN_FILE_ENV = token_store.TOKEN_FILE_ENV
-_CREDENTIAL_VAULT = credential_vault.build_default_vault()
+
+_CLI_CONTAINER = build_default_cli_container()
+
+
+def _cli_runtime() -> CliRuntime:
+    return _CLI_CONTAINER.runtime()
 
 
 def _token_file() -> Path:
-    return token_store.token_file()
+    return _CLI_CONTAINER.token_file()
 
 
 def _load_token() -> str | None:
@@ -46,30 +52,11 @@ def _clear_token() -> None:
 
 
 def _load_password(username: str) -> str | None:
-    if _CREDENTIAL_VAULT is None:
-        return None
-    try:
-        return _CREDENTIAL_VAULT.load(username=username)
-    except Exception:  # noqa: BLE001
-        return None
+    return _cli_runtime().load_password(username)
 
 
 def _save_password(username: str, password: str) -> None:
-    if _CREDENTIAL_VAULT is None:
-        return None
-    try:
-        _CREDENTIAL_VAULT.save(username=username, password=password)
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def _clear_password(username: str) -> None:
-    if _CREDENTIAL_VAULT is None:
-        return None
-    try:
-        _CREDENTIAL_VAULT.clear(username=username)
-    except Exception:  # noqa: BLE001
-        return None
+    _cli_runtime().save_password(username, password)
 
 
 async def _send_request(
@@ -83,7 +70,8 @@ async def _send_request(
     files: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
 ) -> httpx.Response:
-    return await transport.send_request(
+    send_request_fn = _CLI_CONTAINER.send_request()
+    return await send_request_fn(
         api_url=api_url,
         method=method,
         route=route,
@@ -96,11 +84,11 @@ async def _send_request(
 
 
 def _error_payload(response: httpx.Response) -> tuple[str, dict[str, Any] | None]:
-    return transport.error_payload(response)
+    return _CLI_CONTAINER.error_payload()(response)
 
 
 def _auth_challenge_details(response: httpx.Response) -> dict[str, Any] | None:
-    return transport.auth_challenge_details(response)
+    return _CLI_CONTAINER.auth_challenge_details()(response)
 
 
 async def _request_json_data(
@@ -111,7 +99,8 @@ async def _request_json_data(
     token: str | None = None,
     json_body: dict[str, Any] | None = None,
 ) -> Any:
-    return await transport.request_json_data(
+    request_json_data_fn = _CLI_CONTAINER.request_json_data()
+    return await request_json_data_fn(
         api_url=api_url,
         method=method,
         route=route,
@@ -123,7 +112,8 @@ async def _request_json_data(
 
 
 async def _complete_auth_challenge(*, api_url: str, challenge: dict[str, Any]) -> dict[str, Any]:
-    return await transport.complete_auth_challenge(
+    complete_auth_challenge_fn = _CLI_CONTAINER.complete_auth_challenge()
+    return await complete_auth_challenge_fn(
         api_url=api_url,
         challenge=challenge,
         request_json_data_fn=_request_json_data,
@@ -144,10 +134,8 @@ async def _api_request(
     files: dict[str, Any] | None = None,
     allow_challenge_retry: bool = True,
 ) -> Any:
-    async def _handle_challenge(challenge: dict[str, Any]) -> dict[str, Any]:
-        return await _complete_auth_challenge(api_url=api_url, challenge=challenge)
-
-    return await transport.api_request(
+    api_request_fn = _CLI_CONTAINER.api_request()
+    return await api_request_fn(
         api_url=api_url,
         method=method,
         route=route,
@@ -159,13 +147,13 @@ async def _api_request(
         send_request_fn=_send_request,
         parse_error_payload=_error_payload,
         extract_challenge_details=_auth_challenge_details,
-        complete_auth_challenge_fn=_handle_challenge,
+        complete_auth_challenge_fn=lambda challenge: _complete_auth_challenge(api_url=api_url, challenge=challenge),
         load_token_fn=_load_token,
     )
 
 
 def _print_json(payload: Any) -> None:
-    click.echo(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    _cli_runtime().print_json(payload)
 
 
 @click.group(help="pyicloud API-driven CLI")

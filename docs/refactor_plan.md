@@ -53,6 +53,13 @@
 - Active renewal orchestration is `validate-first`; full auth flow executes only as fallback after failed validation.
 - Session transport refactor is responsibility-split + session-oriented renaming with alias window.
 
+## Program 44 Entrypoint DI Decisions (locked)
+- `dependency-injector` is the only DI framework introduced in this wave.
+- Container usage is limited to entrypoint/composition modules (`interfaces/*` + `platform/composition/*`).
+- Domain/application/contracts remain framework-agnostic and container-free.
+- API/CLI contracts remain unchanged (`/v1/*`, `pyicloud.interfaces.cli.main`).
+- `pyicloud.bootstrap` remains a one-phase compatibility shim that forwards to platform composition.
+
 ## Phase Board
 - Planned:
   - None
@@ -72,6 +79,7 @@
   - Phase 41 Shim Removal + Final Cutover
   - Phase 42 Dead Code Baseline + Behavioral Definition
   - Phase 43 Consolidation Execution + Final Prune
+  - Phase 44 Entrypoint DI Consolidation (`dependency-injector`)
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -788,12 +796,76 @@ Implement Phase 42 decisions and enforce permanent dead-code guardrails in `util
 - Risks / TBD:
   - Optional rich console adapter requires `rich` installed to render pretty output; default runtime path remains unaffected when adapter is not enabled.
 - Next recommended phase:
-  - Program 42+ complete (cleanup wave complete).
+  - Phase 44 Entrypoint DI Consolidation (`dependency-injector`).
+
+---
+
+## Phase 44: Entrypoint DI Consolidation (`dependency-injector`)
+### Goal
+Introduce dependency-injector-based composition at API/CLI entrypoints without changing domain/application contracts.
+
+### Checklist
+- [x] Add `dependency-injector` runtime dependency.
+- [x] Add typed composition settings (`from_env`) for API runtime policy and env parsing.
+- [x] Create API container under `pyicloud/platform/composition` with providers for:
+  - [x] auth
+  - [x] access-control
+  - [x] operation-suspension
+  - [x] auth-abuse-guard
+  - [x] core-services
+  - [x] observability
+- [x] Create CLI container under `pyicloud/platform/composition` with providers for:
+  - [x] token store path
+  - [x] credential vault
+  - [x] transport/challenge helper callables
+- [x] Rewire `pyicloud/interfaces/api/app.py` to resolve defaults from container providers.
+- [x] Extend `create_app` signature with optional `container` injection while preserving explicit service override args.
+- [x] Rewire `pyicloud/interfaces/cli/main.py` to use container-provided runtime/transport helpers instead of module-level direct globals.
+- [x] Keep `pyicloud.bootstrap` exports as compatibility forwarding shims over platform composition.
+- [x] Add DI-focused tests for provider override behavior and provider lifecycle expectations.
+- [x] Execute full gate:
+  - [x] `uv run --extra test pytest -q`
+
+### Exit Criteria
+- API and CLI entrypoints resolve defaults through DI containers.
+- Explicit service injection still overrides defaults in `create_app`.
+- Bootstrap compatibility exports remain available for one-phase alias window.
+- `/v1/*` and `pyicloud.interfaces.cli.main` behavior remains unchanged.
+
+### Handoff: Phase 44 - Entrypoint DI Consolidation (`dependency-injector`)
+- Date: 2026-03-07
+- Status: Done
+- Summary:
+  - Added `pyicloud/platform/composition/*` with typed settings models and API/CLI dependency-injector containers.
+  - Moved API env parsing/build policy out of `pyicloud/bootstrap/api_runtime.py` into typed composition settings/builders.
+  - Rewired API app factory to use container-driven defaults and added optional `container` injection path.
+  - Rewired CLI entrypoint helpers to use container-provided token/vault/transport providers while preserving command contracts and monkeypatch compatibility.
+  - Preserved `pyicloud.bootstrap` as forwarding compatibility shim to composition builders for one-phase alias window.
+  - Added DI coverage tests for API container defaults/overrides and CLI container provider wiring.
+- Files changed:
+  - `pyproject.toml`
+  - `pyicloud/platform/composition/{__init__.py,settings.py,api.py,cli.py}`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/interfaces/api/app.py`
+  - `pyicloud/interfaces/cli/main.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/unit/test_api_entrypoint_di.py`
+  - `tests/unit/test_cli_entrypoint_di.py`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/unit/test_api_entrypoint_di.py tests/unit/test_cli_entrypoint_di.py tests/unit/test_auth_bootstrap.py tests/unit/test_observability_context_migration.py tests/unit/test_auth_application_context_migration.py tests/unit/test_platform_runtime_storage_migration.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_cli_entrypoint_di.py tests/vertical/cli/test_auth_cli.py tests/vertical/cli/test_devices_cli.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_admin_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/unit/test_api_entrypoint_di.py tests/unit/test_cli_entrypoint_di.py tests/unit/test_auth_bootstrap.py tests/unit/test_observability_context_migration.py tests/unit/test_auth_application_context_migration.py tests/unit/test_platform_runtime_storage_migration.py tests/vertical/cli/test_auth_cli.py tests/vertical/cli/test_devices_cli.py tests/vertical/api/test_admin_api.py tests/vertical/api/test_auth_challenge_api.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - `pyicloud.bootstrap` remains intentionally as compatibility forwarding layer for one phase and can be retired in the next cleanup wave.
+- Next recommended phase:
+  - Remove bootstrap forwarding shims and migrate remaining bootstrap imports to `pyicloud.platform.composition.*`.
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Program 42+ cleanup phases complete.
-# Continue with maintenance or next roadmap wave.
+# Program 42+ and Phase 44 complete.
+# Continue with bootstrap shim retirement or next roadmap wave.
 ```
