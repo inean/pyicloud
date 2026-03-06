@@ -9,7 +9,7 @@ from tests.fakes.auth_scenarios import build_deterministic_core_services, build_
 
 
 @pytest.mark.asyncio
-async def test_devices_list_maps_upstream_error_to_bad_gateway(tmp_path):
+async def test_devices_list_maps_session_expired_to_auth_challenge(tmp_path):
     auth_service = build_fake_auth_api_service(tmp_path)
     core_services = build_deterministic_core_services()
 
@@ -29,8 +29,10 @@ async def test_devices_list_maps_upstream_error_to_bad_gateway(tmp_path):
 
         response = await client.get("/v1/devices", headers={"Authorization": f"Bearer {token}"})
 
-    assert response.status_code == 502
+    assert response.status_code == 401
     payload = response.json()["error"]
-    assert payload["code"] == "upstream_error"
+    assert payload["code"] == "auth_challenge_required"
     assert payload["details"]["upstream_status"] == 450
-    assert "auth login" in payload["details"]["hint"]
+    assert payload["details"]["challenge_type"] == "session_refresh"
+    assert payload["details"]["account_id"] == "success@example.com"
+    assert payload["details"]["next_step"] == "auth.login"

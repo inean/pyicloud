@@ -35,13 +35,13 @@ async def test_auth_login_requires_security_code_then_authenticates(app):
 
         wrong = await client.post(
             "/v1/auth/security-code",
-            json={"challenge_id": challenge_id, "code": "000000"},
+            json={"challenge_id": challenge_id, "code": "000000", "password": "secret"},
         )
         assert wrong.status_code == 401
 
         ok = await client.post(
             "/v1/auth/security-code",
-            json={"challenge_id": challenge_id, "code": "123456"},
+            json={"challenge_id": challenge_id, "code": "123456", "password": "secret"},
         )
         assert ok.status_code == 200
         assert ok.json()["data"]["status"] == "authenticated"

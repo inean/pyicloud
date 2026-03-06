@@ -243,13 +243,14 @@ async def auth_login(ctx: click.Context, username: str, password: str) -> None:
 @auth.command("security-code")
 @click.option("--challenge-id", required=True)
 @click.option("--code", required=True)
+@click.option("--password", required=True, prompt=True, hide_input=True)
 @click.pass_context
-async def auth_security_code(ctx: click.Context, challenge_id: str, code: str) -> None:
+async def auth_security_code(ctx: click.Context, challenge_id: str, code: str, password: str) -> None:
     data = await _api_request(
         api_url=ctx.obj["api_url"],
         method="POST",
         route="/v1/auth/security-code",
-        json_body={"challenge_id": challenge_id, "code": code},
+        json_body={"challenge_id": challenge_id, "code": code, "password": password},
     )
     token = data.get("access_token") if isinstance(data, dict) else None
     if token:

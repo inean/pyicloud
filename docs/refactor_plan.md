@@ -28,14 +28,13 @@
 
 ## Phase Board
 - Planned:
-  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
   - Phase 23 Layer Boundary Purification (Hexagonal)
   - Phase 24 Async Port/Adapter Contract Convergence
   - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
 - In Progress:
-  - Phase 21 Challenge-Driven API + Credential Hygiene
+  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -61,6 +60,7 @@
   - Phase 18 Documentation Realignment
   - Phase 19 Release Readiness + Sunset Gate
   - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
+  - Phase 21 Challenge-Driven API + Credential Hygiene
 - Blocked:
   - None
 
@@ -1230,31 +1230,55 @@ API surface is contract-stable, consistently validated, and predictable for CLI/
 Implement the locked challenge-driven behavior: client tries normal operation first; backend detects expired Apple session and responds with an auth challenge that is completed via backend-mediated flow (`client -> backend -> Apple`).
 
 ### Checklist
-- [ ] Define and freeze challenge response contract for expired upstream sessions:
-  - [ ] Error code: `auth_challenge_required`.
-  - [ ] Challenge payload fields: `challenge_id`, `challenge_type`, `account_id`, `flow_id`, `expires_at`, `next_step`, `retryable`.
-  - [ ] Deterministic HTTP semantics (status code + headers) for all protected `/v1/*` domain endpoints.
-- [ ] Add challenge mapping in API layer for upstream auth/session expiration conditions:
-  - [ ] Map Apple/session expiration signals (`401`/`421`/`450` or equivalent domain errors) to challenge response.
-  - [ ] Preserve existing non-auth upstream error mapping (`502`, `503`, etc.).
-- [ ] Add challenge lifecycle operations in auth API:
-  - [ ] Start/resume challenge (from domain failure context).
-  - [ ] Submit credential step (if required by policy).
-  - [ ] Submit security-code/trust step.
-  - [ ] Complete challenge and return renewed API session context.
-- [ ] Remove plaintext credentials from challenge persistence:
-  - [ ] No `password` in challenge payload at any layer.
-  - [ ] Store opaque, minimal challenge context only.
-  - [ ] Add redaction and serialization safety tests for challenge state.
-- [ ] Add deterministic test coverage:
-  - [ ] Vertical: domain call -> challenge response.
-  - [ ] Vertical: challenge completion -> operation retry success.
-  - [ ] Unit: challenge payload schema and expiry behavior.
+- [x] Define and freeze challenge response contract for expired upstream sessions:
+  - [x] Error code: `auth_challenge_required`.
+  - [x] Challenge payload fields: `challenge_id`, `challenge_type`, `account_id`, `flow_id`, `expires_at`, `next_step`, `retryable`.
+  - [x] Deterministic HTTP semantics (status code + headers) for all protected `/v1/*` domain endpoints.
+- [x] Add challenge mapping in API layer for upstream auth/session expiration conditions:
+  - [x] Map Apple/session expiration signals (`401`/`421`/`450` or equivalent domain errors) to challenge response.
+  - [x] Preserve existing non-auth upstream error mapping (`502`, `503`, etc.).
+- [x] Add challenge lifecycle operations in auth API:
+  - [x] Start/resume challenge (from domain failure context).
+  - [x] Submit credential step (if required by policy).
+  - [x] Submit security-code/trust step.
+  - [x] Complete challenge and return renewed API session context.
+- [x] Remove plaintext credentials from challenge persistence:
+  - [x] No `password` in challenge payload at any layer.
+  - [x] Store opaque, minimal challenge context only.
+  - [x] Add redaction and serialization safety tests for challenge state.
+- [x] Add deterministic test coverage:
+  - [x] Vertical: domain call -> challenge response.
+  - [x] Vertical: challenge completion -> operation retry success.
+  - [x] Unit: challenge payload schema and expiry behavior.
 
 ### Exit Criteria
-- [ ] Every protected domain route returns challenge envelope (not generic auth failure) on expired Apple session.
-- [ ] Challenge persistence contains no plaintext credentials (verified by tests + fixtures).
-- [ ] Contract documented in API schemas and examples.
+- [x] Every protected domain route returns challenge envelope (not generic auth failure) on expired Apple session.
+- [x] Challenge persistence contains no plaintext credentials (verified by tests + fixtures).
+- [x] Contract documented in API schemas and examples.
+
+### Handoff: Phase 21 - Challenge-Driven API + Credential Hygiene
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added challenge-driven upstream-expiry mapping (`401`/`421`/`450`) to `auth_challenge_required` envelopes with deterministic details.
+  - Added operation challenge issuance in `AuthApiService` and secure challenge persistence without plaintext passwords.
+  - Updated security-code completion contract to require password input on completion rather than storing credentials in challenge payload.
+- Files changed:
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/cli/main.py`
+  - `tests/unit/test_api_auth_service.py`
+  - `tests/vertical/api/test_auth_api.py`
+  - `tests/vertical/api/test_upstream_error_mapping.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+  - `tests/integration/test_api_end_to_end.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_upstream_error_mapping.py tests/vertical/cli/test_auth_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - CLI automatic operation retry after challenge is pending in Phase 22.
+- Next recommended phase: Phase 22 Challenge Execution Flow + CLI Auto-Retry.
 
 ---
 

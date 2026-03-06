@@ -88,13 +88,13 @@ async def test_security_code_challenge_flow(app):
 
         invalid = await client.post(
             "/v1/auth/security-code",
-            json={"challenge_id": challenge_payload["challenge_id"], "code": "000000"},
+            json={"challenge_id": challenge_payload["challenge_id"], "code": "000000", "password": "secret"},
         )
         assert invalid.status_code == 401
 
         valid = await client.post(
             "/v1/auth/security-code",
-            json={"challenge_id": challenge_payload["challenge_id"], "code": "123456"},
+            json={"challenge_id": challenge_payload["challenge_id"], "code": "123456", "password": "secret"},
         )
         assert valid.status_code == 200
         token = valid.json()["data"]["access_token"]
