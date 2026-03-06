@@ -34,10 +34,11 @@ Responsabilidad: validar I/O, mapear errores y llamar casos de uso.
 ### 2) Application layer
 
 - `pyicloud/contexts/crosscutting/auth/application/api_auth.py`
-- `pyicloud/application/core_services.py`
+- `pyicloud/contexts/services/*/application/service.py`
+- `pyicloud/application/core_services.py` (facade de compatibilidad)
 - `pyicloud/contexts/crosscutting/observability/application/observability.py`
 
-Responsabilidad: orquestar casos de uso de autenticacion, dominios core y observabilidad.
+Responsabilidad: orquestar casos de uso de autenticacion, servicios de dominio y observabilidad.
 
 ### 3) Domain contracts (ports)
 
@@ -54,7 +55,8 @@ Responsabilidad: definir interfaces estables para separar dominio e infraestruct
 - `pyicloud/adapters/auth/*`
 - `pyicloud/adapters/session/*`
 - `pyicloud/adapters/store/*`
-- `pyicloud/adapters/services/*`
+- `pyicloud/contexts/services/*/adapters/*`
+- `pyicloud/adapters/services/*` (shims + runtime/clientes/mappers en migracion)
 - `pyicloud/contexts/crosscutting/observability/adapters/*`
 - `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`
 
@@ -81,6 +83,7 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 - `pyicloud/interfaces/api/`: capa HTTP.
 - `pyicloud/interfaces/cli/`: capa CLI.
 - `pyicloud/contexts/crosscutting/*/application`: casos de uso transversales.
+- `pyicloud/contexts/services/*/{application,adapters}`: casos de uso y adapters por bounded context.
 - `pyicloud/application/`: shims de compatibilidad + casos de uso heredados en migracion.
 - `pyicloud/ports/`: contratos hexagonales.
 - `pyicloud/adapters/`: infraestructura.
