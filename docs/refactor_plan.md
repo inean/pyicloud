@@ -39,14 +39,13 @@
 
 ## Phase Board
 - Planned:
-  - Phase 36 API/CLI Externalization to Interfaces
   - Phase 37 Crosscutting Auth Rewrite
   - Phase 38 Telemetry/Observability Split
   - Phase 39 Services Context Migration
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 36 API/CLI Externalization to Interfaces
+  - Phase 37 Crosscutting Auth Rewrite
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -87,6 +86,7 @@
   - Phase 33 Migration, Compatibility, and Cutover
   - Phase 34 Semantic Taxonomy + Guardrails
   - Phase 35 Context Skeleton + Initial Moves
+  - Phase 36 API/CLI Externalization to Interfaces
 - Blocked:
   - None
 
@@ -2085,21 +2085,41 @@ La nueva estructura compila sin romper el runtime actual.
 Mover `api` y `cli` a infraestructura de entrada fuera de contextos de negocio.
 
 ### Checklist
-- [ ] Mover `pyicloud/api` y `pyicloud/cli` a `pyicloud/interfaces/api` y `pyicloud/interfaces/cli`.
-- [ ] Mantener routers/comandos agrupados por contexto semántico.
-- [ ] Adaptar composition root/bootstrap para resolver servicios desde la nueva ubicación.
+- [x] Mover `pyicloud/api` y `pyicloud/cli` a `pyicloud/interfaces/api` y `pyicloud/interfaces/cli`.
+- [x] Mantener routers/comandos agrupados por contexto semántico.
+- [x] Adaptar composition root/bootstrap para resolver servicios desde la nueva ubicación.
 
 ### Exit Criteria
 Los contratos API/CLI operan desde `interfaces/*` sin regresión funcional.
 
 ### Handoff: Phase 36 - API/CLI Externalization to Interfaces
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Relocated API and CLI runtime modules from `pyicloud/api` and `pyicloud/cli` into `pyicloud/interfaces/api` and `pyicloud/interfaces/cli`.
+  - Kept routers and command groups intact under the new interface roots, preserving route and command behavior.
+  - Added compatibility packages (`pyicloud.api`, `pyicloud.cli`) that alias canonical interface modules and submodules for transitional import continuity.
+  - Updated project entrypoints and coverage configuration to target canonical `pyicloud.interfaces.*` modules.
+  - Added compatibility tests validating old/new package forwarding behavior.
 - Files changed:
+  - `pyicloud/interfaces/api/**/*`
+  - `pyicloud/interfaces/cli/**/*`
+  - `pyicloud/api/__init__.py`
+  - `pyicloud/cli/__init__.py`
+  - `pyproject.toml`
+  - `README.md`
+  - `tests/unit/test_interfaces_externalization.py`
+  - `docs/refactor_plan.md`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/unit/test_cli_transport.py tests/smoke/test_smoke.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_interfaces_externalization.py tests/unit/test_api_app_auth_config.py tests/unit/test_cli_transport.py tests/smoke/test_smoke.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/vertical/cli/test_auth_cli.py::test_cli_auth_login_session_logout_flow tests/vertical/cli/test_account_cli.py::test_cli_account_commands tests/vertical/cli/test_observability_cli.py::test_cli_observability_flow_json tests/unit/test_interfaces_externalization.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - Compatibility aliases still preload submodules for monkeypatch/import stability; cleanup is deferred until final shim removal phase.
+  - Remaining architectural relocation work continues in Phase 37+ for crosscutting auth and service contexts.
 - Next recommended phase:
+  - Phase 37 Crosscutting Auth Rewrite.
 
 ---
 
@@ -2218,6 +2238,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 36 API/CLI Externalization to Interfaces.
-# Start by relocating API/CLI packages under pyicloud/interfaces with compatibility shims.
+# Continue with: Phase 37 Crosscutting Auth Rewrite.
+# Start by moving active auth flow modules into contexts/crosscutting/auth with transitional shims.
 ```
