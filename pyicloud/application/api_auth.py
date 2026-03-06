@@ -12,6 +12,7 @@ from pyicloud.domain import (
     AuthPrincipal,
     ChallengeExpired,
     Forbidden,
+    InvalidChallengeTransition,
     InvalidCredentials,
     InvalidSecurityCode,
     SecurityCodeRequired,
@@ -110,6 +111,7 @@ class AuthApiService:
             "account_id": account_id,
             "challenge_type": challenge_type,
             "flow_id": flow,
+            "expires_at": expires_at,
             "next_step": next_step,
             "retryable": retryable,
         }
@@ -130,6 +132,171 @@ class AuthApiService:
             "next_step": next_step,
             "retryable": retryable,
         }
+
+    @staticmethod
+    def _challenge_identity(
+        *,
+        username: str | None,
+        challenge: dict[str, Any] | None = None,
+    ) -> str:
+        candidate = str(username or "").strip()
+        if candidate:
+            return candidate
+        if challenge is None:
+            return ""
+        return str(challenge.get("account_id") or challenge.get("username") or "").strip()
+
+    @staticmethod
+    def _challenge_expires_at(challenge: dict[str, Any], *, fallback_ttl_seconds: int) -> int:
+        raw_expires = challenge.get("expires_at")
+        try:
+            expires_at = int(raw_expires)
+        except (TypeError, ValueError):
+            expires_at = int(time()) + fallback_ttl_seconds
+        return expires_at
+
+    def _to_password_required_response(self, *, challenge: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "challenge_type": "password_required",
+            "challenge_id": str(challenge.get("challenge_id", "")) or None,
+            "session_id": str(challenge.get("flow_id", "")) or None,
+            "expires_at": int(challenge.get("expires_at", int(time()) + self._challenge_ttl_seconds)),
+            "retryable": bool(challenge.get("retryable", True)),
+            "next_step": "password_envelope",
+            "account_id": str(challenge.get("account_id", "")) or None,
+        }
+
+    def _to_login_challenge_response(self, *, login_result: dict[str, Any]) -> dict[str, Any]:
+        status = str(login_result.get("status", "")).strip()
+        if status == "authenticated":
+            return {
+                "challenge_type": "authenticated",
+                "challenge_id": None,
+                "session_id": str(login_result.get("flow_id", "")) or None,
+                "expires_at": int(login_result.get("expires_at", 0)),
+                "retryable": False,
+                "next_step": None,
+                "access_token": login_result.get("access_token"),
+                "token_type": login_result.get("token_type"),
+                "expires_in": login_result.get("expires_in"),
+                "account_id": None,
+            }
+        if status == "challenge_required" and str(login_result.get("challenge_type", "")) == "security_code":
+            return {
+                "challenge_type": "security_code_required",
+                "challenge_id": str(login_result.get("challenge_id", "")) or None,
+                "session_id": str(login_result.get("flow_id", "")) or None,
+                "expires_at": int(login_result.get("expires_at", int(time()) + self._challenge_ttl_seconds)),
+                "retryable": bool(login_result.get("retryable", True)),
+                "next_step": "security_code",
+                "account_id": str(login_result.get("account_id", "")) or None,
+            }
+        raise InvalidChallengeTransition("Unexpected auth state transition")
+
+    def _to_operation_resume_response(self, *, challenge_id: str, challenge: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "challenge_type": "operation_resume_required",
+            "challenge_id": challenge_id,
+            "session_id": str(challenge.get("flow_id", "")) or None,
+            "expires_at": self._challenge_expires_at(challenge, fallback_ttl_seconds=self._challenge_ttl_seconds),
+            "retryable": bool(challenge.get("retryable", True)),
+            "next_step": "password_envelope",
+            "account_id": self._challenge_identity(username=None, challenge=challenge) or None,
+            "operation": str(challenge.get("operation", "")) or None,
+            "operation_id": str(challenge.get("operation_id", "")) or None,
+        }
+
+    async def challenge(
+        self,
+        *,
+        username: str | None = None,
+        challenge_id: str | None = None,
+        password_envelope: str | None = None,
+        security_code: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        normalized_username = str(username or "").strip()
+        normalized_challenge_id = str(challenge_id or "").strip()
+        normalized_password = str(password_envelope or "")
+        normalized_security_code = str(security_code or "").strip()
+
+        if not normalized_challenge_id:
+            if not normalized_username:
+                raise InvalidChallengeTransition("username is required when challenge_id is not provided")
+            if normalized_security_code:
+                raise InvalidChallengeTransition("security_code requires challenge_id")
+            if not normalized_password:
+                self._authorize_login_username(username=normalized_username)
+                challenge = self._issue_challenge(
+                    account_id=normalized_username,
+                    challenge_type="password_required",
+                    next_step="auth.challenge.password",
+                    flow_id=session_id,
+                )
+                return self._to_password_required_response(challenge=challenge)
+            login_result = await self.login(
+                username=normalized_username,
+                password=normalized_password,
+                flow_id=session_id,
+            )
+            return self._to_login_challenge_response(login_result=login_result)
+
+        challenge_payload = self._session_query.get_challenge(normalized_challenge_id)
+        if challenge_payload is None:
+            raise ChallengeExpired("Challenge is missing or expired")
+        challenge_type = str(challenge_payload.get("challenge_type", "")).strip().lower()
+        resolved_username = self._challenge_identity(username=normalized_username, challenge=challenge_payload)
+        resolved_flow_id = str(challenge_payload.get("flow_id", "")).strip() or None
+
+        if challenge_type == "password_required":
+            if normalized_security_code:
+                raise InvalidChallengeTransition("security_code is not valid for password_required challenge")
+            if not normalized_password:
+                return self._to_password_required_response(
+                    challenge={"challenge_id": normalized_challenge_id, **challenge_payload}
+                )
+            if not resolved_username:
+                raise InvalidChallengeTransition("password_required challenge is missing account context")
+            self._session_command.delete_challenge(normalized_challenge_id)
+            login_result = await self.login(
+                username=resolved_username,
+                password=normalized_password,
+                flow_id=resolved_flow_id,
+            )
+            return self._to_login_challenge_response(login_result=login_result)
+
+        if challenge_type == "security_code":
+            if not normalized_password:
+                raise InvalidChallengeTransition("password_envelope is required for security_code challenge")
+            if not normalized_security_code:
+                raise InvalidChallengeTransition("security_code is required for security_code challenge")
+            result = await self.security_code(
+                challenge_id=normalized_challenge_id,
+                code=normalized_security_code,
+                password=normalized_password,
+                username=resolved_username or None,
+            )
+            return self._to_login_challenge_response(login_result=result)
+
+        if challenge_type == "session_refresh":
+            if normalized_security_code:
+                raise InvalidChallengeTransition("security_code is not valid for operation resume challenge")
+            if not normalized_password:
+                return self._to_operation_resume_response(
+                    challenge_id=normalized_challenge_id,
+                    challenge=challenge_payload,
+                )
+            if not resolved_username:
+                raise InvalidChallengeTransition("operation resume challenge is missing account context")
+            self._session_command.delete_challenge(normalized_challenge_id)
+            login_result = await self.login(
+                username=resolved_username,
+                password=normalized_password,
+                flow_id=resolved_flow_id,
+            )
+            return self._to_login_challenge_response(login_result=login_result)
+
+        raise InvalidChallengeTransition(f"Unsupported challenge type: {challenge_type or 'unknown'}")
 
     def issue_operation_challenge(
         self,

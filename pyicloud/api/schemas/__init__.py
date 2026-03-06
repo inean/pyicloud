@@ -8,6 +8,8 @@ from .admin import (
     AllowlistUpsertRequest,
 )
 from .auth import (
+    AuthChallengeRequest,
+    AuthChallengeResponse,
     AuthLoginRequest,
     AuthLoginResponse,
     AuthSecurityCodeRequest,
@@ -27,6 +29,8 @@ __all__ = [
     "AllowlistListResponse",
     "AllowlistRoleRequest",
     "AllowlistUpsertRequest",
+    "AuthChallengeRequest",
+    "AuthChallengeResponse",
     "AuthLoginRequest",
     "AuthLoginResponse",
     "AuthSecurityCodeRequest",
