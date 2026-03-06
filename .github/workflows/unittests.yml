@@ -23,6 +23,14 @@ jobs:
       - name: Install Dependencies
         run: |
           uv sync --extra test
+      - name: Run Non-Optional Architecture and Challenge Gates
+        run: |
+          uv run pytest --no-cov -q \
+            tests/unit/test_hexagonal_import_boundaries.py \
+            tests/integration/test_challenge_contract_gate.py \
+            tests/unit/test_legacy_alias_export_ratchet.py \
+            tests/unit/test_api_auth_service.py::test_login_challenge_does_not_persist_plaintext_password \
+            tests/unit/test_core_services_async_contract.py::test_service_adapters_match_async_port_methods
       - name: Run Unit Tests
         run: |
           uv run pytest -q
