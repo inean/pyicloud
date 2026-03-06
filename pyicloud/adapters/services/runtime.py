@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
+from collections.abc import Callable
 from typing import Any
 
 from pyicloud.adapters.services.provider_sync import PyiCloudServices
@@ -50,7 +52,7 @@ class ServiceRuntime:
         return PyiCloudServices(endpoint=endpoint)
 
     @staticmethod
-    def resolve_path(*, root: Any, path: str):
+    def resolve_path(*, root: Any, path: str) -> Any:
         node = root
         clean_path = path.strip()
         if not clean_path or clean_path == "/":
@@ -77,10 +79,10 @@ class ServicesAdapterBase:
     def __init__(self, *, runtime: ServiceRuntime):
         self._runtime = runtime
 
+    @staticmethod
+    async def _run_blocking[T](call: Callable[[], T]) -> T:
+        """Execute blocking provider-runtime operations off the event loop."""
+        return await asyncio.to_thread(call)
+
     def _services(self, *, username: str) -> PyiCloudServices:
         return self._runtime.services(username=username)
-
-
-# Backward-compatible aliases kept internal during retirement migration.
-LegacyServicesRuntime = ServiceRuntime
-LegacyServicesAdapterBase = ServicesAdapterBase

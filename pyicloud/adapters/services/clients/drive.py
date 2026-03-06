@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime, NamedBytesIO
+from pyicloud.adapters.services.runtime import NamedBytesIO, ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -34,13 +34,13 @@ class DriveClient(Protocol):
 class LegacyDriveClient:
     """Query/mutate drive data through legacy drive node APIs with typed views."""
 
-    def __init__(self, *, runtime: LegacyServicesRuntime, username: str):
+    def __init__(self, *, runtime: ServiceRuntime, username: str):
         self._runtime = runtime
         self._username = username
 
     def _resolve_drive_node(self, *, path: str):
         drive_root = self._runtime.services(username=self._username).drive
-        return LegacyServicesRuntime.resolve_path(root=drive_root, path=path)
+        return ServiceRuntime.resolve_path(root=drive_root, path=path)
 
     @staticmethod
     def _node_view(*, path: str, node: Any, children: Sequence[dict[str, Any]] | None = None) -> DriveNodeView:
@@ -67,7 +67,7 @@ class LegacyDriveClient:
     def content(self, *, path: str) -> bytes:
         node = self._resolve_drive_node(path=path)
         with node.open(stream=True) as response:
-            return LegacyServicesRuntime.stream_bytes(response)
+            return ServiceRuntime.stream_bytes(response)
 
     def create_folder(self, *, parent_path: str, name: str) -> None:
         parent = self._resolve_drive_node(path=parent_path)

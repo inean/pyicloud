@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Sequence
 
+from pyicloud.domain import ContactDTO
 from pyicloud.ports import ContactsServicePort
 
 from .clients.contacts import ContactsClient, LegacyContactsClient
 from .mappers.contacts import map_contact
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class ContactsServiceAdapter(LegacyServicesAdapterBase, ContactsServicePort):
+class ContactsServiceAdapter(ServicesAdapterBase, ContactsServicePort):
     """Map contacts operations to the contacts service port contract."""
 
     def _contacts_client(self, *, username: str) -> ContactsClient:
         return LegacyContactsClient(runtime=self._runtime, username=username)
 
-    def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_contact(view) for view in self._contacts_client(username=username).all_contacts()]
+    async def all_contacts(self, *, username: str) -> Sequence[ContactDTO]:
+        views = await self._run_blocking(lambda: self._contacts_client(username=username).all_contacts())
+        return [map_contact(view) for view in views]

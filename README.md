@@ -74,6 +74,8 @@ icloud drive tree --path /
 
 - Success envelopes use: `{"data": ...}`.
 - Error envelopes use: `{"error": {"code", "message", "status", "details"}}`.
+- Challenge-driven auth: protected domain routes can return `auth_challenge_required` when Apple session is expired; clients complete auth via `/v1/auth/login` and `/v1/auth/security-code`, then retry the original operation.
+- Provider runtime direction is locked to strict containment (Option B): legacy sync provider clients stay behind async adapters; no legacy runtime alias symbols are exposed in active adapter/runtime paths.
 - Vertical tests run in-process ASGI and block external network access.
 
 ## Observability

@@ -10,7 +10,7 @@ from typing import Any, Protocol
 
 from pyicloud.adapters.services.clients.common import Pagination
 from pyicloud.adapters.services.content import PhotoBinaryContentAdapter
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime
+from pyicloud.adapters.services.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ class LegacyPhotosClient:
     def __init__(
         self,
         *,
-        runtime: LegacyServicesRuntime,
+        runtime: ServiceRuntime,
         username: str,
         binary_content: PhotoBinaryContentAdapter | None = None,
     ):

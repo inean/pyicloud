@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime
+from pyicloud.adapters.services.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class DevicesClient(Protocol):
 class LegacyDevicesClient:
     """Query/mutate devices using legacy service objects behind typed models."""
 
-    def __init__(self, *, runtime: LegacyServicesRuntime, username: str):
+    def __init__(self, *, runtime: ServiceRuntime, username: str):
         self._runtime = runtime
         self._username = username
 

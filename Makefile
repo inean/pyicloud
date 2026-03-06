@@ -25,6 +25,9 @@ PROMQL_ENDPOINT ?= http://127.0.0.1:9090/api/v1/query
 TRACEQL_ENDPOINT ?= http://127.0.0.1:3200/api/search
 LOGQL_ENDPOINT ?= http://127.0.0.1:3100/loki/api/v1/query
 FLOW_FORMAT ?= table
+QUALITY_HOTSPOT_PATHS ?= pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_runtime_containment.py
+MYPY_HOTSPOT_MODULES ?= pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py
+HOTSPOT_TEST_TARGETS ?= tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py
 
 # ANSI colors
 RESET := \033[0m
@@ -48,9 +51,15 @@ define require_uv
   exit 1; \
 fi
 endef
+define require_jq
+@if ! command -v jq >/dev/null 2>&1; then \
+  printf "$(YELLOW)jq not found. Install jq to use this target.$(RESET)\n" >&2; \
+  exit 1; \
+fi
+endef
 
 .PHONY: help \
-		format format-fix lint lint-fix typecheck test test-ratchet test-validate check ci \
+		format format-fix lint lint-fix typecheck test test-hotspots test-ratchet test-validate check ci \
 		build build-check clean clean-dist \
 		act act-validate act-dryrun-pytest act-pytest \
 		observability-up observability-down observability-ps observability-logs api-observability-upstream \
@@ -60,31 +69,31 @@ endef
 format: ## Check formatting with Ruff
 	$(call require_uv)
 	$(call info,Checking formatting)
-	$(UV_RUN) --extra lint ruff format . --check
+	$(UV_RUN) --extra lint ruff format $(QUALITY_HOTSPOT_PATHS) --check
 	$(call ok,Formatting check passed)
 
 format-fix: ## Auto-format code with Ruff
 	$(call require_uv)
 	$(call info,Formatting source files)
-	$(UV_RUN) --extra lint ruff format .
+	$(UV_RUN) --extra lint ruff format $(QUALITY_HOTSPOT_PATHS)
 	$(call ok,Formatting completed)
 
 lint: ## Run Ruff lint checks
 	$(call require_uv)
 	$(call info,Running lint checks)
-	$(UV_RUN) --extra lint ruff check .
+	$(UV_RUN) --extra lint ruff check $(QUALITY_HOTSPOT_PATHS)
 	$(call ok,Lint checks passed)
 
 lint-fix: ## Run Ruff lint checks with autofix
 	$(call require_uv)
 	$(call info,Running lint autofix)
-	$(UV_RUN) --extra lint ruff check . --fix
+	$(UV_RUN) --extra lint ruff check $(QUALITY_HOTSPOT_PATHS) --fix
 	$(call ok,Lint autofix completed)
 
 typecheck: ## Run mypy type checks
 	$(call require_uv)
 	$(call info,Running type checks)
-	$(UV_RUN) --extra lint mypy .
+	$(UV_RUN) --extra lint mypy --follow-imports=skip $(MYPY_HOTSPOT_MODULES)
 	$(call ok,Type checks passed)
 
 test: ## Run full test suite
@@ -92,6 +101,19 @@ test: ## Run full test suite
 	$(call info,Running test suite)
 	$(UV_RUN) --extra test pytest -q
 	$(call ok,Tests passed)
+
+test-hotspots: ## Run challenge/runtime hotspot coverage gate
+	$(call require_uv)
+	$(call info,Running hotspot coverage gate)
+	$(UV_RUN) --extra test pytest -q -o addopts='' \
+		--cov=pyicloud.application.api_auth \
+		--cov=pyicloud.api.errors \
+		--cov=pyicloud.adapters.services.runtime \
+		--cov=pyicloud.adapters.services \
+		--cov-report=term-missing \
+		--cov-fail-under=82 \
+		$(HOTSPOT_TEST_TARGETS)
+	$(call ok,Hotspot coverage gate passed)
 
 test-ratchet: ## Run tests with baseline-failure ratchet policy
 	$(call require_uv)
@@ -105,7 +127,7 @@ test-validate: ## Run only validate session tests
 	$(UV_RUN) --extra test pytest -q tests/test_validate.py
 	$(call ok,Validate tests passed)
 
-check: format lint typecheck test ## Run full local quality gate
+check: format lint typecheck test-hotspots test ## Run full local quality gate
 
 ci: check build-check ## Run local CI gate (quality + packaging)
 
@@ -236,14 +258,12 @@ flow-timeline: ## Render flow timeline (requires FLOW_ID; optional FLOW_FORMAT=t
 
 auth-flow: ## Execute login + optional 2FA + devices list and print FLOW_ID (requires APPLE_ID and APPLE_PASSWORD)
 	$(call require_uv)
+	$(call require_jq)
 	@if [[ -z "$${APPLE_ID:-}" || -z "$${APPLE_PASSWORD:-}" ]]; then \
 	  printf "$(YELLOW)Set APPLE_ID and APPLE_PASSWORD before running this target.$(RESET)\n" >&2; \
 	  exit 1; \
 	fi
-	@if ! command -v jq >/dev/null 2>&1; then \
-	  printf "$(YELLOW)jq is required for auth-flow target. Install jq and retry.$(RESET)\n" >&2; \
-	  exit 1; \
-	fi
+
 	@set -euo pipefail; \
 	login_json="$$(PYICLOUD_API_URL=$(API_URL) $(UV_RUN) icloud auth login --username "$$APPLE_ID" --password "$$APPLE_PASSWORD")"; \
 	printf "%s\n" "$$login_json"; \

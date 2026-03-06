@@ -10,11 +10,14 @@ from pydantic import BaseModel, Field
 class AuthLoginRequest(BaseModel):
     username: str = Field(min_length=3)
     password: str = Field(min_length=1)
+    flow_id: str | None = Field(default=None, min_length=1)
 
 
 class AuthSecurityCodeRequest(BaseModel):
     challenge_id: str = Field(min_length=1)
     code: str = Field(pattern=r"^\d{6}$")
+    password: str = Field(min_length=1)
+    username: str | None = Field(default=None, min_length=3)
 
 
 class AuthLoginResponse(BaseModel):
@@ -25,6 +28,11 @@ class AuthLoginResponse(BaseModel):
     challenge_id: str | None = None
     challenge_ttl: int | None = None
     flow_id: str | None = None
+    challenge_type: str | None = None
+    account_id: str | None = None
+    expires_at: int | None = None
+    next_step: str | None = None
+    retryable: bool | None = None
 
 
 class AuthSessionResponse(BaseModel):

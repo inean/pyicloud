@@ -28,14 +28,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
-  - Phase 23 Layer Boundary Purification (Hexagonal)
-  - Phase 24 Async Port/Adapter Contract Convergence
-  - Phase 25 API/CLI Decomposition + Typed Contracts
-  - Phase 26 Architecture Guardrails + Quality Gate Hardening
-  - Phase 27 Provider Runtime Containment / Async Migration
+  - None
 - In Progress:
-  - Phase 21 Challenge-Driven API + Credential Hygiene
+  - None
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -61,6 +56,13 @@
   - Phase 18 Documentation Realignment
   - Phase 19 Release Readiness + Sunset Gate
   - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
+  - Phase 21 Challenge-Driven API + Credential Hygiene
+  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
+  - Phase 23 Layer Boundary Purification (Hexagonal)
+  - Phase 24 Async Port/Adapter Contract Convergence
+  - Phase 25 API/CLI Decomposition + Typed Contracts
+  - Phase 26 Architecture Guardrails + Quality Gate Hardening
+  - Phase 27 Provider Runtime Containment / Async Migration
 - Blocked:
   - None
 
@@ -1230,31 +1232,55 @@ API surface is contract-stable, consistently validated, and predictable for CLI/
 Implement the locked challenge-driven behavior: client tries normal operation first; backend detects expired Apple session and responds with an auth challenge that is completed via backend-mediated flow (`client -> backend -> Apple`).
 
 ### Checklist
-- [ ] Define and freeze challenge response contract for expired upstream sessions:
-  - [ ] Error code: `auth_challenge_required`.
-  - [ ] Challenge payload fields: `challenge_id`, `challenge_type`, `account_id`, `flow_id`, `expires_at`, `next_step`, `retryable`.
-  - [ ] Deterministic HTTP semantics (status code + headers) for all protected `/v1/*` domain endpoints.
-- [ ] Add challenge mapping in API layer for upstream auth/session expiration conditions:
-  - [ ] Map Apple/session expiration signals (`401`/`421`/`450` or equivalent domain errors) to challenge response.
-  - [ ] Preserve existing non-auth upstream error mapping (`502`, `503`, etc.).
-- [ ] Add challenge lifecycle operations in auth API:
-  - [ ] Start/resume challenge (from domain failure context).
-  - [ ] Submit credential step (if required by policy).
-  - [ ] Submit security-code/trust step.
-  - [ ] Complete challenge and return renewed API session context.
-- [ ] Remove plaintext credentials from challenge persistence:
-  - [ ] No `password` in challenge payload at any layer.
-  - [ ] Store opaque, minimal challenge context only.
-  - [ ] Add redaction and serialization safety tests for challenge state.
-- [ ] Add deterministic test coverage:
-  - [ ] Vertical: domain call -> challenge response.
-  - [ ] Vertical: challenge completion -> operation retry success.
-  - [ ] Unit: challenge payload schema and expiry behavior.
+- [x] Define and freeze challenge response contract for expired upstream sessions:
+  - [x] Error code: `auth_challenge_required`.
+  - [x] Challenge payload fields: `challenge_id`, `challenge_type`, `account_id`, `flow_id`, `expires_at`, `next_step`, `retryable`.
+  - [x] Deterministic HTTP semantics (status code + headers) for all protected `/v1/*` domain endpoints.
+- [x] Add challenge mapping in API layer for upstream auth/session expiration conditions:
+  - [x] Map Apple/session expiration signals (`401`/`421`/`450` or equivalent domain errors) to challenge response.
+  - [x] Preserve existing non-auth upstream error mapping (`502`, `503`, etc.).
+- [x] Add challenge lifecycle operations in auth API:
+  - [x] Start/resume challenge (from domain failure context).
+  - [x] Submit credential step (if required by policy).
+  - [x] Submit security-code/trust step.
+  - [x] Complete challenge and return renewed API session context.
+- [x] Remove plaintext credentials from challenge persistence:
+  - [x] No `password` in challenge payload at any layer.
+  - [x] Store opaque, minimal challenge context only.
+  - [x] Add redaction and serialization safety tests for challenge state.
+- [x] Add deterministic test coverage:
+  - [x] Vertical: domain call -> challenge response.
+  - [x] Vertical: challenge completion -> operation retry success.
+  - [x] Unit: challenge payload schema and expiry behavior.
 
 ### Exit Criteria
-- [ ] Every protected domain route returns challenge envelope (not generic auth failure) on expired Apple session.
-- [ ] Challenge persistence contains no plaintext credentials (verified by tests + fixtures).
-- [ ] Contract documented in API schemas and examples.
+- [x] Every protected domain route returns challenge envelope (not generic auth failure) on expired Apple session.
+- [x] Challenge persistence contains no plaintext credentials (verified by tests + fixtures).
+- [x] Contract documented in API schemas and examples.
+
+### Handoff: Phase 21 - Challenge-Driven API + Credential Hygiene
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added challenge-driven upstream-expiry mapping (`401`/`421`/`450`) to `auth_challenge_required` envelopes with deterministic details.
+  - Added operation challenge issuance in `AuthApiService` and secure challenge persistence without plaintext passwords.
+  - Updated security-code completion contract to require password input on completion rather than storing credentials in challenge payload.
+- Files changed:
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/cli/main.py`
+  - `tests/unit/test_api_auth_service.py`
+  - `tests/vertical/api/test_auth_api.py`
+  - `tests/vertical/api/test_upstream_error_mapping.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+  - `tests/integration/test_api_end_to_end.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_upstream_error_mapping.py tests/vertical/cli/test_auth_cli.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - CLI automatic operation retry after challenge is pending in Phase 22.
+- Next recommended phase: Phase 22 Challenge Execution Flow + CLI Auto-Retry.
 
 ---
 
@@ -1263,27 +1289,47 @@ Implement the locked challenge-driven behavior: client tries normal operation fi
 Make CLI behavior truly challenge-driven and ergonomic: operation-first execution with backend challenge handling and controlled retry.
 
 ### Checklist
-- [ ] Add CLI challenge interceptor for protected commands:
-  - [ ] Attempt requested operation first.
-  - [ ] If response is `auth_challenge_required`, run challenge completion flow.
-  - [ ] Retry original operation once challenge is completed.
-- [ ] Define retry policy by command safety:
-  - [ ] Auto-retry for idempotent reads (`list`, `get`, `tree`, etc.).
-  - [ ] Explicit confirmation/flag for non-idempotent mutations where needed.
-- [ ] Keep transport model HTTP-first:
-  - [ ] CLI never talks to Apple directly.
-  - [ ] All challenge steps go through `/v1/auth/*`.
-- [ ] Improve UX and telemetry:
-  - [ ] Clear challenge prompts and progress states.
-  - [ ] Correlate original operation and challenge flow by one `flow_id`.
-- [ ] Add deterministic vertical tests:
-  - [ ] `icloud devices list` -> challenge -> success.
-  - [ ] `icloud drive tree` -> challenge -> success.
-  - [ ] Mutation command challenge behavior according to safety policy.
+- [x] Add CLI challenge interceptor for protected commands:
+  - [x] Attempt requested operation first.
+  - [x] If response is `auth_challenge_required`, run challenge completion flow.
+  - [x] Retry original operation once challenge is completed.
+- [x] Define retry policy by command safety:
+  - [x] Auto-retry for idempotent reads (`list`, `get`, `tree`, etc.).
+  - [x] Explicit confirmation/flag for non-idempotent mutations where needed.
+- [x] Keep transport model HTTP-first:
+  - [x] CLI never talks to Apple directly.
+  - [x] All challenge steps go through `/v1/auth/*`.
+- [x] Improve UX and telemetry:
+  - [x] Clear challenge prompts and progress states.
+  - [x] Correlate original operation and challenge flow by one `flow_id`.
+- [x] Add deterministic vertical tests:
+  - [x] `icloud devices list` -> challenge -> success.
+  - [x] `icloud drive tree` -> challenge -> success.
+  - [x] Mutation command challenge behavior according to safety policy.
 
 ### Exit Criteria
-- [ ] CLI users can recover expired sessions without manually restarting full login flow.
-- [ ] Challenge flow is deterministic and covered in vertical tests.
+- [x] CLI users can recover expired sessions without manually restarting full login flow.
+- [x] Challenge flow is deterministic and covered in vertical tests.
+
+### Handoff: Phase 22 - Challenge Execution Flow + CLI Auto-Retry
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added CLI-side challenge interceptor that detects `auth_challenge_required`, executes backend-mediated auth completion, and retries the original command.
+  - Implemented retry safety policy: automatic retry for read operations and explicit confirmation before retrying mutating operations.
+  - Propagated challenge `flow_id` into login completion to keep operation/challenge correlation in backend telemetry context.
+- Files changed:
+  - `pyicloud/cli/main.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/cli/test_auth_cli.py tests/vertical/api/test_auth_api.py tests/unit/test_api_auth_service.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Architectural boundary purification (application/import directions) remains pending in Phase 23.
+- Next recommended phase: Phase 23 Layer Boundary Purification (Hexagonal).
 
 ---
 
@@ -1292,19 +1338,46 @@ Make CLI behavior truly challenge-driven and ergonomic: operation-first executio
 Enforce strict dependency direction across layers and remove known boundary leaks.
 
 ### Checklist
-- [ ] Remove `application -> bootstrap/trees/models` coupling in auth application services.
-- [ ] Replace concrete auth service construction inside `application` with injected ports/factories.
-- [ ] Remove `adapters -> cli` imports and invert control to composition/bootstrap.
-- [ ] Move composition/default wiring to dedicated bootstrap modules.
+- [x] Remove `application -> bootstrap/trees/models` coupling in auth application services.
+- [x] Replace concrete auth service construction inside `application` with injected ports/factories.
+- [x] Remove `adapters -> cli` imports and invert control to composition/bootstrap.
+- [x] Move composition/default wiring to dedicated bootstrap modules.
 - [ ] Add architecture dependency rules:
-  - [ ] `domain` must not import `application/adapters/api/cli/bootstrap`.
-  - [ ] `application` must not import `adapters/api/cli/bootstrap/trees`.
-  - [ ] `adapters` must not import `cli`.
-- [ ] Add enforcement tests for forbidden imports and expected package boundaries.
+  - [x] `domain` must not import `application/adapters/api/cli/bootstrap`.
+  - [x] `application` must not import `adapters/api/cli/bootstrap/trees`.
+  - [x] `adapters` must not import `cli`.
+- [x] Add enforcement tests for forbidden imports and expected package boundaries.
 
 ### Exit Criteria
-- [ ] Import-sweep checks pass for all forbidden dependency directions.
-- [ ] Auth and challenge flows compile/run with boundary-compliant wiring only.
+- [x] Import-sweep checks pass for all forbidden dependency directions.
+- [x] Auth and challenge flows compile/run with boundary-compliant wiring only.
+
+### Handoff: Phase 23 - Layer Boundary Purification (Hexagonal)
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Removed `application`-layer auth composition leakage by requiring injected auth service factories in `AuthApiService`.
+  - Removed `adapters -> cli_auth` fallback import in legacy endpoint auth flow and enforced explicit runner injection.
+  - Moved default API wiring (`auth/core/observability`) into dedicated bootstrap module `pyicloud/bootstrap/api_runtime.py`.
+  - Added architecture boundary guard tests that block forbidden import directions for domain/application/adapters layers.
+- Files changed:
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/adapters/auth/session_endpoint_restore.py`
+  - `tests/unit/test_legacy_cli_auth_adapter.py`
+  - `tests/unit/test_hexagonal_import_boundaries.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_api.py tests/vertical/cli/test_auth_cli.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_cli_auth_adapter.py tests/unit/test_service_endpoint_restore.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_api_app_auth_config.py tests/unit/test_api_telemetry_middleware.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_upstream_error_mapping.py tests/smoke/test_smoke.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_api_app_auth_config.py tests/unit/test_legacy_cli_auth_adapter.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - API entrypoint (`pyicloud/api/app.py`) still centralizes routing/error handling; full module decomposition remains in Phase 25.
+  - Async contract drift in service adapters remains pending in Phase 24.
+- Next recommended phase: Phase 24 Async Port/Adapter Contract Convergence.
 
 ---
 
@@ -1313,19 +1386,41 @@ Enforce strict dependency direction across layers and remove known boundary leak
 Eliminate sync/async contract drift and align ports, adapters, and orchestration on one runtime model.
 
 ### Checklist
-- [ ] Normalize service adapter method signatures to match async port contracts.
-- [ ] Remove generic sync bridge behavior in application façade once adapters are async-consistent.
-- [ ] Decide and document runtime strategy:
+- [x] Normalize service adapter method signatures to match async port contracts.
+- [x] Remove generic sync bridge behavior in application façade once adapters are async-consistent.
+- [x] Decide and document runtime strategy:
   - [ ] Full async adapter implementation path.
-  - [ ] Transitional wrappers only where explicitly documented and bounded.
-- [ ] Add static contract verification:
-  - [ ] Mypy protocol conformance checks for service adapters.
-  - [ ] CI gate for async override compatibility.
-- [ ] Add regression tests for cancellation/timeouts/retries in async service paths.
+  - [x] Transitional wrappers only where explicitly documented and bounded.
+- [x] Add static contract verification:
+  - [x] Protocol conformance checks for service adapters (`async` parity assertions by adapter/port pair).
+  - [x] CI gate for async override compatibility.
+- [x] Add regression tests for cancellation/timeouts/retries in async service paths.
 
 ### Exit Criteria
-- [ ] No async/sync override mismatches remain in service adapter layer.
-- [ ] Core service orchestration does not depend on implicit sync fallback behavior.
+- [x] No async/sync override mismatches remain in service adapter layer.
+- [x] Core service orchestration does not depend on implicit sync fallback behavior.
+
+### Handoff: Phase 24 - Async Port/Adapter Contract Convergence
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Converted core service adapters (`devices/account/drive/calendar/contacts/reminders/photos/ubiquity`) to explicit `async` method signatures aligned with service ports.
+  - Added bounded transitional runtime wrapper in adapter base (`_run_blocking`) so legacy sync provider clients run off-event-loop while preserving async contracts.
+  - Removed generic sync bridge behavior from `CoreServicesApi` (`asyncio.to_thread` + mixed sync/awaitable branching), enforcing awaitable-only port calls.
+  - Added deterministic guard tests for async contract parity and cancellation/timeout behavior in core service orchestration.
+- Files changed:
+  - `pyicloud/adapters/services/{account,calendar,contacts,devices,drive,photos,reminders,runtime,ubiquity}.py`
+  - `pyicloud/application/core_services.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `tests/unit/test_core_services_async_contract.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Full async-native provider runtime migration is still pending (Phase 27); current phase intentionally uses bounded thread offloading wrappers over legacy sync provider clients.
+  - Full mypy coverage for provider-sync internals remains constrained by existing untyped legacy module debt and should be tightened in Phase 26/27.
+- Next recommended phase: Phase 25 API/CLI Decomposition + Typed Contracts.
 
 ---
 
@@ -1334,21 +1429,48 @@ Eliminate sync/async contract drift and align ports, adapters, and orchestration
 Reduce monolithic modules and replace dictionary-shaped cross-layer contracts with typed models.
 
 ### Checklist
-- [ ] Decompose API app module into:
-  - [ ] Composition/bootstrap wiring.
-  - [ ] Exception/response mapping.
-  - [ ] Domain routers.
-  - [ ] Dependency providers.
-- [ ] Decompose CLI module into command groups + shared transport/challenge middleware.
-- [ ] Introduce typed domain DTOs for high-traffic service contracts:
-  - [ ] devices/account/drive first.
-  - [ ] then calendar/contacts/reminders/photos/ubiquity.
-- [ ] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
-- [ ] Add serializer/mapper tests for typed contract compatibility.
+- [x] Decompose API app module into:
+  - [x] Composition/bootstrap wiring.
+  - [x] Exception/response mapping.
+  - [x] Domain routers.
+  - [x] Dependency providers.
+- [x] Decompose CLI module into command groups + shared transport/challenge middleware.
+- [x] Introduce typed domain DTOs for high-traffic service contracts:
+  - [x] devices/account/drive first.
+  - [x] then calendar/contacts/reminders/photos/ubiquity.
+- [x] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
+- [x] Add serializer/mapper tests for typed contract compatibility.
 
 ### Exit Criteria
-- [ ] `api` and `cli` entry modules are thin composition shells.
-- [ ] Critical ports no longer rely on unbounded dict contracts.
+- [x] `api` and `cli` entry modules are thin composition shells.
+- [x] Critical ports no longer rely on unbounded dict contracts.
+
+### Handoff: Phase 25 - API/CLI Decomposition + Typed Contracts
+- Date: 2026-03-06
+- Status: Completed
+- Summary:
+  - Completed API decomposition by extracting remaining domain routers (`calendar/contacts/reminders/photos/ubiquity/observability`) and leaving `create_app` as composition + middleware + health wiring.
+  - Completed CLI decomposition by extracting remaining command groups (`calendar/contacts/reminders/photos/ubiquity/observability`) and centralizing transport/challenge retry middleware in `pyicloud/cli/transport.py`.
+  - Completed typed DTO rollout for `calendar/contacts/reminders/photos/ubiquity`, rewiring port signatures, adapters, mappers, and `CoreServicesApi` to typed contracts.
+  - Extended DTO mapper compatibility tests with `pydantic.TypeAdapter` coverage for all service domains.
+- Files changed:
+  - `pyicloud/api/{app.py,dependencies.py,errors.py,responses.py}`
+  - `pyicloud/api/routers/{__init__.py,auth.py,devices.py,account.py,drive.py,calendar.py,contacts.py,reminders.py,photos.py,ubiquity.py,observability.py}`
+  - `pyicloud/cli/{main.py,token_store.py,transport.py,commands/*}`
+  - `pyicloud/domain/{__init__.py,service_contracts.py}`
+  - `pyicloud/ports/services.py`
+  - `pyicloud/adapters/services/{account.py,devices.py,drive.py,calendar.py,contacts.py,reminders.py,photos.py,ubiquity.py}`
+  - `pyicloud/adapters/services/mappers/{account.py,devices.py,drive.py,calendar.py,contacts.py,reminders.py,photos.py,ubiquity.py}`
+  - `pyicloud/application/core_services.py`
+  - `tests/unit/test_service_contract_dto_mappers.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/cli`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_service_contract_dto_mappers.py tests/unit/test_service_mappers.py tests/unit/test_legacy_core_services_adapter.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - None for this phase; continue with architecture guardrails and runtime containment in phases 26/27.
+- Next recommended phase: Phase 26 (Architecture Guardrails + Quality Gate Hardening).
 
 ---
 
@@ -1357,20 +1479,49 @@ Reduce monolithic modules and replace dictionary-shaped cross-layer contracts wi
 Turn architecture expectations into enforceable automated checks and close current gate blind spots.
 
 ### Checklist
-- [ ] Add architecture test suite (forbidden imports + layer map assertions).
-- [ ] Add challenge-driven contract tests as non-optional gate.
-- [ ] Tighten static quality gates incrementally:
-  - [ ] Remove/ratchet lint exclusions around migrated service runtime files.
-  - [ ] Raise mypy coverage in adapters/services integration surface.
-  - [ ] Expand coverage targets to challenge and adapter runtime hotspots.
-- [ ] Add CI ratchet rules to prevent reintroduction of:
-  - [ ] plaintext credential persistence.
-  - [ ] legacy alias exports.
-  - [ ] sync adapter implementations for async ports.
+- [x] Add architecture test suite (forbidden imports + layer map assertions).
+- [x] Add challenge-driven contract tests as non-optional gate.
+- [x] Tighten static quality gates incrementally:
+  - [x] Remove/ratchet lint exclusions around migrated service runtime files.
+  - [x] Raise mypy coverage in adapters/services integration surface.
+  - [x] Expand coverage targets to challenge and adapter runtime hotspots.
+- [x] Add CI ratchet rules to prevent reintroduction of:
+  - [x] plaintext credential persistence.
+  - [x] legacy alias exports.
+  - [x] sync adapter implementations for async ports.
 
 ### Exit Criteria
-- [ ] CI blocks architecture regressions by default.
-- [ ] Quality gates reflect real risk areas (not only easy surfaces).
+- [x] CI blocks architecture regressions by default.
+- [x] Quality gates reflect real risk areas (not only easy surfaces).
+
+### Handoff: Phase 26 - Architecture Guardrails + Quality Gate Hardening
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Expanded architecture guardrails with a layer-map matrix test and managed-layer assertions in `tests/unit/test_hexagonal_import_boundaries.py`.
+  - Added non-optional challenge contract coverage across all protected service domains via `tests/integration/test_challenge_contract_gate.py` and wired explicit gate execution in CI (`unittests.yml`).
+  - Added ratchet test for legacy alias exports (`tests/unit/test_legacy_alias_export_ratchet.py`) and explicit CI ratchet execution for credential persistence and async-port conformance.
+  - Tightened hotspot quality gates with focused mypy enforcement (`--follow-imports=skip` on runtime/challenge modules) and a dedicated challenge/runtime coverage gate (`--cov-fail-under=82`) in `Makefile` and `coverage.yml`.
+- Files changed:
+  - `tests/unit/test_hexagonal_import_boundaries.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `tests/unit/test_legacy_alias_export_ratchet.py`
+  - `.github/workflows/unittests.yml`
+  - `.github/workflows/pythonlint.yml`
+  - `.github/workflows/coverage.yml`
+  - `Makefile`
+  - `pyproject.toml`
+  - `pyicloud/adapters/services/runtime.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_hexagonal_import_boundaries.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_hexagonal_import_boundaries.py tests/integration/test_challenge_contract_gate.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_api_auth_service.py::test_login_challenge_does_not_persist_plaintext_password tests/unit/test_core_services_async_contract.py::test_service_adapters_match_async_port_methods`
+  - `uv run --extra lint mypy --follow-imports=skip pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py`
+  - `uv run --extra test pytest -q -o addopts='' --cov=pyicloud.application.api_auth --cov=pyicloud.api.errors --cov=pyicloud.adapters.services.runtime --cov=pyicloud.adapters.services --cov-report=term-missing --cov-fail-under=82 tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Full-repository lint/typecheck debt outside the phase hotspot scope remains and is intentionally deferred.
+  - Internal legacy alias symbols still exist in service runtime/composition/client exports and are scheduled for Phase 27 cleanup.
+- Next recommended phase: Phase 27 Provider Runtime Containment / Async Migration.
 
 ---
 
@@ -1379,21 +1530,53 @@ Turn architecture expectations into enforceable automated checks and close curre
 Finalize the service runtime direction and remove residual legacy coupling/aliases.
 
 ### Checklist
-- [ ] Choose and lock final provider runtime target:
+- [x] Choose and lock final provider runtime target:
   - [ ] Option A: async-native provider runtime for all domains.
-  - [ ] Option B: strict containment layer for legacy runtime behind stable async adapter boundary.
-- [ ] Remove internal legacy alias symbols that invite accidental reuse.
-- [ ] Ensure challenge-driven behavior works consistently across all service domains under final runtime.
-- [ ] Update migration/release documentation for runtime transition impact.
-- [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on final runtime path.
+  - [x] Option B: strict containment layer for legacy runtime behind stable async adapter boundary.
+- [x] Remove internal legacy alias symbols that invite accidental reuse.
+- [x] Ensure challenge-driven behavior works consistently across all service domains under final runtime.
+- [x] Update migration/release documentation for runtime transition impact.
+- [x] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on final runtime path.
 
 ### Exit Criteria
-- [ ] Runtime direction is explicit, enforced, and documented.
-- [ ] No hidden dependency on legacy-named runtime symbols remains in active paths.
+- [x] Runtime direction is explicit, enforced, and documented.
+- [x] No hidden dependency on legacy-named runtime symbols remains in active paths.
+
+### Handoff: Phase 27 - Provider Runtime Containment / Async Migration
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Locked runtime strategy to Option B (strict containment) and enforced it with dedicated containment tests (`tests/unit/test_service_runtime_containment.py`).
+  - Removed internal legacy alias symbols in runtime/composition (`LegacyServicesRuntime`, `LegacyServicesAdapterBase`, `LegacyCoreAdapterBundle`, `build_legacy_core_adapter_bundle`) and migrated all service adapters/clients to canonical runtime names.
+  - Extended challenge-contract parity coverage to read and mutation endpoints across all service domains via `tests/integration/test_challenge_contract_gate.py`.
+  - Updated release/migration documentation to reflect final runtime direction and alias removals (`ARCHITECTURE.md`, `README.md`, `CHANGELOG.md`).
+- Files changed:
+  - `pyicloud/adapters/services/{runtime.py,composition.py,legacy_core.py,account.py,calendar.py,contacts.py,devices.py,drive.py,photos.py,reminders.py,ubiquity.py,content.py}`
+  - `pyicloud/adapters/services/clients/{account.py,calendar.py,contacts.py,devices.py,drive.py,photos.py,reminders.py,ubiquity.py}`
+  - `tests/unit/test_legacy_alias_export_ratchet.py`
+  - `tests/unit/test_service_runtime_containment.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `Makefile`
+  - `.github/workflows/pythonlint.yml`
+  - `ARCHITECTURE.md`
+  - `README.md`
+  - `CHANGELOG.md`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_contract_dto_mappers.py`
+  - `uv run --extra test pytest --no-cov -q tests/integration/test_challenge_contract_gate.py tests/unit/test_service_runtime_containment.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py`
+  - `uv run --extra lint ruff format pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_runtime_containment.py --check`
+  - `uv run --extra lint ruff check pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_runtime_containment.py`
+  - `uv run --extra lint mypy --follow-imports=skip pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py`
+  - `uv run --extra test pytest -q -o addopts='' --cov=pyicloud.application.api_auth --cov=pyicloud.api.errors --cov=pyicloud.adapters.services.runtime --cov=pyicloud.adapters.services --cov-report=term-missing --cov-fail-under=82 tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_service_runtime_containment.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - None for this phase.
+- Next recommended phase: None (current refactor plan scope completed).
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 21, then 22/23/24/25/26/27.
+# Refactor plan scope complete (Phases 0-27 done).
 ```

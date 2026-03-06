@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Protocol
+
+from pyicloud.domain import (
+    AccountDeviceDTO,
+    AccountFamilyMemberDTO,
+    AccountStorageDTO,
+    CalendarDTO,
+    CalendarEventDetailDTO,
+    CalendarEventDTO,
+    ContactDTO,
+    DeviceRecordDTO,
+    DriveNodeDTO,
+    PhotoAlbumDTO,
+    PhotoAssetDTO,
+    ReminderListsDTO,
+    UbiquityNodeDTO,
+)
 
 
 class DeviceServicePort(Protocol):
@@ -21,7 +37,7 @@ class DeviceServicePort(Protocol):
     Implemented by: DevicesServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_devices(self, *, username: str) -> Sequence[DeviceRecordDTO]:
         """
         CoreServicesApi calls this method to list devices visible for an authenticated account.
 
@@ -32,7 +48,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Device list cannot be retrieved from upstream services.
         """
 
-    async def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def location(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         """
         CoreServicesApi calls this method to fetch current location data for one device.
 
@@ -44,7 +60,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Location retrieval fails in provider service.
         """
 
-    async def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def status(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         """
         CoreServicesApi calls this method to fetch status information for one device.
 
@@ -115,7 +131,7 @@ class AccountServicePort(Protocol):
     Implemented by: AccountServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_devices(self, *, username: str) -> Sequence[AccountDeviceDTO]:
         """
         CoreServicesApi calls this method to list account-managed device metadata.
 
@@ -126,7 +142,7 @@ class AccountServicePort(Protocol):
             RuntimeError: Account device data cannot be retrieved.
         """
 
-    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_family(self, *, username: str) -> Sequence[AccountFamilyMemberDTO]:
         """
         CoreServicesApi calls this method to fetch family membership details.
 
@@ -137,7 +153,7 @@ class AccountServicePort(Protocol):
             RuntimeError: Family data cannot be retrieved.
         """
 
-    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
+    async def account_storage(self, *, username: str) -> AccountStorageDTO:
         """
         CoreServicesApi calls this method to fetch account storage summary information.
 
@@ -163,7 +179,7 @@ class DriveServicePort(Protocol):
     Implemented by: DriveServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def tree(self, *, username: str, path: str) -> DriveNodeDTO:
         """
         CoreServicesApi calls this method to list drive node metadata and children for a path.
 
@@ -175,7 +191,7 @@ class DriveServicePort(Protocol):
             RuntimeError: Drive tree retrieval fails.
         """
 
-    async def file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def file_metadata(self, *, username: str, path: str) -> DriveNodeDTO:
         """
         CoreServicesApi calls this method to fetch metadata for one drive file path.
 
@@ -262,7 +278,7 @@ class CalendarServicePort(Protocol):
     Implemented by: CalendarServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def calendars(self, *, username: str) -> Sequence[CalendarDTO]:
         """
         CoreServicesApi calls this method to list available calendars for an account.
 
@@ -279,7 +295,7 @@ class CalendarServicePort(Protocol):
         username: str,
         from_dt: datetime | None = None,
         to_dt: datetime | None = None,
-    ) -> Sequence[Mapping[str, Any]]:
+    ) -> Sequence[CalendarEventDTO]:
         """
         CoreServicesApi calls this method to fetch calendar events in a date window.
 
@@ -290,7 +306,7 @@ class CalendarServicePort(Protocol):
             RuntimeError: Event data cannot be retrieved.
         """
 
-    async def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+    async def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> CalendarEventDetailDTO:
         """
         CoreServicesApi calls this method to fetch one calendar event detail payload.
 
@@ -317,7 +333,7 @@ class ContactsServicePort(Protocol):
     Implemented by: ContactsServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def all_contacts(self, *, username: str) -> Sequence[ContactDTO]:
         """
         CoreServicesApi calls this method to fetch all contacts for an account.
 
@@ -343,7 +359,7 @@ class RemindersServicePort(Protocol):
     Implemented by: RemindersServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def reminder_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+    async def reminder_lists(self, *, username: str) -> ReminderListsDTO:
         """
         CoreServicesApi calls this method to fetch reminders grouped by list title.
 
@@ -388,7 +404,7 @@ class PhotosServicePort(Protocol):
     Implemented by: PhotosServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_albums(self, *, username: str) -> Sequence[PhotoAlbumDTO]:
         """
         CoreServicesApi calls this method to list available photo albums for an account.
 
@@ -406,7 +422,7 @@ class PhotosServicePort(Protocol):
         album: str = "All Photos",
         limit: int = 100,
         offset: int = 0,
-    ) -> Sequence[Mapping[str, Any]]:
+    ) -> Sequence[PhotoAssetDTO]:
         """
         CoreServicesApi calls this method to list photo assets from one album window.
 
@@ -418,7 +434,7 @@ class PhotosServicePort(Protocol):
             RuntimeError: Asset listing fails.
         """
 
-    async def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+    async def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> PhotoAssetDTO:
         """
         CoreServicesApi calls this method to fetch metadata for one photo asset.
 
@@ -464,7 +480,7 @@ class UbiquityServicePort(Protocol):
     Implemented by: UbiquityServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_tree(self, *, username: str, path: str) -> UbiquityNodeDTO:
         """
         CoreServicesApi calls this method to list ubiquity node metadata and children for a path.
 
@@ -476,7 +492,7 @@ class UbiquityServicePort(Protocol):
             RuntimeError: Tree retrieval fails.
         """
 
-    async def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_file_metadata(self, *, username: str, path: str) -> UbiquityNodeDTO:
         """
         CoreServicesApi calls this method to fetch metadata for one ubiquity node path.
 

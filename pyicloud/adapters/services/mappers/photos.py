@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.photos import PhotoAlbumView, PhotoAssetView, PhotoVersionView
+from pyicloud.domain import PhotoAlbumDTO, PhotoAssetDTO, PhotoVersionDTO
 
 
-def map_photo_album(view: PhotoAlbumView) -> Mapping[str, Any]:
+def map_photo_album(view: PhotoAlbumView) -> PhotoAlbumDTO:
     return {"name": view.name, "count": view.count}
 
 
-def map_photo_version(view: PhotoVersionView) -> Mapping[str, Any]:
+def map_photo_version(view: PhotoVersionView) -> PhotoVersionDTO:
     return {
         "filename": view.filename,
         "width": view.width,
@@ -22,7 +20,7 @@ def map_photo_version(view: PhotoVersionView) -> Mapping[str, Any]:
     }
 
 
-def map_photo_asset(view: PhotoAssetView) -> Mapping[str, Any]:
+def map_photo_asset(view: PhotoAssetView) -> PhotoAssetDTO:
     return {
         "id": view.asset_id,
         "album": view.album,

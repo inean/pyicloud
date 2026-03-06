@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from pyicloud.application.api_auth import AuthApiService
-from pyicloud.domain import Unauthorized
+from pyicloud.domain import InvalidCredentials, SecurityCodeRequired, Unauthorized
 
 
 class _FakeTokenSigner:
@@ -51,6 +51,11 @@ class _RecordingSessionStore:
         self.revoke_calls.append((token_id, ttl_seconds))
 
 
+class _SecurityCodeRequiredAuthService:
+    async def run(self, *, account_id: str, request):  # noqa: ANN001, ARG002
+        raise SecurityCodeRequired("security code required")
+
+
 def _service_with_claims(claims_by_token: dict[str, dict[str, Any]], store: _RecordingSessionStore) -> AuthApiService:
     signer = _FakeTokenSigner(claims_by_token)
     return AuthApiService(
@@ -87,3 +92,44 @@ def test_logout_revokes_account_scoped_key_with_minimum_ttl() -> None:
     service.logout(token="token-a")
 
     assert store.revoke_calls == [("user-a@example.com:token-id", 1)]
+
+
+@pytest.mark.asyncio
+async def test_login_challenge_does_not_persist_plaintext_password() -> None:
+    claims_by_token: dict[str, dict[str, Any]] = {}
+    store = _RecordingSessionStore()
+    signer = _FakeTokenSigner(claims_by_token)
+    service = AuthApiService(
+        token_signer=signer,
+        session_query=store,
+        session_command=store,
+        auth_service_factory=lambda username, password: _SecurityCodeRequiredAuthService(),  # noqa: ARG005
+    )
+
+    payload = await service.login(username="requires2fa@example.com", password="secret-password")
+
+    assert payload["status"] == "challenge_required"
+    challenge = store.challenges[payload["challenge_id"]]
+    assert challenge["account_id"] == "requires2fa@example.com"
+    assert "password" not in challenge
+
+
+@pytest.mark.asyncio
+async def test_security_code_requires_password() -> None:
+    claims_by_token: dict[str, dict[str, Any]] = {}
+    store = _RecordingSessionStore()
+    signer = _FakeTokenSigner(claims_by_token)
+    service = AuthApiService(
+        token_signer=signer,
+        session_query=store,
+        session_command=store,
+        auth_service_factory=lambda username, password: _SecurityCodeRequiredAuthService(),  # noqa: ARG005
+    )
+    store.put_challenge(
+        challenge_id="challenge-id",
+        payload={"account_id": "requires2fa@example.com", "flow_id": "flow-1"},
+        ttl_seconds=120,
+    )
+
+    with pytest.raises(InvalidCredentials, match="Password is required"):
+        await service.security_code(challenge_id="challenge-id", code="123456", password="")

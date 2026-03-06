@@ -145,7 +145,8 @@ class _FakeUbiquityNode:
         raise KeyError(key)
 
 
-def test_legacy_core_services_adapter_photo_operations(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.asyncio
+async def test_legacy_core_services_adapter_photo_operations(monkeypatch: pytest.MonkeyPatch):
     asset_1 = _FakePhotoAsset("photo-1", "beach.jpg", b"photo-1-bytes")
     asset_2 = _FakePhotoAsset("photo-2", "sunset.jpg", b"photo-2-bytes")
     photos = SimpleNamespace(
@@ -162,21 +163,21 @@ def test_legacy_core_services_adapter_photo_operations(monkeypatch: pytest.Monke
     )
     monkeypatch.setattr(adapter._runtime, "services", lambda username: services)
 
-    albums = adapter.list_albums(username="success@example.com")
+    albums = await adapter.list_albums(username="success@example.com")
     assert albums == [{"name": "All Photos", "count": 2}, {"name": "Favorites", "count": 1}]
 
-    assets = adapter.list_assets(username="success@example.com", album="All Photos", limit=1, offset=1)
+    assets = await adapter.list_assets(username="success@example.com", album="All Photos", limit=1, offset=1)
     assert [item["id"] for item in assets] == ["photo-2"]
 
-    metadata = adapter.asset_metadata(username="success@example.com", album="All Photos", asset_id="photo-1")
+    metadata = await adapter.asset_metadata(username="success@example.com", album="All Photos", asset_id="photo-1")
     assert metadata["filename"] == "beach.jpg"
     assert metadata["versions"]["original"]["type"] == "image/jpeg"
 
-    content = adapter.asset_content(username="success@example.com", album="All Photos", asset_id="photo-1")
+    content = await adapter.asset_content(username="success@example.com", album="All Photos", asset_id="photo-1")
     assert content == b"photo-1-bytes"
 
     with pytest.raises(KeyError, match="Photo version not found"):
-        adapter.asset_content(
+        await adapter.asset_content(
             username="success@example.com",
             album="All Photos",
             asset_id="photo-1",
@@ -184,7 +185,8 @@ def test_legacy_core_services_adapter_photo_operations(monkeypatch: pytest.Monke
         )
 
 
-def test_legacy_core_services_adapter_ubiquity_operations(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.asyncio
+async def test_legacy_core_services_adapter_ubiquity_operations(monkeypatch: pytest.MonkeyPatch):
     shared = _FakeUbiquityNode(
         item_id=102,
         name="shared.txt",
@@ -224,18 +226,18 @@ def test_legacy_core_services_adapter_ubiquity_operations(monkeypatch: pytest.Mo
     )
     monkeypatch.setattr(adapter._runtime, "services", lambda username: services)
 
-    tree = adapter.ubiquity_tree(username="success@example.com", path="/")
+    tree = await adapter.ubiquity_tree(username="success@example.com", path="/")
     assert [child["name"] for child in tree["children"]] == ["Documents", "Notes"]
 
-    metadata = adapter.ubiquity_file_metadata(username="success@example.com", path="/Documents/shared.txt")
+    metadata = await adapter.ubiquity_file_metadata(username="success@example.com", path="/Documents/shared.txt")
     assert metadata["type"] == "file"
     assert metadata["name"] == "shared.txt"
 
-    content = adapter.ubiquity_file_content(username="success@example.com", path="/Documents/shared.txt")
+    content = await adapter.ubiquity_file_content(username="success@example.com", path="/Documents/shared.txt")
     assert content == b"shared-content"
 
     with pytest.raises(KeyError, match="Ubiquity path is not a file"):
-        adapter.ubiquity_file_content(username="success@example.com", path="/Documents")
+        await adapter.ubiquity_file_content(username="success@example.com", path="/Documents")
 
 
 class _RuntimeStub:
@@ -282,7 +284,8 @@ class _DriveNode:
         self._payload = b""
 
 
-def test_decomposed_adapters_cover_devices_account_drive_calendar_contacts_reminders():
+@pytest.mark.asyncio
+async def test_decomposed_adapters_cover_devices_account_drive_calendar_contacts_reminders():
     # Devices
     device_1 = {
         "id": "dev-1",
@@ -369,12 +372,14 @@ def test_decomposed_adapters_cover_devices_account_drive_calendar_contacts_remin
     contacts_adapter = ContactsServiceAdapter(runtime=runtime)
     reminders_adapter = RemindersServiceAdapter(runtime=runtime)
 
-    assert devices_adapter.list_devices(username="user@example.com")[0]["id"] == "dev-1"
-    assert account_adapter.account_storage(username="user@example.com")["usage"]["total_storage_in_bytes"] == 6
-    assert drive_adapter.file_content(username="user@example.com", path="/Documents/report.txt") == b"report-bytes"
-    assert calendar_adapter.events(username="user@example.com")[0]["guid"] == "event-1"
-    assert contacts_adapter.all_contacts(username="user@example.com")[0]["displayName"] == "User"
-    assert reminders_adapter.create_reminder(username="user@example.com", title="Task")
+    assert (await devices_adapter.list_devices(username="user@example.com"))[0]["id"] == "dev-1"
+    assert (await account_adapter.account_storage(username="user@example.com"))["usage"]["total_storage_in_bytes"] == 6
+    assert (
+        await drive_adapter.file_content(username="user@example.com", path="/Documents/report.txt") == b"report-bytes"
+    )
+    assert (await calendar_adapter.events(username="user@example.com"))[0]["guid"] == "event-1"
+    assert (await contacts_adapter.all_contacts(username="user@example.com"))[0]["displayName"] == "User"
+    assert await reminders_adapter.create_reminder(username="user@example.com", title="Task")
 
 
 def test_build_core_adapter_bundle_shares_runtime_instance():

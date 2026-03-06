@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.ubiquity import UbiquityNodeView
+from pyicloud.domain import UbiquityNodeDTO
 
 
-def map_ubiquity_node(view: UbiquityNodeView) -> Mapping[str, Any]:
-    payload: dict[str, Any] = {
+def map_ubiquity_node(view: UbiquityNodeView) -> UbiquityNodeDTO:
+    payload: UbiquityNodeDTO = {
         "path": view.path,
         "item_id": view.item_id,
         "name": view.name,

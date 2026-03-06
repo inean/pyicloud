@@ -87,3 +87,14 @@ async def test_authenticate_legacy_endpoint_raises_when_restore_missing():
             auth_runner=fake_auth_runner,
             restore_builder=restore_builder,
         )
+
+
+@pytest.mark.asyncio
+async def test_authenticate_legacy_endpoint_requires_injected_auth_runner():
+    with pytest.raises(ValueError, match="auth_runner is required"):
+        await session_endpoint_restore.authenticate_legacy_endpoint(
+            username="user@example.com",
+            password="secret",
+            interactive=False,
+            auth_runner=None,  # type: ignore[arg-type]
+        )

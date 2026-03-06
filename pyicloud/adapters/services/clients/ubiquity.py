@@ -9,7 +9,7 @@ from typing import Any, Protocol
 
 from pyicloud.adapters.services.clients.common import Pagination
 from pyicloud.adapters.services.content import UbiquityBinaryContentAdapter
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime
+from pyicloud.adapters.services.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ class LegacyUbiquityClient:
     def __init__(
         self,
         *,
-        runtime: LegacyServicesRuntime,
+        runtime: ServiceRuntime,
         username: str,
         binary_content: UbiquityBinaryContentAdapter | None = None,
     ):
@@ -45,7 +45,7 @@ class LegacyUbiquityClient:
 
     def _resolve_ubiquity_node(self, *, path: str):
         files_root = self._runtime.services(username=self._username).files
-        return LegacyServicesRuntime.resolve_path(root=files_root, path=path)
+        return ServiceRuntime.resolve_path(root=files_root, path=path)
 
     @staticmethod
     def _child_path(parent_path: str, name: str) -> str:
