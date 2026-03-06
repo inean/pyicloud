@@ -46,7 +46,7 @@
 - Planned:
   - None
 - In Progress:
-  - Phase 41 Shim Removal + Final Cutover
+  - None
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -58,6 +58,7 @@
   - Phase 38 Telemetry/Observability Split
   - Phase 39 Services Context Migration
   - Phase 40 Platform Extraction + Legacy Deletion
+  - Phase 41 Shim Removal + Final Cutover
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -579,20 +580,21 @@ Cero rutas de ejecución activas hacia paquetes legacy retirados.
 Cerrar Programa 34+ eliminando compatibilidad temporal y consolidando documentación final.
 
 ### Checklist
-- [ ] Eliminar shims internos temporales de migración.
-- [ ] Endurecer ratchets/guardrails para impedir regresión estructural.
-- [ ] Actualizar `ARCHITECTURE.md`, `README.md`, `CODE_SAMPLES.md`.
+- [x] Eliminar shims internos temporales de migración.
+- [x] Endurecer ratchets/guardrails para impedir regresión estructural.
+- [x] Actualizar `ARCHITECTURE.md`, `README.md`, `CODE_SAMPLES.md`.
 
 ### Exit Criteria
 Estructura final estable, guardrails estrictos y documentación totalmente alineada.
 
 ### Handoff: Phase 41 - Shim Removal + Final Cutover
 - Date: 2026-03-06
-- Status: In Progress
+- Status: Done
 - Summary:
   - Removed legacy upstream telemetry shim package (`pyicloud/upstream/*`) and rewired runtime imports/tests to canonical `pyicloud.platform.telemetry.upstream`.
   - Removed legacy `pyicloud.adapters.store` shim and moved remaining in-repo references to `pyicloud.platform.storage`.
   - Removed legacy `pyicloud.adapters.services.runtime` shim and rewired adapter composition/content/core facade and tests to canonical `pyicloud.platform.provider.runtime`.
+  - Removed compatibility modules under `pyicloud/application/*` (except `core_services`) and rewired auth/observability imports/tests to canonical `pyicloud.contexts.crosscutting.*.application` modules.
   - Hardened legacy import ratchets to forbid reintroducing removed shim namespaces (`pyicloud.upstream`, `pyicloud.adapters.store`, `pyicloud.adapters.services.runtime`).
 - Files changed:
   - `pyicloud/upstream/*` (deleted)
@@ -605,21 +607,29 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
   - `tests/unit/{test_platform_upstream_migration.py,test_upstream_probe_classification.py,test_upstream_probe_context.py,test_upstream_probe_sanitize.py,test_file_session_store_adapter.py,test_platform_runtime_storage_migration.py,test_service_runtime_containment.py,test_legacy_core_services_adapter.py,test_legacy_import_ratchet.py}`
   - `tests/integration/test_upstream_flow_sequence.py`
   - `tests/fakes/auth_scenarios.py`
+  - `pyicloud/application/{__init__.py,access_control.py,api_auth.py,auth_abuse_guard.py,auth_session.py,observability.py,operation_suspension.py,service_endpoint_restore.py}`
+  - `pyicloud/bootstrap/{auth_session.py,session_endpoint_restore.py}`
+  - `pyicloud/cli_auth.py`
+  - `tests/unit/test_removed_shim_files_ratchet.py`
+  - `ARCHITECTURE.md`
+  - `README.md`
+  - `CODE_SAMPLES.md`
 - Tests executed:
   - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_upstream_migration.py tests/unit/test_upstream_probe_classification.py tests/unit/test_upstream_probe_context.py tests/unit/test_upstream_probe_sanitize.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_session_base_transport.py tests/integration/test_upstream_flow_sequence.py`
   - `uv run --extra test pytest -q -o addopts='' tests/unit/test_file_session_store_adapter.py tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_legacy_import_ratchet.py tests/vertical/api/test_auth_api.py`
   - `uv run --extra test pytest -q -o addopts='' tests/unit/test_service_runtime_containment.py tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_file_session_store_adapter.py tests/unit/test_api_app_auth_config.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_access_control_api_service.py tests/unit/test_api_auth_access_control.py tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_auth_service.py tests/unit/test_auth_abuse_guard_service.py tests/unit/test_auth_application_context_migration.py tests/unit/test_auth_session_flow.py tests/unit/test_auth_session_store_integration.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_observability_application.py tests/unit/test_observability_context_migration.py tests/unit/test_operation_suspension_service.py tests/unit/test_service_endpoint_restore.py tests/unit/test_removed_shim_files_ratchet.py tests/integration/test_auth_tree_srp_flow.py tests/integration/test_observability_otel_adapter.py tests/integration/test_upstream_flow_sequence.py tests/vertical/api/test_admin_api.py tests/vertical/api/test_auth_challenge_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_removed_shim_files_ratchet.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_platform_upstream_migration.py tests/unit/test_platform_runtime_storage_migration.py`
   - `uv run --extra test pytest -q`
 - Risks / TBD:
-  - `pyicloud.application/*` and `pyicloud.ports/*` compatibility shims still exist and remain to be cut over or explicitly retained as final facades.
-  - Final docs alignment (`ARCHITECTURE.md`, `README.md`, `CODE_SAMPLES.md`) is still pending.
+  - `pyicloud.ports/*` facades are intentionally retained as stable boundary aliases over canonical context contracts.
 - Next recommended phase:
-  - Continue Phase 41 by deciding final policy for `application/ports` facades and hardening ratchets accordingly.
+  - Program 34+ complete (no pending refactor phase on board).
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 41 Shim Removal + Final Cutover.
-# Start by removing temporary migration shims and hardening structural ratchets.
+# Program 34+ phase board complete.
+# Start from maintenance/new feature work on top of `dev`.
 ```
