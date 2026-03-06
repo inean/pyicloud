@@ -39,13 +39,12 @@
 
 ## Phase Board
 - Planned:
-  - Phase 37 Crosscutting Auth Rewrite
   - Phase 38 Telemetry/Observability Split
   - Phase 39 Services Context Migration
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 37 Crosscutting Auth Rewrite
+  - Phase 38 Telemetry/Observability Split
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -87,6 +86,7 @@
   - Phase 34 Semantic Taxonomy + Guardrails
   - Phase 35 Context Skeleton + Initial Moves
   - Phase 36 API/CLI Externalization to Interfaces
+  - Phase 37 Crosscutting Auth Rewrite
 - Blocked:
   - None
 
@@ -2128,21 +2128,42 @@ Los contratos API/CLI operan desde `interfaces/*` sin regresión funcional.
 Completar la migración de autenticación al contexto transversal `auth`.
 
 ### Checklist
-- [ ] Renombrar semánticamente `identity_access` a `auth` en estructuras y referencias.
-- [ ] Implementar flujo auth/challenge/session/token/ACL dentro de `contexts/crosscutting/auth`.
-- [ ] Retirar dependencias nucleares en `sessions/trees` del path activo de autenticación.
+- [x] Renombrar semánticamente `identity_access` a `auth` en estructuras y referencias.
+- [x] Implementar flujo auth/challenge/session/token/ACL dentro de `contexts/crosscutting/auth`.
+- [x] Retirar dependencias nucleares en `sessions/trees` del path activo de autenticación.
 
 ### Exit Criteria
 Auth funciona completamente sobre el nuevo contexto transversal.
 
 ### Handoff: Phase 37 - Crosscutting Auth Rewrite
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Added ratchet tests to prevent semantic regressions from `auth` back to `identity_access`.
+  - Migrated auth application services (`auth/challenge/session/token/ACL` orchestration) into `pyicloud/contexts/crosscutting/auth/application`.
+  - Rewired active API runtime imports (`bootstrap` + `interfaces/api`) to use canonical auth-context application services.
+  - Added compatibility shims under `pyicloud/application/*` and migration tests to guarantee old imports still resolve.
+  - Replaced default active auth runtime backend in `build_default_auth_api_service` with context-local scenario adapter composition (no `trees/sessions` dependency); tree backend remains optional via explicit `PYICLOUD_API_AUTH_BACKEND=legacy_tree`.
+  - Removed eager `pyicloud.bootstrap.auth_session` import from `pyicloud.bootstrap` via lazy shim export to prevent active API path from importing `trees/sessions`.
+  - Added guardrail checks that active auth API path modules do not directly import `pyicloud.trees` or `pyicloud.sessions`.
 - Files changed:
+  - `pyicloud/contexts/crosscutting/auth/application/*`
+  - `pyicloud/application/{api_auth,auth_session,access_control,auth_abuse_guard,operation_suspension,service_endpoint_restore}.py`
+  - `pyicloud/bootstrap/{api_runtime.py,__init__.py}`
+  - `pyicloud/interfaces/api/{app.py,dependencies.py,routers/auth.py,routers/admin.py}`
+  - `tests/unit/test_auth_context_naming_ratchet.py`
+  - `tests/unit/{test_auth_application_context_migration.py,test_api_app_auth_config.py}`
+  - `docs/refactor_plan.md`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_auth_context_naming_ratchet.py tests/unit/test_context_taxonomy_guardrails.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_auth_application_context_migration.py tests/unit/test_api_auth_service.py tests/unit/test_access_control_api_service.py tests/unit/test_auth_abuse_guard_service.py tests/unit/test_operation_suspension_service.py tests/vertical/api/test_auth_challenge_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/vertical/api/test_auth_api.py tests/vertical/cli/test_auth_cli.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/unit/test_setup_tree_srp.py::test_account_login_without_trust_token_does_not_fail_early tests/unit/test_auth_application_context_migration.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - Optional legacy tree backend (`PYICLOUD_API_AUTH_BACKEND=legacy_tree`) remains available for controlled fallback and is intentionally outside the default active API auth path.
 - Next recommended phase:
+  - Phase 38 Telemetry/Observability Split.
 
 ---
 
@@ -2238,6 +2259,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 37 Crosscutting Auth Rewrite.
-# Start by moving active auth flow modules into contexts/crosscutting/auth with transitional shims.
+# Continue with: Phase 38 Telemetry/Observability Split.
+# Start by splitting telemetry write-side contracts/adapters from observability query-side contracts.
 ```

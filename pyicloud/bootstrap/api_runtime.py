@@ -2,41 +2,33 @@
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Any
 
 from pyicloud.adapters.access import FileAccessControlStore, InMemoryAccessControlStore
+from pyicloud.adapters.auth.fake_scenario_auth import FakeScenarioAuthSessionAdapter
 from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
 from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, InMemorySuspendedOperationStore
 from pyicloud.adapters.services import build_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
+from pyicloud.adapters.store import FileSessionStoreAdapter
 from pyicloud.adapters.token import JwtTokenSigner
-from pyicloud.application.access_control import AccessControlApiService
-from pyicloud.application.api_auth import AuthApiService
-from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
-from pyicloud.application.operation_suspension import OperationSuspensionService
-from pyicloud.bootstrap.auth_session import build_auth_session_service
-from pyicloud.models.settings import Settings
+from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
+from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
+from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
+from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
+from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
 from pyicloud.ports import AccessControlQueryPort
-from pyicloud.trees.setup import SetupHooks
 
-
-class _ApiSetupHooks(SetupHooks):
-    """Non-interactive setup hooks used by API authentication flows."""
-
-    def __init__(self, *, password: str):
-        self._password = password
-
-    def get_password(self, username: str) -> str:  # noqa: ARG002
-        return self._password
-
-    def get_security_code(self, device: Any = None) -> str:  # noqa: ARG002
-        return ""
-
-    def get_trusted_device(self, devices):  # noqa: ANN001, ARG002
-        return None
+_DEFAULT_AUTH_SCENARIOS = {
+    "success@example.com": "success",
+    "requires2fa@example.com": "requires_2fa",
+    "invalid@example.com": "invalid_credentials",
+    "expired@example.com": "expired_session",
+}
+_VALID_AUTH_SCENARIOS = {"success", "requires_2fa", "invalid_credentials", "invalid_security_code", "expired_session"}
 
 
 def _runtime_env() -> str:
@@ -45,6 +37,41 @@ def _runtime_env() -> str:
 
 def _is_non_dev_runtime(runtime_env: str) -> bool:
     return runtime_env not in {"dev", "development", "local", "test", "testing"}
+
+
+def _parse_auth_scenario_overrides() -> dict[str, str]:
+    raw = os.getenv("PYICLOUD_API_AUTH_SCENARIO_OVERRIDES", "").strip()
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as err:
+        raise RuntimeError("PYICLOUD_API_AUTH_SCENARIO_OVERRIDES must be valid JSON object") from err
+    if not isinstance(payload, dict):
+        raise RuntimeError("PYICLOUD_API_AUTH_SCENARIO_OVERRIDES must be a JSON object")
+
+    overrides: dict[str, str] = {}
+    for raw_username, raw_scenario in payload.items():
+        username = str(raw_username).strip().lower()
+        scenario = str(raw_scenario).strip().lower()
+        if not username:
+            raise RuntimeError("PYICLOUD_API_AUTH_SCENARIO_OVERRIDES contains an empty username key")
+        if scenario not in _VALID_AUTH_SCENARIOS:
+            raise RuntimeError(f"Unsupported auth scenario override: {raw_scenario}")
+        overrides[username] = scenario
+    return overrides
+
+
+def _scenario_for_username(username: str, *, overrides: dict[str, str]) -> str:
+    normalized_username = str(username).strip().lower()
+    if normalized_username in overrides:
+        return overrides[normalized_username]
+    if normalized_username in _DEFAULT_AUTH_SCENARIOS:
+        return _DEFAULT_AUTH_SCENARIOS[normalized_username]
+    default_scenario = os.getenv("PYICLOUD_API_AUTH_DEFAULT_SCENARIO", "success").strip().lower()
+    if default_scenario not in _VALID_AUTH_SCENARIOS:
+        raise RuntimeError(f"Unsupported PYICLOUD_API_AUTH_DEFAULT_SCENARIO value: {default_scenario}")
+    return default_scenario
 
 
 def build_default_auth_api_service(*, access_query: AccessControlQueryPort | None = None) -> AuthApiService:
@@ -76,11 +103,36 @@ def build_default_auth_api_service(*, access_query: AccessControlQueryPort | Non
     else:
         raise RuntimeError(f"Unsupported auth session backend: {session_backend}")
     store_dir = os.getenv("PYICLOUD_SESSION_STORE_DIR")
+    auth_backend = os.getenv("PYICLOUD_API_AUTH_BACKEND", "scenario").strip().lower()
+    scenario_overrides = _parse_auth_scenario_overrides()
 
-    def auth_service_factory(username: str, password: str):
-        settings = Settings.create(username=username, password=password or None)
-        hooks = _ApiSetupHooks(password=password)
-        return build_auth_session_service(settings=settings, hooks=hooks, store_dir=store_dir)
+    def auth_service_factory(username: str, password: str):  # noqa: ARG001
+        if auth_backend in {"scenario", "fake", "deterministic"}:
+            scenario = _scenario_for_username(username, overrides=scenario_overrides)
+            auth_adapter = FakeScenarioAuthSessionAdapter(scenario=scenario)  # type: ignore[arg-type]
+            store_adapter = FileSessionStoreAdapter(root_dir=store_dir)
+            return AuthSessionService(auth=auth_adapter, store=store_adapter)
+        if auth_backend in {"legacy_tree", "tree_legacy", "tree"}:
+            from pyicloud.bootstrap.auth_session import build_auth_session_service
+            from pyicloud.models.settings import Settings
+
+            class _LegacyApiSetupHooks:
+                def __init__(self, *, secret: str):
+                    self._secret = secret
+
+                def get_password(self, username: str) -> str:  # noqa: ARG002
+                    return self._secret
+
+                def get_security_code(self, device=None) -> str:  # noqa: ANN001, ARG002
+                    return ""
+
+                def get_trusted_device(self, devices):  # noqa: ANN001, ARG002
+                    return None
+
+            settings = Settings.create(username=username, password=password or None)
+            hooks = _LegacyApiSetupHooks(secret=password)
+            return build_auth_session_service(settings=settings, hooks=hooks, store_dir=store_dir)
+        raise RuntimeError(f"Unsupported PYICLOUD_API_AUTH_BACKEND value: {auth_backend}")
 
     return AuthApiService(
         token_signer=signer,
