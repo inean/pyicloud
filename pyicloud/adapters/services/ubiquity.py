@@ -7,10 +7,10 @@ from pyicloud.ports import UbiquityServicePort
 
 from .clients.ubiquity import LegacyUbiquityClient, UbiquityClient
 from .mappers.ubiquity import map_ubiquity_node
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class UbiquityServiceAdapter(LegacyServicesAdapterBase, UbiquityServicePort):
+class UbiquityServiceAdapter(ServicesAdapterBase, UbiquityServicePort):
     """Map ubiquity operations to the ubiquity service port contract."""
 
     def _ubiquity_client(self, *, username: str) -> UbiquityClient:

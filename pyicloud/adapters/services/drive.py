@@ -7,10 +7,10 @@ from pyicloud.ports import DriveServicePort
 
 from .clients.drive import DriveClient, LegacyDriveClient
 from .mappers.drive import map_drive_node
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class DriveServiceAdapter(LegacyServicesAdapterBase, DriveServicePort):
+class DriveServiceAdapter(ServicesAdapterBase, DriveServicePort):
     """Map iCloud Drive operations to the drive service port contract."""
 
     def _drive_client(self, *, username: str) -> DriveClient:

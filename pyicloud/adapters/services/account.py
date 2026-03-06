@@ -9,10 +9,10 @@ from pyicloud.ports import AccountServicePort
 
 from .clients.account import AccountClient, LegacyAccountClient
 from .mappers.account import map_account_device, map_account_family_member, map_account_storage
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class AccountServiceAdapter(LegacyServicesAdapterBase, AccountServicePort):
+class AccountServiceAdapter(ServicesAdapterBase, AccountServicePort):
     """Map account operations to the account service port contract."""
 
     def _account_client(self, *, username: str) -> AccountClient:

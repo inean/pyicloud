@@ -11,7 +11,7 @@ from .devices import DevicesServiceAdapter
 from .drive import DriveServiceAdapter
 from .photos import PhotosServiceAdapter
 from .reminders import RemindersServiceAdapter
-from .runtime import LegacyServicesRuntime
+from .runtime import ServiceRuntime
 from .ubiquity import UbiquityServiceAdapter
 
 
@@ -33,7 +33,7 @@ class LegacyCoreServicesAdapter(
         session_store: SessionStorePort | None = None,
         endpoint_factory: ServiceEndpointPort | None = None,
     ):
-        runtime = LegacyServicesRuntime(
+        runtime = ServiceRuntime(
             session_store=session_store,
             endpoint_factory=endpoint_factory,
         )

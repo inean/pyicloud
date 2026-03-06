@@ -86,8 +86,3 @@ class ServicesAdapterBase:
 
     def _services(self, *, username: str) -> PyiCloudServices:
         return self._runtime.services(username=username)
-
-
-# Backward-compatible aliases kept internal during retirement migration.
-LegacyServicesRuntime = ServiceRuntime
-LegacyServicesAdapterBase = ServicesAdapterBase

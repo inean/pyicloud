@@ -9,10 +9,10 @@ from pyicloud.ports import ContactsServicePort
 
 from .clients.contacts import ContactsClient, LegacyContactsClient
 from .mappers.contacts import map_contact
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class ContactsServiceAdapter(LegacyServicesAdapterBase, ContactsServicePort):
+class ContactsServiceAdapter(ServicesAdapterBase, ContactsServicePort):
     """Map contacts operations to the contacts service port contract."""
 
     def _contacts_client(self, *, username: str) -> ContactsClient:

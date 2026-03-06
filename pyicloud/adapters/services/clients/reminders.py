@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from pyicloud.adapters.services.clients.common import Pagination
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime
+from pyicloud.adapters.services.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ class RemindersClient(Protocol):
 class LegacyRemindersClient:
     """Query/mutate reminder data from legacy service objects with typed views."""
 
-    def __init__(self, *, runtime: LegacyServicesRuntime, username: str):
+    def __init__(self, *, runtime: ServiceRuntime, username: str):
         self._runtime = runtime
         self._username = username
 

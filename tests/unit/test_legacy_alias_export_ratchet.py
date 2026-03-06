@@ -17,10 +17,6 @@ ALLOWED_LEGACY_ALIAS_EXPORTS = {
     "pyicloud/adapters/services/clients/__init__.py::LegacyPhotosClient",
     "pyicloud/adapters/services/clients/__init__.py::LegacyRemindersClient",
     "pyicloud/adapters/services/clients/__init__.py::LegacyUbiquityClient",
-    "pyicloud/adapters/services/composition.py::LegacyCoreAdapterBundle",
-    "pyicloud/adapters/services/composition.py::build_legacy_core_adapter_bundle",
-    "pyicloud/adapters/services/runtime.py::LegacyServicesAdapterBase",
-    "pyicloud/adapters/services/runtime.py::LegacyServicesRuntime",
 }
 
 

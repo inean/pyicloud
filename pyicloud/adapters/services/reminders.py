@@ -9,10 +9,10 @@ from pyicloud.ports import RemindersServicePort
 
 from .clients.reminders import LegacyRemindersClient, RemindersClient
 from .mappers.reminders import map_reminder_collections
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class RemindersServiceAdapter(LegacyServicesAdapterBase, RemindersServicePort):
+class RemindersServiceAdapter(ServicesAdapterBase, RemindersServicePort):
     """Map reminders operations to the reminders service port contract."""
 
     def _reminders_client(self, *, username: str) -> RemindersClient:

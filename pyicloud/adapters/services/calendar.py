@@ -11,10 +11,10 @@ from pyicloud.ports import CalendarServicePort
 from .clients.calendar import CalendarClient, LegacyCalendarClient
 from .clients.common import TimeRangeFilter
 from .mappers.calendar import map_calendar, map_calendar_event, map_calendar_event_detail
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class CalendarServiceAdapter(LegacyServicesAdapterBase, CalendarServicePort):
+class CalendarServiceAdapter(ServicesAdapterBase, CalendarServicePort):
     """Map calendar operations to the calendar service port contract."""
 
     def _calendar_client(self, *, username: str) -> CalendarClient:
