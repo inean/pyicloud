@@ -1449,11 +1449,13 @@ Reduce monolithic modules and replace dictionary-shaped cross-layer contracts wi
 - Summary:
   - Decomposed API layer into explicit modules for dependencies, error mapping, response envelope helper, and domain routers for `auth/devices/account/drive`.
   - Kept `create_app` focused on composition/middleware/router assembly while preserving `/v1` contracts.
+  - Decomposed CLI command registration for high-traffic groups (`auth/devices/account/drive`) into dedicated modules under `pyicloud/cli/commands/*`.
   - Added typed DTO contracts for high-traffic domains (`devices/account/drive`) and rewired port + adapter + core application signatures to these DTOs.
   - Added mapper compatibility tests using `pydantic.TypeAdapter` against the new DTO contracts.
 - Files changed:
   - `pyicloud/api/{app.py,dependencies.py,errors.py,responses.py}`
   - `pyicloud/api/routers/{__init__.py,auth.py,devices.py,account.py,drive.py}`
+  - `pyicloud/cli/{main.py,commands/*}`
   - `pyicloud/domain/{__init__.py,service_contracts.py}`
   - `pyicloud/ports/services.py`
   - `pyicloud/adapters/services/{account.py,devices.py,drive.py}`
@@ -1462,10 +1464,11 @@ Reduce monolithic modules and replace dictionary-shaped cross-layer contracts wi
   - `tests/unit/test_service_contract_dto_mappers.py`
 - Tests executed:
   - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_auth_api.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_upstream_error_mapping.py tests/integration/test_api_contracts.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/cli`
   - `uv run --extra test pytest --no-cov -q tests/unit/test_service_contract_dto_mappers.py tests/unit/test_typed_service_clients.py tests/unit/test_legacy_core_services_adapter.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py`
   - `uv run --extra test pytest -q`
 - Risks / TBD:
-  - CLI module (`pyicloud/cli/main.py`) remains monolithic and still requires decomposition of command groups plus shared transport/challenge middleware.
+  - CLI module decomposition is partially complete; remaining groups (`calendar/contacts/reminders/photos/ubiquity/observability`) and transport/challenge middleware extraction are still pending.
   - Typed DTO rollout is complete for devices/account/drive but pending for calendar/contacts/reminders/photos/ubiquity.
 - Next recommended phase: Continue Phase 25 (CLI decomposition + remaining DTO rollout).
 
