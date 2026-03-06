@@ -28,10 +28,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
 - In Progress:
-  - Phase 32 Abuse/Safety Hardening for New Flows
+  - Phase 33 Migration, Compatibility, and Cutover
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -68,6 +67,7 @@
   - Phase 29 Access Control Plane (Whitelist + Admin)
   - Phase 30 Unified Auth Challenge Endpoint
   - Phase 31 Operation Suspension Pattern (Server-Side)
+  - Phase 32 Abuse/Safety Hardening for New Flows
 - Blocked:
   - None
 
@@ -1858,23 +1858,62 @@ Pause protected operations while auth challenges complete, then resume server-si
 Bound abuse surface introduced by challenge and operation-suspension state.
 
 ### Checklist
-- [ ] Add challenge attempt limits, lockout windows, and rate limits per account/IP/session.
-- [ ] Add anti-replay controls:
-  - [ ] single-use challenge steps.
-  - [ ] nonce/session binding.
-  - [ ] strict transition graph enforcement.
-- [ ] Add quotas and payload caps for suspended operations:
-  - [ ] per user
-  - [ ] global
-- [ ] Add audit events:
-  - [ ] admin changes
-  - [ ] allowlist decisions
-  - [ ] challenge lifecycle
-  - [ ] operation resume outcomes
-- [ ] Add TTL sweepers and cleanup determinism tests for all new stores.
+- [x] Add challenge attempt limits, lockout windows, and rate limits per account/IP/session.
+- [x] Add anti-replay controls:
+  - [x] single-use challenge steps.
+  - [x] nonce/session binding.
+  - [x] strict transition graph enforcement.
+- [x] Add quotas and payload caps for suspended operations:
+  - [x] per user
+  - [x] global
+- [x] Add audit events:
+  - [x] admin changes
+  - [x] allowlist decisions
+  - [x] challenge lifecycle
+  - [x] operation resume outcomes
+- [x] Add TTL sweepers and cleanup determinism tests for all new stores.
 
 ### Exit Criteria
 - Auth/challenge/suspension paths have bounded resource usage, replay protections, and auditable security events.
+
+### Handoff: Phase 32 - Abuse/Safety Hardening for New Flows
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added auth abuse guard with per-account/IP/session attempt counters, lockout windows, and `429 auth_rate_limited` responses.
+  - Hardened challenge transition checks with username/session binding and stricter invalid-transition rejection.
+  - Added suspended-operation abuse controls: payload size caps plus per-user/global pending operation quotas.
+  - Added structured audit events for admin allowlist mutations, allowlist deny decisions, challenge lifecycle, idempotency-key denials, and operation resume outcomes.
+  - Added deterministic TTL/cleanup and guardrail tests covering new hardening controls.
+- Files changed:
+  - `pyicloud/application/auth_abuse_guard.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/application/operation_suspension.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/dependencies.py`
+  - `pyicloud/api/errors.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/routers/admin.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/ports/operation_suspension.py`
+  - `pyicloud/adapters/operation_suspension/in_memory_operation_store.py`
+  - `pyicloud/adapters/operation_suspension/file_operation_store.py`
+  - `tests/unit/test_auth_abuse_guard_service.py`
+  - `tests/unit/test_api_auth_challenge_state_machine.py`
+  - `tests/unit/test_operation_suspension_service.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_auth_abuse_guard_service.py tests/unit/test_operation_suspension_service.py tests/unit/test_operation_suspension_store.py tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_app_auth_config.py tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_admin_api.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_admin_api.py tests/vertical/api/test_upstream_error_mapping.py tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py`
+  - `uv run pytest -q -o addopts='' tests/vertical/api`
+- Risks / TBD:
+  - Abuse guard counters are in-memory and instance-local; distributed rate-limit coordination remains a deployment concern.
+  - Audit events are currently log-based; durable audit retention/queries are left for future observability hardening.
+- Next recommended phase: Phase 33 Migration, Compatibility, and Cutover.
 
 ---
 
@@ -1897,5 +1936,5 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 32: Abuse/Safety Hardening for New Flows.
+# Continue with Phase 33: Migration, Compatibility, and Cutover.
 ```
