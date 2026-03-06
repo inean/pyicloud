@@ -10,8 +10,9 @@ from pyicloud.domain import AuthFlowRequest, AuthStep, SecurityCodeRequired
 
 
 class FakeAuthPort:
-    def __init__(self, *, requires_2fa: bool):
+    def __init__(self, *, requires_2fa: bool, session_validate_failures: int = 0):
         self.requires_2fa = requires_2fa
+        self.session_validate_failures = session_validate_failures
         self.calls: list[str] = []
 
     async def signin(self, *, refresh_signin: bool) -> bool:
@@ -29,6 +30,9 @@ class FakeAuthPort:
 
     async def session_validate(self) -> Mapping[str, Any]:
         self.calls.append("validate")
+        if self.session_validate_failures > 0:
+            self.session_validate_failures -= 1
+            raise RuntimeError("expired")
         return {"webservices": {"findme": {"status": "active", "url": "https://example.test"}}}
 
 
@@ -54,7 +58,7 @@ async def test_auth_flow_parity_with_2fa():
 
     result = await service.run(
         "acc-1",
-        AuthFlowRequest(refresh_signin=False, security_code="123456", require_trust_token=True),
+        AuthFlowRequest(refresh_signin=True, security_code="123456", require_trust_token=True),
     )
 
     assert result.steps == (
@@ -65,7 +69,7 @@ async def test_auth_flow_parity_with_2fa():
         AuthStep.VALIDATE,
     )
     assert auth.calls == [
-        "signin:False",
+        "signin:True",
         "security_code:123456",
         "trust",
         "account_login:True",
@@ -102,3 +106,34 @@ async def test_auth_flow_requires_security_code_when_2fa():
         await service.run("acc-3", AuthFlowRequest(security_code=None))
 
     assert auth.calls == ["signin:True"]
+
+
+@pytest.mark.asyncio
+async def test_auth_flow_uses_validate_first_fast_path_for_renewal():
+    auth = FakeAuthPort(requires_2fa=False)
+    service = AuthSessionService(auth=auth)
+
+    result = await service.run("acc-fast", AuthFlowRequest(refresh_signin=False))
+
+    assert result.steps == (AuthStep.VALIDATE,)
+    assert auth.calls == ["validate"]
+
+
+@pytest.mark.asyncio
+async def test_auth_flow_falls_back_to_full_signin_when_fast_path_fails():
+    auth = FakeAuthPort(requires_2fa=False, session_validate_failures=1)
+    service = AuthSessionService(auth=auth)
+
+    result = await service.run("acc-fallback", AuthFlowRequest(refresh_signin=False))
+
+    assert result.steps == (
+        AuthStep.SIGNIN,
+        AuthStep.ACCOUNT_LOGIN,
+        AuthStep.VALIDATE,
+    )
+    assert auth.calls == [
+        "validate",
+        "signin:False",
+        "account_login:True",
+        "validate",
+    ]

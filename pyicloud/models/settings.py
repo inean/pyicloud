@@ -3,14 +3,13 @@ from __future__ import annotations
 import bisect
 import locale
 import uuid
+from collections.abc import Sequence
 from typing import (
     Any,
     ClassVar,
     Generic,
     Protocol,
     Self,
-    Sequence,
-    Type,
     TypedDict,
     TypeVar,
 )
@@ -44,7 +43,7 @@ from pyicloud.models.fields import (
     TrustTokensType,
     UsernameType,
 )
-from pyicloud.utils.decorators import classproperty
+from pyicloud.shared.kernel.decorators import classproperty
 
 
 class Account(LeafModel, validate_assignment=True):
@@ -217,7 +216,7 @@ class BaseSettings(NestedModel, PydanticSettings, Generic[A, T, C]):
         return cls._config_settings.get("token", Token)
 
     @classproperty
-    def ClientSettings(cls) -> Type[ClientSettings]:
+    def ClientSettings(cls) -> type[ClientSettings]:
         return cls._config_settings.get("client_settings", ClientSettings)
 
 

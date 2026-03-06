@@ -15,18 +15,18 @@
     },
     {
       "path": "pyicloud/utils/context.py",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/decorators.py",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/trees/__init__.py",
@@ -108,92 +108,92 @@
     {
       "path": "pyicloud/utils/context.py",
       "name": "update_context_var",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/context.py",
       "name": "reset_context_var",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/context.py",
       "name": "sync_context",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/context.py",
       "name": "async_context",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/decorators.py",
       "name": "deprecated",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/decorators.py",
       "name": "Deprecated",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/decorators.py",
       "name": "classproperty",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "flatten",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "unflatten",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "deep_getitem",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "deep_setitem",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "deep_popitem",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "deep_update",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "compare",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/utils/mapping.py",
       "name": "map",
-      "tag": "active",
-      "decision": "keep"
+      "tag": "legacy-boundary",
+      "decision": "move"
     },
     {
       "path": "pyicloud/trees/__init__.py",
@@ -1041,7 +1041,7 @@
       "path": "pyicloud/trees/renew.py",
       "tag": "dead-candidate",
       "decision": "remove",
-      "status": "planned-remove",
+      "status": "removed",
       "reason": "Orphan renewal tree replaced by validate-first orchestration in active auth service."
     }
   ],
@@ -1073,6 +1073,13 @@
       "construct": "re-export compatibility shim",
       "classification": "intentional",
       "notes": "Rich console rendering moved to optional telemetry adapter."
+    },
+    {
+      "path": "pyicloud/utils/*.py",
+      "symbol": "module facades",
+      "construct": "compatibility re-export shims",
+      "classification": "intentional",
+      "notes": "Canonical generic helpers moved to pyicloud/shared/kernel/* during Phase 43."
     }
   ]
 }

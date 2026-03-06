@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from pyicloud.adapters.session.service_http import LegacyServiceSessionAdapter
+from pyicloud.contexts.crosscutting.telemetry.adapters.console_http import ConsoleLogTransport
 from pyicloud.exceptions import PyiCloudAPIResponseError
 from pyicloud.models.settings import Settings
 from pyicloud.paths import SettingsFile
@@ -67,3 +68,27 @@ def test_legacy_service_session_update_does_not_persist_password(tmp_path, monke
     payload = json.loads(raw)
     assert "password" not in payload["account"]
     assert "secret" not in raw
+
+
+def test_legacy_service_session_console_http_telemetry_is_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("PYICLOUD_HTTP_CONSOLE_TELEMETRY", raising=False)
+    settings = Settings.create(username="user@example.com", password="secret")
+
+    session = LegacyServiceSessionAdapter(settings=settings)
+    try:
+        assert session.event_hooks.get("response", []) == []
+        assert not isinstance(session._transport, ConsoleLogTransport)  # noqa: SLF001
+    finally:
+        session.close()
+
+
+def test_legacy_service_session_console_http_telemetry_can_be_enabled(monkeypatch):
+    monkeypatch.setenv("PYICLOUD_HTTP_CONSOLE_TELEMETRY", "true")
+    settings = Settings.create(username="user@example.com", password="secret")
+
+    session = LegacyServiceSessionAdapter(settings=settings)
+    try:
+        assert session.event_hooks.get("response"), "Console telemetry hook should be configured when enabled"
+        assert isinstance(session._transport, ConsoleLogTransport)  # noqa: SLF001
+    finally:
+        session.close()

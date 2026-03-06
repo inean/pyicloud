@@ -16,7 +16,7 @@ from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 
 # local deps
-from pyicloud.utils.mapping import deep_update
+from pyicloud.shared.kernel.mapping import deep_update
 
 
 class PathConfigDict(TypedDict):
