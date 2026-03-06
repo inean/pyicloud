@@ -43,6 +43,115 @@ def _clear_token() -> None:
         path.unlink()
 
 
+async def _send_request(
+    *,
+    api_url: str,
+    method: str,
+    route: str,
+    token: str | None = None,
+    json_body: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+    files: dict[str, Any] | None = None,
+) -> httpx.Response:
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    async with httpx.AsyncClient(base_url=api_url, timeout=30.0) as client:
+        return await client.request(
+            method,
+            route,
+            headers=headers,
+            json=json_body,
+            params=params,
+            files=files,
+        )
+
+
+def _error_payload(response: httpx.Response) -> tuple[str, dict[str, Any] | None]:
+    detail = response.text
+    error_payload: dict[str, Any] | None = None
+    try:
+        payload = response.json()
+        if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+            error_payload = dict(payload["error"])
+            detail = str(error_payload.get("message", payload))
+        else:
+            detail = str(payload.get("detail", payload))
+    except Exception:  # noqa: BLE001
+        pass
+    return detail, error_payload
+
+
+def _auth_challenge_details(response: httpx.Response) -> dict[str, Any] | None:
+    _, error_payload = _error_payload(response)
+    if not isinstance(error_payload, dict):
+        return None
+    if str(error_payload.get("code")) != "auth_challenge_required":
+        return None
+    details = error_payload.get("details")
+    if isinstance(details, dict):
+        return dict(details)
+    return None
+
+
+async def _request_json_data(
+    *,
+    api_url: str,
+    method: str,
+    route: str,
+    token: str | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> Any:
+    response = await _send_request(
+        api_url=api_url,
+        method=method,
+        route=route,
+        token=token,
+        json_body=json_body,
+    )
+    if response.status_code >= 400:
+        detail, _ = _error_payload(response)
+        raise click.ClickException(f"{response.status_code}: {detail}")
+    payload = response.json()
+    if isinstance(payload, dict) and "data" in payload:
+        return payload["data"]
+    return payload
+
+
+async def _complete_auth_challenge(*, api_url: str, challenge: dict[str, Any]) -> None:
+    username = str(challenge.get("account_id", "")).strip()
+    if not username:
+        username = click.prompt("Apple ID", type=str).strip()
+    password = click.prompt(f"Password for {username}", hide_input=True, type=str)
+    auth_result = await _request_json_data(
+        api_url=api_url,
+        method="POST",
+        route="/v1/auth/login",
+        json_body={"username": username, "password": password},
+    )
+    if isinstance(auth_result, dict) and auth_result.get("status") == "challenge_required":
+        challenge_id = str(auth_result.get("challenge_id", "")).strip()
+        if not challenge_id:
+            raise click.ClickException("Auth challenge response is missing challenge_id")
+        code = click.prompt("Security code", type=str).strip()
+        auth_result = await _request_json_data(
+            api_url=api_url,
+            method="POST",
+            route="/v1/auth/security-code",
+            json_body={
+                "challenge_id": challenge_id,
+                "code": code,
+                "password": password,
+                "username": username,
+            },
+        )
+    if not isinstance(auth_result, dict) or auth_result.get("status") != "authenticated":
+        raise click.ClickException("Authentication challenge was not completed successfully")
+    token = auth_result.get("access_token")
+    if token:
+        _save_token(str(token))
+
+
 async def _api_request(
     *,
     api_url: str,
@@ -52,32 +161,54 @@ async def _api_request(
     json_body: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
     files: dict[str, Any] | None = None,
+    allow_challenge_retry: bool = True,
 ) -> Any:
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    async with httpx.AsyncClient(base_url=api_url, timeout=30.0) as client:
-        response = await client.request(
-            method,
-            route,
-            headers=headers,
-            json=json_body,
-            params=params,
-            files=files,
-        )
+    response = await _send_request(
+        api_url=api_url,
+        method=method,
+        route=route,
+        token=token,
+        json_body=json_body,
+        params=params,
+        files=files,
+    )
 
     if response.status_code >= 400:
-        detail = response.text
-        try:
-            payload = response.json()
-            if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
-                error = payload["error"]
-                detail = str(error.get("message", payload))
-            else:
-                detail = str(payload.get("detail", payload))
-        except Exception:  # noqa: BLE001
-            pass
+        challenge = _auth_challenge_details(response)
+        if (
+            allow_challenge_retry
+            and challenge is not None
+            and not route.startswith("/v1/auth/")
+            and method.strip().upper() not in {"HEAD", "OPTIONS"}
+        ):
+            await _complete_auth_challenge(api_url=api_url, challenge=challenge)
+            refreshed_token = _load_token()
+            if not refreshed_token:
+                raise click.ClickException("Auth challenge completed but no local token was stored.")
+            if method.strip().upper() not in {"GET"}:
+                should_retry = click.confirm(
+                    "Authentication challenge completed. Retry previous mutating operation?",
+                    default=False,
+                )
+                if not should_retry:
+                    raise click.ClickException("Operation was not retried.")
+            response = await _send_request(
+                api_url=api_url,
+                method=method,
+                route=route,
+                token=refreshed_token,
+                json_body=json_body,
+                params=params,
+                files=files,
+            )
+            if response.status_code < 400:
+                if response.headers.get("content-type", "").startswith("application/json"):
+                    payload = response.json()
+                    if isinstance(payload, dict) and "data" in payload:
+                        return payload["data"]
+                    return payload
+                return response.content
+        detail, _ = _error_payload(response)
         raise click.ClickException(f"{response.status_code}: {detail}")
 
     if response.headers.get("content-type", "").startswith("application/json"):
