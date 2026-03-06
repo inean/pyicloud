@@ -8,13 +8,17 @@ from typing import Any
 
 import httpx
 
+from pyicloud.contexts.crosscutting.telemetry.adapters.console_http import (
+    ConsoleLogTransport,
+    ConsoleTelemetryHook,
+    console_http_telemetry_enabled,
+)
 from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import (
     get_upstream_probe,
     upstream_capture_body_max_bytes,
 )
 from pyicloud.exceptions import PyiCloudAPIResponseError
 from pyicloud.log import LOGGER
-from pyicloud.log.httpx import LoggerHook, LogTransport
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.paths import CookiesJar, SettingsFile
@@ -42,10 +46,21 @@ class LegacyServiceSessionAdapter(httpx.Client):
         error_callback: Callable[[str | int | None, str], None] | None = None,
         transport: httpx.BaseTransport | None = None,
     ):
+        telemetry_console_enabled = console_http_telemetry_enabled()
+        event_hooks = None
+        active_transport = transport
+
+        if telemetry_console_enabled:
+            if isinstance(transport, ConsoleLogTransport):
+                active_transport = transport
+            else:
+                active_transport = ConsoleLogTransport(transport=transport)
+            event_hooks = {"response": [ConsoleTelemetryHook.log_response_hook]}
+
         super().__init__(
             follow_redirects=True,
-            transport=transport or LogTransport(),
-            event_hooks={"response": [LoggerHook.log_response_hook]},
+            transport=active_transport,
+            event_hooks=event_hooks,
         )
         self._settings = settings
         self._auth_callback = auth_callback or (lambda *_args, **_kwargs: None)
