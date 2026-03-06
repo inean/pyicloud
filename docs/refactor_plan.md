@@ -1427,21 +1427,47 @@ Eliminate sync/async contract drift and align ports, adapters, and orchestration
 Reduce monolithic modules and replace dictionary-shaped cross-layer contracts with typed models.
 
 ### Checklist
-- [ ] Decompose API app module into:
-  - [ ] Composition/bootstrap wiring.
-  - [ ] Exception/response mapping.
-  - [ ] Domain routers.
-  - [ ] Dependency providers.
+- [x] Decompose API app module into:
+  - [x] Composition/bootstrap wiring.
+  - [x] Exception/response mapping.
+  - [x] Domain routers.
+  - [x] Dependency providers.
 - [ ] Decompose CLI module into command groups + shared transport/challenge middleware.
 - [ ] Introduce typed domain DTOs for high-traffic service contracts:
-  - [ ] devices/account/drive first.
+  - [x] devices/account/drive first.
   - [ ] then calendar/contacts/reminders/photos/ubiquity.
-- [ ] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
-- [ ] Add serializer/mapper tests for typed contract compatibility.
+- [x] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
+- [x] Add serializer/mapper tests for typed contract compatibility.
 
 ### Exit Criteria
 - [ ] `api` and `cli` entry modules are thin composition shells.
 - [ ] Critical ports no longer rely on unbounded dict contracts.
+
+### Handoff: Phase 25 - API/CLI Decomposition + Typed Contracts
+- Date: 2026-03-06
+- Status: In Progress
+- Summary:
+  - Decomposed API layer into explicit modules for dependencies, error mapping, response envelope helper, and domain routers for `auth/devices/account/drive`.
+  - Kept `create_app` focused on composition/middleware/router assembly while preserving `/v1` contracts.
+  - Added typed DTO contracts for high-traffic domains (`devices/account/drive`) and rewired port + adapter + core application signatures to these DTOs.
+  - Added mapper compatibility tests using `pydantic.TypeAdapter` against the new DTO contracts.
+- Files changed:
+  - `pyicloud/api/{app.py,dependencies.py,errors.py,responses.py}`
+  - `pyicloud/api/routers/{__init__.py,auth.py,devices.py,account.py,drive.py}`
+  - `pyicloud/domain/{__init__.py,service_contracts.py}`
+  - `pyicloud/ports/services.py`
+  - `pyicloud/adapters/services/{account.py,devices.py,drive.py}`
+  - `pyicloud/adapters/services/mappers/{account.py,devices.py,drive.py}`
+  - `pyicloud/application/core_services.py`
+  - `tests/unit/test_service_contract_dto_mappers.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api/test_auth_api.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_upstream_error_mapping.py tests/integration/test_api_contracts.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_service_contract_dto_mappers.py tests/unit/test_typed_service_clients.py tests/unit/test_legacy_core_services_adapter.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - CLI module (`pyicloud/cli/main.py`) remains monolithic and still requires decomposition of command groups plus shared transport/challenge middleware.
+  - Typed DTO rollout is complete for devices/account/drive but pending for calendar/contacts/reminders/photos/ubiquity.
+- Next recommended phase: Continue Phase 25 (CLI decomposition + remaining DTO rollout).
 
 ---
 
