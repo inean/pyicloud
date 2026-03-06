@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Sequence
 
+from pyicloud.domain import PhotoAlbumDTO, PhotoAssetDTO
 from pyicloud.ports import PhotosServicePort
 
 from .clients.common import Pagination
@@ -19,7 +19,7 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
     def _photos_client(self, *, username: str) -> PhotosClient:
         return LegacyPhotosClient(runtime=self._runtime, username=username)
 
-    async def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_albums(self, *, username: str) -> Sequence[PhotoAlbumDTO]:
         views = await self._run_blocking(lambda: self._photos_client(username=username).albums())
         return [map_photo_album(view) for view in views]
 
@@ -30,7 +30,7 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
         album: str = "All Photos",
         limit: int = 100,
         offset: int = 0,
-    ) -> Sequence[Mapping[str, Any]]:
+    ) -> Sequence[PhotoAssetDTO]:
         views = await self._run_blocking(
             lambda: self._photos_client(username=username).assets(
                 album=album,
@@ -39,7 +39,7 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
         )
         return [map_photo_asset(view) for view in views]
 
-    async def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+    async def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> PhotoAssetDTO:
         view = await self._run_blocking(
             lambda: self._photos_client(username=username).asset_metadata(asset_id=asset_id, album=album)
         )

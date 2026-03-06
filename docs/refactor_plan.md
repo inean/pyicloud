@@ -1427,21 +1427,48 @@ Eliminate sync/async contract drift and align ports, adapters, and orchestration
 Reduce monolithic modules and replace dictionary-shaped cross-layer contracts with typed models.
 
 ### Checklist
-- [ ] Decompose API app module into:
-  - [ ] Composition/bootstrap wiring.
-  - [ ] Exception/response mapping.
-  - [ ] Domain routers.
-  - [ ] Dependency providers.
-- [ ] Decompose CLI module into command groups + shared transport/challenge middleware.
-- [ ] Introduce typed domain DTOs for high-traffic service contracts:
-  - [ ] devices/account/drive first.
-  - [ ] then calendar/contacts/reminders/photos/ubiquity.
-- [ ] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
-- [ ] Add serializer/mapper tests for typed contract compatibility.
+- [x] Decompose API app module into:
+  - [x] Composition/bootstrap wiring.
+  - [x] Exception/response mapping.
+  - [x] Domain routers.
+  - [x] Dependency providers.
+- [x] Decompose CLI module into command groups + shared transport/challenge middleware.
+- [x] Introduce typed domain DTOs for high-traffic service contracts:
+  - [x] devices/account/drive first.
+  - [x] then calendar/contacts/reminders/photos/ubiquity.
+- [x] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
+- [x] Add serializer/mapper tests for typed contract compatibility.
 
 ### Exit Criteria
-- [ ] `api` and `cli` entry modules are thin composition shells.
-- [ ] Critical ports no longer rely on unbounded dict contracts.
+- [x] `api` and `cli` entry modules are thin composition shells.
+- [x] Critical ports no longer rely on unbounded dict contracts.
+
+### Handoff: Phase 25 - API/CLI Decomposition + Typed Contracts
+- Date: 2026-03-06
+- Status: Completed
+- Summary:
+  - Completed API decomposition by extracting remaining domain routers (`calendar/contacts/reminders/photos/ubiquity/observability`) and leaving `create_app` as composition + middleware + health wiring.
+  - Completed CLI decomposition by extracting remaining command groups (`calendar/contacts/reminders/photos/ubiquity/observability`) and centralizing transport/challenge retry middleware in `pyicloud/cli/transport.py`.
+  - Completed typed DTO rollout for `calendar/contacts/reminders/photos/ubiquity`, rewiring port signatures, adapters, mappers, and `CoreServicesApi` to typed contracts.
+  - Extended DTO mapper compatibility tests with `pydantic.TypeAdapter` coverage for all service domains.
+- Files changed:
+  - `pyicloud/api/{app.py,dependencies.py,errors.py,responses.py}`
+  - `pyicloud/api/routers/{__init__.py,auth.py,devices.py,account.py,drive.py,calendar.py,contacts.py,reminders.py,photos.py,ubiquity.py,observability.py}`
+  - `pyicloud/cli/{main.py,token_store.py,transport.py,commands/*}`
+  - `pyicloud/domain/{__init__.py,service_contracts.py}`
+  - `pyicloud/ports/services.py`
+  - `pyicloud/adapters/services/{account.py,devices.py,drive.py,calendar.py,contacts.py,reminders.py,photos.py,ubiquity.py}`
+  - `pyicloud/adapters/services/mappers/{account.py,devices.py,drive.py,calendar.py,contacts.py,reminders.py,photos.py,ubiquity.py}`
+  - `pyicloud/application/core_services.py`
+  - `tests/unit/test_service_contract_dto_mappers.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/cli`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_service_contract_dto_mappers.py tests/unit/test_service_mappers.py tests/unit/test_legacy_core_services_adapter.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest --no-cov -q tests/vertical/api`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - None for this phase; continue with architecture guardrails and runtime containment in phases 26/27.
+- Next recommended phase: Phase 26 (Architecture Guardrails + Quality Gate Hardening).
 
 ---
 

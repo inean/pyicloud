@@ -2,10 +2,24 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime
-from typing import Any
 
+from pyicloud.domain import (
+    AccountDeviceDTO,
+    AccountFamilyMemberDTO,
+    AccountStorageDTO,
+    CalendarDTO,
+    CalendarEventDetailDTO,
+    CalendarEventDTO,
+    ContactDTO,
+    DeviceRecordDTO,
+    DriveNodeDTO,
+    PhotoAlbumDTO,
+    PhotoAssetDTO,
+    ReminderListsDTO,
+    UbiquityNodeDTO,
+)
 from pyicloud.ports import (
     AccountServicePort,
     CalendarServicePort,
@@ -54,21 +68,21 @@ class CoreServicesApi:
         with bind_upstream_context(username=username, operation=operation, step=step):
             return await call()
 
-    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_devices(self, *, username: str) -> Sequence[DeviceRecordDTO]:
         return await self._run_with_operation(
             username=username,
             operation="devices.list",
             call=lambda: self._devices.list_devices(username=username),
         )
 
-    async def device_location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def device_location(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         return await self._run_with_operation(
             username=username,
             operation="devices.location",
             call=lambda: self._devices.location(username=username, device_id=device_id),
         )
 
-    async def device_status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def device_status(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         return await self._run_with_operation(
             username=username,
             operation="devices.status",
@@ -116,35 +130,35 @@ class CoreServicesApi:
             ),
         )
 
-    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_devices(self, *, username: str) -> Sequence[AccountDeviceDTO]:
         return await self._run_with_operation(
             username=username,
             operation="account.devices",
             call=lambda: self._accounts.account_devices(username=username),
         )
 
-    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_family(self, *, username: str) -> Sequence[AccountFamilyMemberDTO]:
         return await self._run_with_operation(
             username=username,
             operation="account.family",
             call=lambda: self._accounts.account_family(username=username),
         )
 
-    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
+    async def account_storage(self, *, username: str) -> AccountStorageDTO:
         return await self._run_with_operation(
             username=username,
             operation="account.storage",
             call=lambda: self._accounts.account_storage(username=username),
         )
 
-    async def drive_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def drive_tree(self, *, username: str, path: str) -> DriveNodeDTO:
         return await self._run_with_operation(
             username=username,
             operation="drive.tree",
             call=lambda: self._drive.tree(username=username, path=path),
         )
 
-    async def drive_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def drive_file_metadata(self, *, username: str, path: str) -> DriveNodeDTO:
         return await self._run_with_operation(
             username=username,
             operation="drive.file_metadata",
@@ -191,7 +205,7 @@ class CoreServicesApi:
             call=lambda: self._drive.delete_node(username=username, path=path),
         )
 
-    async def calendar_calendars(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def calendar_calendars(self, *, username: str) -> Sequence[CalendarDTO]:
         return await self._run_with_operation(
             username=username,
             operation="calendar.calendars",
@@ -204,14 +218,16 @@ class CoreServicesApi:
         username: str,
         from_dt: datetime | None = None,
         to_dt: datetime | None = None,
-    ) -> Sequence[Mapping[str, Any]]:
+    ) -> Sequence[CalendarEventDTO]:
         return await self._run_with_operation(
             username=username,
             operation="calendar.events",
             call=lambda: self._calendars.events(username=username, from_dt=from_dt, to_dt=to_dt),
         )
 
-    async def calendar_event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> Mapping[str, Any]:
+    async def calendar_event_detail(
+        self, *, username: str, calendar_guid: str, event_guid: str
+    ) -> CalendarEventDetailDTO:
         return await self._run_with_operation(
             username=username,
             operation="calendar.event_detail",
@@ -222,14 +238,14 @@ class CoreServicesApi:
             ),
         )
 
-    async def contacts_all(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def contacts_all(self, *, username: str) -> Sequence[ContactDTO]:
         return await self._run_with_operation(
             username=username,
             operation="contacts.all",
             call=lambda: self._contacts.all_contacts(username=username),
         )
 
-    async def reminders_lists(self, *, username: str) -> Mapping[str, Sequence[Mapping[str, Any]]]:
+    async def reminders_lists(self, *, username: str) -> ReminderListsDTO:
         return await self._run_with_operation(
             username=username,
             operation="reminders.lists",
@@ -257,7 +273,7 @@ class CoreServicesApi:
             ),
         )
 
-    async def photos_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def photos_albums(self, *, username: str) -> Sequence[PhotoAlbumDTO]:
         return await self._run_with_operation(
             username=username,
             operation="photos.albums",
@@ -271,16 +287,14 @@ class CoreServicesApi:
         album: str = "All Photos",
         limit: int = 100,
         offset: int = 0,
-    ) -> Sequence[Mapping[str, Any]]:
+    ) -> Sequence[PhotoAssetDTO]:
         return await self._run_with_operation(
             username=username,
             operation="photos.assets",
             call=lambda: self._photos.list_assets(username=username, album=album, limit=limit, offset=offset),
         )
 
-    async def photo_asset_metadata(
-        self, *, username: str, asset_id: str, album: str = "All Photos"
-    ) -> Mapping[str, Any]:
+    async def photo_asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> PhotoAssetDTO:
         return await self._run_with_operation(
             username=username,
             operation="photos.asset_metadata",
@@ -306,14 +320,14 @@ class CoreServicesApi:
             ),
         )
 
-    async def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_tree(self, *, username: str, path: str) -> UbiquityNodeDTO:
         return await self._run_with_operation(
             username=username,
             operation="ubiquity.tree",
             call=lambda: self._ubiquity.ubiquity_tree(username=username, path=path),
         )
 
-    async def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_file_metadata(self, *, username: str, path: str) -> UbiquityNodeDTO:
         return await self._run_with_operation(
             username=username,
             operation="ubiquity.file_metadata",

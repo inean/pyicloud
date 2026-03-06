@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.devices import DeviceLocationView, DeviceSnapshot, DeviceStatusView
+from pyicloud.domain import DeviceRecordDTO
 
 
-def map_device_snapshot(view: DeviceSnapshot) -> Mapping[str, Any]:
+def map_device_snapshot(view: DeviceSnapshot) -> DeviceRecordDTO:
     return dict(view.payload)
 
 
-def map_device_location(view: DeviceLocationView) -> Mapping[str, Any]:
+def map_device_location(view: DeviceLocationView) -> DeviceRecordDTO:
     return dict(view.payload)
 
 
-def map_device_status(view: DeviceStatusView) -> Mapping[str, Any]:
+def map_device_status(view: DeviceStatusView) -> DeviceRecordDTO:
     return {
         "id": view.device_id,
         "name": view.name,

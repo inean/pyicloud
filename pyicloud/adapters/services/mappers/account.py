@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.account import AccountDeviceView, AccountStorageView, FamilyMemberView
+from pyicloud.domain import AccountDeviceDTO, AccountFamilyMemberDTO, AccountStorageDTO
 
 
-def map_account_device(view: AccountDeviceView) -> Mapping[str, Any]:
+def map_account_device(view: AccountDeviceView) -> AccountDeviceDTO:
     return dict(view.payload)
 
 
-def map_account_family_member(view: FamilyMemberView) -> Mapping[str, Any]:
+def map_account_family_member(view: FamilyMemberView) -> AccountFamilyMemberDTO:
     return dict(view.payload)
 
 
-def map_account_storage(view: AccountStorageView) -> Mapping[str, Any]:
+def map_account_storage(view: AccountStorageView) -> AccountStorageDTO:
     return {
         "usage": {
             "comp_storage_in_bytes": view.usage.comp_storage_in_bytes,

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Sequence
 
+from pyicloud.domain import DeviceRecordDTO
 from pyicloud.ports import DeviceServicePort
 
 from .clients.devices import DevicesClient, LegacyDevicesClient
@@ -18,15 +18,15 @@ class DevicesServiceAdapter(LegacyServicesAdapterBase, DeviceServicePort):
     def _devices_client(self, *, username: str) -> DevicesClient:
         return LegacyDevicesClient(runtime=self._runtime, username=username)
 
-    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_devices(self, *, username: str) -> Sequence[DeviceRecordDTO]:
         snapshots = await self._run_blocking(lambda: self._devices_client(username=username).list_devices())
         return [map_device_snapshot(view) for view in snapshots]
 
-    async def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def location(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         view = await self._run_blocking(lambda: self._devices_client(username=username).location(device_id=device_id))
         return map_device_location(view)
 
-    async def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def status(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         view = await self._run_blocking(lambda: self._devices_client(username=username).status(device_id=device_id))
         return map_device_status(view)
 

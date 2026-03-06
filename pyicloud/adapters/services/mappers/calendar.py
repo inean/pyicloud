@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.calendar import CalendarEventDetailView, CalendarEventView, CalendarView
+from pyicloud.domain import CalendarDTO, CalendarEventDetailDTO, CalendarEventDTO
 
 
-def map_calendar(view: CalendarView) -> Mapping[str, Any]:
+def map_calendar(view: CalendarView) -> CalendarDTO:
     return dict(view.payload)
 
 
-def map_calendar_event(view: CalendarEventView) -> Mapping[str, Any]:
+def map_calendar_event(view: CalendarEventView) -> CalendarEventDTO:
     return dict(view.payload)
 
 
-def map_calendar_event_detail(view: CalendarEventDetailView) -> Mapping[str, Any]:
+def map_calendar_event_detail(view: CalendarEventDetailView) -> CalendarEventDetailDTO:
     return dict(view.payload)
