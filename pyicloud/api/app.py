@@ -308,7 +308,11 @@ def create_app(
         service: AuthApiService = Depends(get_auth_service),
     ) -> DataEnvelope:
         try:
-            result = await service.login(username=payload.username, password=payload.password)
+            result = await service.login(
+                username=payload.username,
+                password=payload.password,
+                flow_id=payload.flow_id,
+            )
         except InvalidCredentials as err:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
         return _ok(AuthLoginResponse.model_validate(result))

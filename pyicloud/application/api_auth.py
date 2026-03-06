@@ -149,9 +149,9 @@ class AuthApiService:
     def _revocation_key(*, username: str, token_id: str) -> str:
         return f"{username}:{token_id}"
 
-    async def login(self, *, username: str, password: str) -> dict[str, Any]:
+    async def login(self, *, username: str, password: str, flow_id: str | None = None) -> dict[str, Any]:
         auth_service = self._auth_service_factory(username, password)
-        flow_id = str(uuid4())
+        flow_id = (flow_id or "").strip() or str(uuid4())
         request = AuthFlowRequest(
             refresh_signin=True,
             security_code=None,

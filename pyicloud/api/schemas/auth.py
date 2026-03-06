@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 class AuthLoginRequest(BaseModel):
     username: str = Field(min_length=3)
     password: str = Field(min_length=1)
+    flow_id: str | None = Field(default=None, min_length=1)
 
 
 class AuthSecurityCodeRequest(BaseModel):
