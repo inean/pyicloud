@@ -1,6 +1,12 @@
 """Pydantic schemas used by FastAPI route handlers."""
 
 from .account import AccountStorageResponse
+from .admin import (
+    AllowlistEntryResponse,
+    AllowlistListResponse,
+    AllowlistRoleRequest,
+    AllowlistUpsertRequest,
+)
 from .auth import (
     AuthLoginRequest,
     AuthLoginResponse,
@@ -17,6 +23,10 @@ from .reminders import ReminderCreateRequest
 
 __all__ = [
     "AccountStorageResponse",
+    "AllowlistEntryResponse",
+    "AllowlistListResponse",
+    "AllowlistRoleRequest",
+    "AllowlistUpsertRequest",
     "AuthLoginRequest",
     "AuthLoginResponse",
     "AuthSecurityCodeRequest",

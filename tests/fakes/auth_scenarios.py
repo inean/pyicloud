@@ -13,6 +13,7 @@ from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.auth_session import AuthSessionService
 from pyicloud.application.core_services import CoreServicesApi
+from pyicloud.ports import AccessControlQueryPort
 
 SCENARIO_BY_USERNAME = {
     "success@example.com": "success",
@@ -735,7 +736,12 @@ class _DeterministicCoreServices(CoreServicesApi):
         return None
 
 
-def build_fake_auth_api_service(tmp_path: Path) -> AuthApiService:
+def build_fake_auth_api_service(
+    tmp_path: Path,
+    *,
+    access_query: AccessControlQueryPort | None = None,
+    enforce_allowlist: bool = False,
+) -> AuthApiService:
     session_store = InMemoryApiSessionStore()
     signer = JwtTokenSigner(secret="test-secret-at-least-thirty-two-bytes")
 
@@ -750,6 +756,8 @@ def build_fake_auth_api_service(tmp_path: Path) -> AuthApiService:
         session_query=session_store,
         session_command=session_store,
         auth_service_factory=auth_service_factory,
+        access_query=access_query,
+        enforce_allowlist=enforce_allowlist,
         token_ttl_seconds=3600,
         challenge_ttl_seconds=300,
     )

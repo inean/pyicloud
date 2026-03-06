@@ -16,6 +16,7 @@ from pyicloud.exceptions import PyiCloudAPIResponseError
 def _error_code(status_code: int) -> str:
     mapping = {
         status.HTTP_401_UNAUTHORIZED: "unauthorized",
+        status.HTTP_403_FORBIDDEN: "forbidden",
         status.HTTP_404_NOT_FOUND: "not_found",
         status.HTTP_410_GONE: "expired",
         status.HTTP_422_UNPROCESSABLE_CONTENT: "validation_error",

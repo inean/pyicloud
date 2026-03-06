@@ -33,7 +33,7 @@
   - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
 - In Progress:
-  - Phase 29 Access Control Plane (Whitelist + Admin)
+  - None
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -67,6 +67,7 @@
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
   - Phase 28 Credential Custody Hardening
+  - Phase 29 Access Control Plane (Whitelist + Admin)
 - Blocked:
   - None
 
@@ -1684,18 +1685,66 @@ Ensure backend handles Apple password only in memory, never at rest, while enabl
 Prevent arbitrary Apple accounts from using backend by enforcing admin-managed allowlist policies.
 
 ### Checklist
-- [ ] Introduce allowlist/admin domain model:
-  - [ ] fields include `username`, `roles`, `status`, `created_by`, timestamps.
-- [ ] Add persistence adapter for access-control state.
-- [ ] Enforce allowlist gate before auth flow starts.
-- [ ] Add bootstrap-admin mechanism for first setup in non-dev environments.
-- [ ] Add admin API for allowlist management:
-  - [ ] list/add/remove/promote/demote.
-- [ ] Add role-aware JWT claim issuance/validation (`role`, `acl_version`) and stale-ACL invalidation behavior.
+- [x] Introduce allowlist/admin domain model:
+  - [x] fields include `username`, `roles`, `status`, `created_by`, timestamps.
+- [x] Add persistence adapter for access-control state.
+- [x] Enforce allowlist gate before auth flow starts.
+- [x] Add bootstrap-admin mechanism for first setup in non-dev environments.
+- [x] Add admin API for allowlist management:
+  - [x] list/add/remove/promote/demote.
+- [x] Add role-aware JWT claim issuance/validation (`role`, `acl_version`) and stale-ACL invalidation behavior.
 
 ### Exit Criteria
 - Unauthorized Apple accounts are rejected with `403` before auth/challenge execution.
 - Admin can manage allowlist lifecycle without direct file edits.
+
+### Handoff: Phase 29 - Access Control Plane (Whitelist + Admin)
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added a dedicated access-control domain model and ports with `memory`/`file` adapters for allowlist/admin state.
+  - Enforced allowlist gates before auth execution in strict environments and added bootstrap-admin setup for non-dev runtime initialization.
+  - Extended JWT ACL context with `role` and `acl_version`, including stale-ACL token invalidation in session validation.
+  - Added admin management endpoints (`list/add/remove/role`) protected by admin-role authorization with last-admin guards.
+- Files changed:
+  - `pyicloud/domain/api_models.py`
+  - `pyicloud/domain/api_errors.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/ports/access_control.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyicloud/adapters/access/__init__.py`
+  - `pyicloud/adapters/access/in_memory_access_control.py`
+  - `pyicloud/adapters/access/file_access_control.py`
+  - `pyicloud/application/access_control.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/dependencies.py`
+  - `pyicloud/api/errors.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/routers/admin.py`
+  - `pyicloud/api/routers/__init__.py`
+  - `pyicloud/api/schemas/admin.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/unit/test_access_control_store.py`
+  - `tests/unit/test_access_control_api_service.py`
+  - `tests/unit/test_api_auth_access_control.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/vertical/api/test_admin_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_access_control_store.py tests/unit/test_access_control_api_service.py tests/unit/test_api_app_auth_config.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_auth_service.py tests/unit/test_api_auth_access_control.py tests/vertical/api/test_auth_api.py tests/integration/test_api_contracts.py`
+  - `uv run pytest -q -o addopts='' tests/vertical/api/test_admin_api.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_devices_api.py tests/integration/test_challenge_contract_gate.py`
+  - `uv run pytest -q -o addopts='' tests/vertical/api`
+  - `uv run pytest -q -o addopts='' tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py tests/integration/test_challenge_contract_gate.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_access_control_store.py tests/unit/test_access_control_api_service.py tests/unit/test_api_auth_access_control.py tests/unit/test_api_auth_service.py tests/unit/test_api_app_auth_config.py`
+- Risks / TBD:
+  - Default `memory` ACL backend remains acceptable only for dev/local; production-grade distributed consistency requirements stay deferred to upcoming phases.
+  - Legacy `/v1/auth/login` and `/v1/auth/security-code` remain active and must be migrated to unified challenge endpoint in Phase 30.
+- Next recommended phase: Phase 30 Unified Auth Challenge Endpoint.
 
 ---
 
@@ -1784,5 +1833,5 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 29: Access Control Plane (Whitelist + Admin).
+# Continue with Phase 30: Unified Auth Challenge Endpoint.
 ```

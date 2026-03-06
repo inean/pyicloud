@@ -27,6 +27,14 @@ class Unauthorized(ApiDomainError):
     """Raised when bearer token validation fails."""
 
 
+class Forbidden(ApiDomainError):
+    """Raised when an authenticated actor is not allowed to perform an action."""
+
+
+class Conflict(ApiDomainError):
+    """Raised when a requested state transition violates domain invariants."""
+
+
 class BackendUnavailable(ApiDomainError):
     """Raised when an observability backend is unavailable or unconfigured."""
 

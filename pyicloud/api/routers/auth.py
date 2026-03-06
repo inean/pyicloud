@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from pyicloud.application.api_auth import AuthApiService
-from pyicloud.domain import ChallengeExpired, InvalidCredentials, InvalidSecurityCode, Unauthorized
+from pyicloud.domain import ChallengeExpired, Forbidden, InvalidCredentials, InvalidSecurityCode, Unauthorized
 
 from ..dependencies import extract_token, get_auth_service
 from ..responses import ok
@@ -34,6 +34,8 @@ async def auth_login(
         )
     except InvalidCredentials as err:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
+    except Forbidden as err:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     return ok(AuthLoginResponse.model_validate(result))
 
 
@@ -55,6 +57,8 @@ async def auth_security_code(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
     except InvalidCredentials as err:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
+    except Forbidden as err:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     return ok(AuthLoginResponse.model_validate(result))
 
 
