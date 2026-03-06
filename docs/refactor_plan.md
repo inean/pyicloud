@@ -28,13 +28,12 @@
 
 ## Phase Board
 - Planned:
-  - Phase 23 Layer Boundary Purification (Hexagonal)
   - Phase 24 Async Port/Adapter Contract Convergence
   - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
 - In Progress:
-  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
+  - Phase 23 Layer Boundary Purification (Hexagonal)
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -61,6 +60,7 @@
   - Phase 19 Release Readiness + Sunset Gate
   - Phase 20 Exhaustive Runtime Instrumentation (Optional Expansion)
   - Phase 21 Challenge-Driven API + Credential Hygiene
+  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
 - Blocked:
   - None
 
@@ -1287,27 +1287,47 @@ Implement the locked challenge-driven behavior: client tries normal operation fi
 Make CLI behavior truly challenge-driven and ergonomic: operation-first execution with backend challenge handling and controlled retry.
 
 ### Checklist
-- [ ] Add CLI challenge interceptor for protected commands:
-  - [ ] Attempt requested operation first.
-  - [ ] If response is `auth_challenge_required`, run challenge completion flow.
-  - [ ] Retry original operation once challenge is completed.
-- [ ] Define retry policy by command safety:
-  - [ ] Auto-retry for idempotent reads (`list`, `get`, `tree`, etc.).
-  - [ ] Explicit confirmation/flag for non-idempotent mutations where needed.
-- [ ] Keep transport model HTTP-first:
-  - [ ] CLI never talks to Apple directly.
-  - [ ] All challenge steps go through `/v1/auth/*`.
-- [ ] Improve UX and telemetry:
-  - [ ] Clear challenge prompts and progress states.
-  - [ ] Correlate original operation and challenge flow by one `flow_id`.
-- [ ] Add deterministic vertical tests:
-  - [ ] `icloud devices list` -> challenge -> success.
-  - [ ] `icloud drive tree` -> challenge -> success.
-  - [ ] Mutation command challenge behavior according to safety policy.
+- [x] Add CLI challenge interceptor for protected commands:
+  - [x] Attempt requested operation first.
+  - [x] If response is `auth_challenge_required`, run challenge completion flow.
+  - [x] Retry original operation once challenge is completed.
+- [x] Define retry policy by command safety:
+  - [x] Auto-retry for idempotent reads (`list`, `get`, `tree`, etc.).
+  - [x] Explicit confirmation/flag for non-idempotent mutations where needed.
+- [x] Keep transport model HTTP-first:
+  - [x] CLI never talks to Apple directly.
+  - [x] All challenge steps go through `/v1/auth/*`.
+- [x] Improve UX and telemetry:
+  - [x] Clear challenge prompts and progress states.
+  - [x] Correlate original operation and challenge flow by one `flow_id`.
+- [x] Add deterministic vertical tests:
+  - [x] `icloud devices list` -> challenge -> success.
+  - [x] `icloud drive tree` -> challenge -> success.
+  - [x] Mutation command challenge behavior according to safety policy.
 
 ### Exit Criteria
-- [ ] CLI users can recover expired sessions without manually restarting full login flow.
-- [ ] Challenge flow is deterministic and covered in vertical tests.
+- [x] CLI users can recover expired sessions without manually restarting full login flow.
+- [x] Challenge flow is deterministic and covered in vertical tests.
+
+### Handoff: Phase 22 - Challenge Execution Flow + CLI Auto-Retry
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added CLI-side challenge interceptor that detects `auth_challenge_required`, executes backend-mediated auth completion, and retries the original command.
+  - Implemented retry safety policy: automatic retry for read operations and explicit confirmation before retrying mutating operations.
+  - Propagated challenge `flow_id` into login completion to keep operation/challenge correlation in backend telemetry context.
+- Files changed:
+  - `pyicloud/cli/main.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/app.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/vertical/cli/test_auth_cli.py tests/vertical/api/test_auth_api.py tests/unit/test_api_auth_service.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Architectural boundary purification (application/import directions) remains pending in Phase 23.
+- Next recommended phase: Phase 23 Layer Boundary Purification (Hexagonal).
 
 ---
 
@@ -1419,5 +1439,5 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 21, then 22/23/24/25/26/27.
+# Continue Phase 23, then 24/25/26/27.
 ```
