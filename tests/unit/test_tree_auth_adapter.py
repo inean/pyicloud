@@ -73,6 +73,22 @@ class FakeSetupModel:
         return self.session_validate_response
 
 
+class FakeSetupModelWithRuntimeLifecycle(FakeSetupModel):
+    def __init__(self, **kwargs):  # noqa: ANN003
+        super().__init__(**kwargs)
+        self.runtime_port = None
+        self.runtime_initialized_calls = 0
+
+    def has_runtime_port(self) -> bool:
+        return self.runtime_port is not None
+
+    def set_runtime_port(self, runtime_port) -> None:  # noqa: ANN001
+        self.runtime_port = runtime_port
+
+    def ensure_runtime_initialized(self) -> None:
+        self.runtime_initialized_calls += 1
+
+
 @pytest.mark.asyncio
 async def test_signin_reports_security_code_requirement():
     setup = FakeSetupModel(requires_security_code=True)
@@ -110,3 +126,12 @@ async def test_session_validate_extracts_mapping_payload():
     payload = await adapter.session_validate()
 
     assert payload["webservices"]["findme"]["status"] == "active"
+
+
+def test_adapter_bootstraps_runtime_lifecycle_when_available():
+    setup = FakeSetupModelWithRuntimeLifecycle()
+
+    TreeAuthSessionAdapter(setup_model=setup)  # type: ignore[arg-type]
+
+    assert setup.runtime_port is not None
+    assert setup.runtime_initialized_calls == 1

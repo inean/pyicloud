@@ -9,6 +9,7 @@ from .context import (
     inject_flow_into_payload,
 )
 from .events import build_error_event, build_request_event, build_response_event, hydrate_from_context, snapshot_context
+from .runtime import get_upstream_probe, upstream_capture_body_max_bytes
 
 __all__ = [
     "bind_upstream_context",
@@ -19,7 +20,9 @@ __all__ = [
     "current_flow_id",
     "current_upstream_context",
     "ensure_upstream_context",
+    "get_upstream_probe",
     "hydrate_from_context",
     "inject_flow_into_payload",
     "snapshot_context",
+    "upstream_capture_body_max_bytes",
 ]

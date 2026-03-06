@@ -24,6 +24,7 @@ from .services import (
     UbiquityServicePort,
 )
 from .session import SessionCommandPort, SessionQueryPort, TokenSignerPort
+from .tree_runtime import TreeRuntimeLifecyclePort
 from .upstream_probe import (
     UpstreamErrorEvent,
     UpstreamRequestEvent,
@@ -56,6 +57,7 @@ __all__ = [
     "SuspendedOperationCommandPort",
     "SuspendedOperationQueryPort",
     "TokenSignerPort",
+    "TreeRuntimeLifecyclePort",
     "TraceQLQueryPort",
     "UbiquityServicePort",
     "UpstreamErrorEvent",

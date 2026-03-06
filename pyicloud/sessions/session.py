@@ -24,15 +24,9 @@ from pyicloud.models.fields import (
     XAppleWebKBType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
-from pyicloud.sessions import (
-    BaseRequest,
-    BaseResponse,
-    DynamicEndpoint,
-    OAuthTransport,
-    RequestConfig,
-    ResponseConfig,
-    serialize,
-)
+from pyicloud.sessions._contracts import BaseRequest, BaseResponse, DynamicEndpoint, RequestConfig, ResponseConfig
+from pyicloud.sessions._serialize import serialize
+from pyicloud.sessions._transport import OAuthTransport
 
 
 class SessionHeaders(OAuthHeadersModel):

@@ -34,13 +34,9 @@ from pyicloud.models.fields import (
     UsernameType,
 )
 from pyicloud.models.headers import HeadersModel, OAuthHeadersModel
-from pyicloud.sessions import (
-    BaseRequest,
-    BaseResponse,
-    OAuthTransport,
-    StaticEndpoint,
-    serialize,
-)
+from pyicloud.sessions._contracts import BaseRequest, BaseResponse, StaticEndpoint
+from pyicloud.sessions._serialize import serialize
+from pyicloud.sessions._transport import OAuthTransport
 
 
 class _SrpPassword:

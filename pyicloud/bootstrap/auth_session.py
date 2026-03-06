@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from pyicloud.adapters.auth import TreeAuthSessionAdapter
+from pyicloud.adapters.auth_state_reset import CookieAuthStateResetPolicy
 from pyicloud.adapters.store import FileSessionStoreAdapter
+from pyicloud.adapters.tree_runtime import FileBackedTreeRuntimeAdapter
 from pyicloud.application import AuthSessionService
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
@@ -35,6 +37,9 @@ def build_auth_session_service(
         store_dir: Optional root directory for the file session store.
         setup_model_cls: Setup tree implementation, defaults to SetupModelTree.
     """
+    if auth_reset_policy is None:
+        auth_reset_policy = CookieAuthStateResetPolicy()
+
     setup_model = setup_model_cls(
         settings=settings,
         cookies=cookies,
@@ -42,6 +47,9 @@ def build_auth_session_service(
         hooks=hooks,
         context=context,
     )
+    runtime_configurator = getattr(setup_model, "set_runtime_port", None)
+    if callable(runtime_configurator):
+        runtime_configurator(FileBackedTreeRuntimeAdapter())
     auth_adapter = TreeAuthSessionAdapter(setup_model=setup_model)
     store_adapter = FileSessionStoreAdapter(root_dir=store_dir)
     return AuthSessionService(auth=auth_adapter, store=store_adapter)

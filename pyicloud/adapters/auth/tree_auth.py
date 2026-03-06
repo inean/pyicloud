@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from pyicloud.adapters.tree_runtime import FileBackedTreeRuntimeAdapter
 from pyicloud.domain import SecurityCodeRequired
 from pyicloud.ports import AuthSessionPort
-from pyicloud.sessions import BaseResponse
+from pyicloud.sessions._contracts import BaseResponse
 from pyicloud.trees.setup import SetupModelTree
 
 
@@ -16,6 +17,34 @@ class TreeAuthSessionAdapter(AuthSessionPort):
 
     def __init__(self, setup_model: SetupModelTree):
         self._setup = setup_model
+        self._ensure_runtime_initialized()
+
+    def _ensure_runtime_initialized(self) -> None:
+        has_runtime_port = getattr(self._setup, "has_runtime_port", None)
+        set_runtime_port = getattr(self._setup, "set_runtime_port", None)
+        ensure_runtime_initialized = getattr(self._setup, "ensure_runtime_initialized", None)
+
+        if not callable(ensure_runtime_initialized):
+            return
+
+        injected_fallback_runtime = False
+        if callable(has_runtime_port) and callable(set_runtime_port) and not has_runtime_port():
+            set_runtime_port(FileBackedTreeRuntimeAdapter())
+            injected_fallback_runtime = True
+
+        preserved_password = getattr(self._setup, "password", None) if injected_fallback_runtime else None
+        ensure_runtime_initialized()
+        if injected_fallback_runtime and preserved_password:
+            try:
+                self._setup.password = preserved_password
+            except Exception:
+                # Best-effort compatibility path for loosely typed setup fakes.
+                pass
+
+    def close(self) -> None:
+        teardown_runtime = getattr(self._setup, "teardown_runtime", None)
+        if callable(teardown_runtime):
+            teardown_runtime()
 
     @staticmethod
     def _raise_for_error(response: BaseResponse, fallback: str) -> None:

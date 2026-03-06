@@ -25,14 +25,10 @@ from pyicloud.models.fields import (
     SessionTokenType,
     SiteCookieType,
 )
-from pyicloud.sessions import (
-    BaseRequest,
-    BaseResponse,
-    StaticEndpoint,
-    OAuthTransport,
-    serialize,
-)
 from pyicloud.models.headers import OAuthHeadersModel
+from pyicloud.sessions._contracts import BaseRequest, BaseResponse, StaticEndpoint
+from pyicloud.sessions._serialize import serialize
+from pyicloud.sessions._transport import OAuthTransport
 
 
 ##

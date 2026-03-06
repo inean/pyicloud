@@ -62,6 +62,31 @@ class FakeSetupModel:
         return FakeResponse(True, body=SimpleNamespace(model_dump=lambda **_: payload))
 
 
+class FakeSetupModelWithRuntimeLifecycle(FakeSetupModel):
+    last_instance: FakeSetupModelWithRuntimeLifecycle | None = None
+
+    def __init__(self, *, settings, cookies, hooks, context, auth_reset_policy=None):
+        super().__init__(
+            settings=settings,
+            cookies=cookies,
+            hooks=hooks,
+            context=context,
+            auth_reset_policy=auth_reset_policy,
+        )
+        self.runtime_port = None
+        self.runtime_initialized_calls = 0
+        type(self).last_instance = self
+
+    def set_runtime_port(self, runtime_port) -> None:  # noqa: ANN001
+        self.runtime_port = runtime_port
+
+    def has_runtime_port(self) -> bool:
+        return self.runtime_port is not None
+
+    def ensure_runtime_initialized(self) -> None:
+        self.runtime_initialized_calls += 1
+
+
 @pytest.mark.asyncio
 async def test_build_auth_session_service_persists_payload(tmp_path: Path):
     settings = Settings.create(username="user@example.com", password="secret")
@@ -80,3 +105,22 @@ async def test_build_auth_session_service_persists_payload(tmp_path: Path):
     assert session_file.exists()
     payload = json.loads(session_file.read_text(encoding="utf-8"))
     assert payload["webservices"]["findme"]["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_build_auth_session_service_injects_runtime_port(tmp_path: Path):
+    settings = Settings.create(username="runtime@example.com", password="secret")
+    hooks = DummyHooks()
+    service = build_auth_session_service(
+        settings=settings,
+        hooks=hooks,
+        store_dir=tmp_path,
+        setup_model_cls=FakeSetupModelWithRuntimeLifecycle,  # type: ignore[arg-type]
+    )
+
+    await service.run("runtime@example.com", AuthFlowRequest())
+
+    instance = FakeSetupModelWithRuntimeLifecycle.last_instance
+    assert instance is not None
+    assert instance.runtime_port is not None
+    assert instance.runtime_initialized_calls == 1

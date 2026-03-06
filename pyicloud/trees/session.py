@@ -9,7 +9,7 @@ from typing import Any, cast, override
 from pyicloud.log import LOGGER
 from pyicloud.models.fields import MorselModel
 from pyicloud.ports import AuthStateResetPolicy
-from pyicloud.sessions import BaseResponse
+from pyicloud.sessions._contracts import BaseResponse
 from pyicloud.sessions.validate import Validate, ValidateRequestCookies
 from pyicloud.trees import BehaveTree, Tree, TreeState, TreeTransitionExtra, blackboard
 
