@@ -1,6 +1,6 @@
-"""Compatibility shim for telemetry probe ports moved to semantic contexts."""
+"""Telemetry write-side contracts."""
 
-from pyicloud.contexts.crosscutting.telemetry.contracts.upstream_probe import (
+from .upstream_probe import (
     UpstreamErrorEvent,
     UpstreamRequestEvent,
     UpstreamResponseEvent,

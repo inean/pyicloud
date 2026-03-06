@@ -1,6 +1,6 @@
-"""Compatibility shim for observability query ports moved to semantic contexts."""
+"""Observability query contracts."""
 
-from pyicloud.contexts.crosscutting.observability.contracts.observability import (
+from .observability import (
     LogQLQueryPort,
     ObservabilityInstantQueryRequest,
     ObservabilityLanguage,

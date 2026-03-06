@@ -1,0 +1,1 @@
+"""Crosscutting bounded contexts root."""

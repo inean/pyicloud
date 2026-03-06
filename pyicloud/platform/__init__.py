@@ -1,0 +1,1 @@
+"""Technical platform infrastructure root."""

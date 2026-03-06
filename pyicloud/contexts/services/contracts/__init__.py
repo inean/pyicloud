@@ -1,6 +1,6 @@
-"""Compatibility shim for service ports moved to semantic contexts."""
+"""Service-context outbound contracts."""
 
-from pyicloud.contexts.services.contracts.services import (
+from .services import (
     AccountServicePort,
     CalendarServicePort,
     ContactsServicePort,

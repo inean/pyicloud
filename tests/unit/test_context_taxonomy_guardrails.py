@@ -20,6 +20,7 @@ LOCKED_SERVICE_CONTEXTS = {
     "ubiquity",
 }
 LOCKED_CROSSCUTTING_CONTEXTS = {"auth", "telemetry", "observability"}
+ALLOWED_CONTEXT_INFRA_DIRS = {"contracts"}
 STRICT_INWARD_POLICY = {
     "core": {"core"},
     "services": {"services", "core", "crosscutting"},
@@ -53,8 +54,9 @@ def test_services_context_catalog_matches_locked_taxonomy() -> None:
     if not services_root.exists():
         return
     names = _child_dir_names(services_root)
-    unexpected = sorted(names - LOCKED_SERVICE_CONTEXTS)
-    invalid_names = sorted(name for name in names if SNAKE_CASE_PATTERN.fullmatch(name) is None)
+    context_names = names - ALLOWED_CONTEXT_INFRA_DIRS
+    unexpected = sorted(context_names - LOCKED_SERVICE_CONTEXTS)
+    invalid_names = sorted(name for name in context_names if SNAKE_CASE_PATTERN.fullmatch(name) is None)
     assert unexpected == [], f"Unexpected services contexts found: {unexpected}"
     assert invalid_names == [], f"Invalid services context names (must be snake_case): {invalid_names}"
 
