@@ -537,13 +537,24 @@ Extraer infraestructura técnica transversal y eliminar rutas legacy activas.
 Cero rutas de ejecución activas hacia paquetes legacy retirados.
 
 ### Handoff: Phase 40 - Platform Extraction + Legacy Deletion
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: In Progress
 - Summary:
+  - Extracted upstream telemetry infrastructure from `pyicloud/upstream/*` into `pyicloud/platform/telemetry/upstream/*`.
+  - Converted `pyicloud/upstream/*` modules into compatibility shims that re-export platform implementations.
+  - Added migration tests asserting shim identity and active transport path resolution against platform modules.
 - Files changed:
+  - `pyicloud/platform/telemetry/*`
+  - `pyicloud/platform/telemetry/upstream/*`
+  - `pyicloud/upstream/*`
+  - `tests/unit/test_platform_upstream_migration.py`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_upstream_migration.py tests/unit/test_upstream_probe_classification.py tests/unit/test_upstream_probe_sanitize.py tests/unit/test_upstream_probe_context.py tests/unit/test_upstream_probe_runtime.py tests/integration/test_upstream_flow_sequence.py`
 - Risks / TBD:
+  - Provider runtime and storage infrastructure remain in legacy adapter locations and still need extraction to `platform/*`.
+  - Active path still imports legacy `pyicloud.upstream` package name (now shim); direct imports can be switched to `pyicloud.platform.telemetry.upstream` in a follow-up slice.
 - Next recommended phase:
+  - Continue Phase 40 with provider runtime/storage extraction and legacy active-path deletion.
 
 ---
 
