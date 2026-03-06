@@ -28,10 +28,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
 - In Progress:
-  - Phase 25 API/CLI Decomposition + Typed Contracts
+  - Phase 27 Provider Runtime Containment / Async Migration
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -61,6 +60,8 @@
   - Phase 22 Challenge Execution Flow + CLI Auto-Retry
   - Phase 23 Layer Boundary Purification (Hexagonal)
   - Phase 24 Async Port/Adapter Contract Convergence
+  - Phase 25 API/CLI Decomposition + Typed Contracts
+  - Phase 26 Architecture Guardrails + Quality Gate Hardening
 - Blocked:
   - None
 
@@ -1477,20 +1478,49 @@ Reduce monolithic modules and replace dictionary-shaped cross-layer contracts wi
 Turn architecture expectations into enforceable automated checks and close current gate blind spots.
 
 ### Checklist
-- [ ] Add architecture test suite (forbidden imports + layer map assertions).
-- [ ] Add challenge-driven contract tests as non-optional gate.
-- [ ] Tighten static quality gates incrementally:
-  - [ ] Remove/ratchet lint exclusions around migrated service runtime files.
-  - [ ] Raise mypy coverage in adapters/services integration surface.
-  - [ ] Expand coverage targets to challenge and adapter runtime hotspots.
-- [ ] Add CI ratchet rules to prevent reintroduction of:
-  - [ ] plaintext credential persistence.
-  - [ ] legacy alias exports.
-  - [ ] sync adapter implementations for async ports.
+- [x] Add architecture test suite (forbidden imports + layer map assertions).
+- [x] Add challenge-driven contract tests as non-optional gate.
+- [x] Tighten static quality gates incrementally:
+  - [x] Remove/ratchet lint exclusions around migrated service runtime files.
+  - [x] Raise mypy coverage in adapters/services integration surface.
+  - [x] Expand coverage targets to challenge and adapter runtime hotspots.
+- [x] Add CI ratchet rules to prevent reintroduction of:
+  - [x] plaintext credential persistence.
+  - [x] legacy alias exports.
+  - [x] sync adapter implementations for async ports.
 
 ### Exit Criteria
-- [ ] CI blocks architecture regressions by default.
-- [ ] Quality gates reflect real risk areas (not only easy surfaces).
+- [x] CI blocks architecture regressions by default.
+- [x] Quality gates reflect real risk areas (not only easy surfaces).
+
+### Handoff: Phase 26 - Architecture Guardrails + Quality Gate Hardening
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Expanded architecture guardrails with a layer-map matrix test and managed-layer assertions in `tests/unit/test_hexagonal_import_boundaries.py`.
+  - Added non-optional challenge contract coverage across all protected service domains via `tests/integration/test_challenge_contract_gate.py` and wired explicit gate execution in CI (`unittests.yml`).
+  - Added ratchet test for legacy alias exports (`tests/unit/test_legacy_alias_export_ratchet.py`) and explicit CI ratchet execution for credential persistence and async-port conformance.
+  - Tightened hotspot quality gates with focused mypy enforcement (`--follow-imports=skip` on runtime/challenge modules) and a dedicated challenge/runtime coverage gate (`--cov-fail-under=82`) in `Makefile` and `coverage.yml`.
+- Files changed:
+  - `tests/unit/test_hexagonal_import_boundaries.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `tests/unit/test_legacy_alias_export_ratchet.py`
+  - `.github/workflows/unittests.yml`
+  - `.github/workflows/pythonlint.yml`
+  - `.github/workflows/coverage.yml`
+  - `Makefile`
+  - `pyproject.toml`
+  - `pyicloud/adapters/services/runtime.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_hexagonal_import_boundaries.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_hexagonal_import_boundaries.py tests/integration/test_challenge_contract_gate.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_api_auth_service.py::test_login_challenge_does_not_persist_plaintext_password tests/unit/test_core_services_async_contract.py::test_service_adapters_match_async_port_methods`
+  - `uv run --extra lint mypy --follow-imports=skip pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py`
+  - `uv run --extra test pytest -q -o addopts='' --cov=pyicloud.application.api_auth --cov=pyicloud.api.errors --cov=pyicloud.adapters.services.runtime --cov=pyicloud.adapters.services --cov-report=term-missing --cov-fail-under=82 tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Full-repository lint/typecheck debt outside the phase hotspot scope remains and is intentionally deferred.
+  - Internal legacy alias symbols still exist in service runtime/composition/client exports and are scheduled for Phase 27 cleanup.
+- Next recommended phase: Phase 27 Provider Runtime Containment / Async Migration.
 
 ---
 
@@ -1515,5 +1545,5 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 25, then 26/27.
+# Continue Phase 27.
 ```
