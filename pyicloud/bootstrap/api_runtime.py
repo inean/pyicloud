@@ -20,10 +20,9 @@ from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import Aut
 from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
 from pyicloud.models.settings import Settings
 from pyicloud.ports import AccessControlQueryPort
-from pyicloud.trees.setup import SetupHooks
 
 
-class _ApiSetupHooks(SetupHooks):
+class _ApiSetupHooks:
     """Non-interactive setup hooks used by API authentication flows."""
 
     def __init__(self, *, password: str):
