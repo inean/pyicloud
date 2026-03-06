@@ -11,13 +11,13 @@ from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, 
 from pyicloud.adapters.services import build_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
-from pyicloud.application.access_control import AccessControlApiService
-from pyicloud.application.api_auth import AuthApiService
-from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
-from pyicloud.application.operation_suspension import OperationSuspensionService
 from pyicloud.bootstrap.auth_session import build_auth_session_service
+from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
+from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
+from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
+from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
 from pyicloud.models.settings import Settings
 from pyicloud.ports import AccessControlQueryPort
 from pyicloud.trees.setup import SetupHooks

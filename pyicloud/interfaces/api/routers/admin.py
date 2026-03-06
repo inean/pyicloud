@@ -6,7 +6,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
-from pyicloud.application.access_control import AccessControlApiService
+from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
 from pyicloud.domain import AccessControlEntry, AuthPrincipal, Conflict, Forbidden
 
 from ..dependencies import get_access_control_service, require_admin_principal

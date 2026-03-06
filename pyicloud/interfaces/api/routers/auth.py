@@ -8,9 +8,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from httpx import ASGITransport, AsyncClient
 
-from pyicloud.application.api_auth import AuthApiService
-from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
-from pyicloud.application.operation_suspension import OperationSuspensionService
+from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
+from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
+from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
 from pyicloud.domain import (
     ChallengeExpired,
     Conflict,
