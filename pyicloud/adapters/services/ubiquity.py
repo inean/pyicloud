@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
+from pyicloud.domain import UbiquityNodeDTO
 from pyicloud.ports import UbiquityServicePort
 
 from .clients.ubiquity import LegacyUbiquityClient, UbiquityClient
@@ -18,11 +16,11 @@ class UbiquityServiceAdapter(LegacyServicesAdapterBase, UbiquityServicePort):
     def _ubiquity_client(self, *, username: str) -> UbiquityClient:
         return LegacyUbiquityClient(runtime=self._runtime, username=username)
 
-    async def ubiquity_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_tree(self, *, username: str, path: str) -> UbiquityNodeDTO:
         node = await self._run_blocking(lambda: self._ubiquity_client(username=username).tree(path=path))
         return map_ubiquity_node(node)
 
-    async def ubiquity_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def ubiquity_file_metadata(self, *, username: str, path: str) -> UbiquityNodeDTO:
         node = await self._run_blocking(lambda: self._ubiquity_client(username=username).metadata(path=path))
         return map_ubiquity_node(node)
 

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.contacts import ContactView
+from pyicloud.domain import ContactDTO
 
 
-def map_contact(view: ContactView) -> Mapping[str, Any]:
+def map_contact(view: ContactView) -> ContactDTO:
     return dict(view.payload)
