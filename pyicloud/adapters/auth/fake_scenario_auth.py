@@ -66,4 +66,6 @@ class FakeScenarioAuthSessionAdapter(AuthSessionPort):
     async def session_validate(self) -> Mapping[str, Any]:
         if self._scenario == "expired_session":
             raise RuntimeError("Session expired")
+        if self._scenario in {"requires_2fa", "invalid_security_code"} and not self._security_verified:
+            raise RuntimeError("Session validation requires challenge completion")
         return dict(self._payload)
