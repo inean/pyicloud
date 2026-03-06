@@ -61,8 +61,3 @@ def build_core_adapter_bundle(
         photos=PhotosServiceAdapter(runtime=runtime),
         ubiquity=UbiquityServiceAdapter(runtime=runtime),
     )
-
-
-# Backward-compatible alias kept internal during retirement migration.
-LegacyCoreAdapterBundle = CoreAdapterBundle
-build_legacy_core_adapter_bundle = build_core_adapter_bundle

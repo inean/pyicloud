@@ -10,10 +10,10 @@ from pyicloud.ports import PhotosServicePort
 from .clients.common import Pagination
 from .clients.photos import LegacyPhotosClient, PhotosClient
 from .mappers.photos import map_photo_album, map_photo_asset
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
+class PhotosServiceAdapter(ServicesAdapterBase, PhotosServicePort):
     """Map photo library operations to the photos service port contract."""
 
     def _photos_client(self, *, username: str) -> PhotosClient:

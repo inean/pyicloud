@@ -23,3 +23,4 @@ Migration path:
 - Public docs were realigned to API/CLI-first usage.
 - Legacy module path wiring was replaced with neutral adapter module paths.
 - Deterministic test guardrails now block outbound network by default.
+- Provider runtime target is now locked to strict containment (Option B), removing internal legacy runtime/composition alias symbols and enforcing challenge-contract parity across service domains.

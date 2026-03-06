@@ -9,10 +9,10 @@ from pyicloud.ports import DeviceServicePort
 
 from .clients.devices import DevicesClient, LegacyDevicesClient
 from .mappers.devices import map_device_location, map_device_snapshot, map_device_status
-from .runtime import LegacyServicesAdapterBase
+from .runtime import ServicesAdapterBase
 
 
-class DevicesServiceAdapter(LegacyServicesAdapterBase, DeviceServicePort):
+class DevicesServiceAdapter(ServicesAdapterBase, DeviceServicePort):
     """Map Find My iPhone operations to the device service port contract."""
 
     def _devices_client(self, *, username: str) -> DevicesClient:

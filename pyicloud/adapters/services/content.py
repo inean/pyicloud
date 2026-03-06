@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from .runtime import LegacyServicesRuntime
+from .runtime import ServiceRuntime
 
 
 class StreamingBinaryContentAdapter:
     """Read bytes from streaming response objects."""
 
     def read_stream(self, response: Any) -> bytes:
-        return LegacyServicesRuntime.stream_bytes(response)
+        return ServiceRuntime.stream_bytes(response)
 
 
 class PhotoBinaryContentAdapter:

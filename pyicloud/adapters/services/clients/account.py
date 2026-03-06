@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime
+from pyicloud.adapters.services.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ class AccountClient(Protocol):
 class LegacyAccountClient:
     """Query account domain data from legacy service objects with typed views."""
 
-    def __init__(self, *, runtime: LegacyServicesRuntime, username: str):
+    def __init__(self, *, runtime: ServiceRuntime, username: str):
         self._runtime = runtime
         self._username = username
 

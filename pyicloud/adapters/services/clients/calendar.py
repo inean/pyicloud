@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from pyicloud.adapters.services.clients.common import Pagination, TimeRangeFilter
-from pyicloud.adapters.services.runtime import LegacyServicesRuntime
+from pyicloud.adapters.services.runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class CalendarClient(Protocol):
 class LegacyCalendarClient:
     """Query calendar data from legacy service objects with typed views."""
 
-    def __init__(self, *, runtime: LegacyServicesRuntime, username: str):
+    def __init__(self, *, runtime: ServiceRuntime, username: str):
         self._runtime = runtime
         self._username = username
 
