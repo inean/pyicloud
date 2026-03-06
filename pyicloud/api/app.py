@@ -20,6 +20,7 @@ from pyicloud.adapters.upstream_probe import validate_upstream_probe_configurati
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
+from pyicloud.bootstrap import build_auth_session_service
 from pyicloud.domain import (
     BackendUnavailable,
     ChallengeExpired,
@@ -30,6 +31,8 @@ from pyicloud.domain import (
     UnsupportedQueryMode,
 )
 from pyicloud.exceptions import PyiCloudAPIResponseError
+from pyicloud.models.settings import Settings
+from pyicloud.trees.setup import SetupHooks
 
 from .instrumentation import ApiTelemetryMiddleware, telemetry_enabled
 from .schemas import (
@@ -52,6 +55,22 @@ from .schemas import (
     SimpleOkResponse,
     UbiquityFileMetadataResponse,
 )
+
+
+class _ApiSetupHooks(SetupHooks):
+    """Non-interactive setup hooks used by API authentication flows."""
+
+    def __init__(self, *, password: str):
+        self._password = password
+
+    def get_password(self, username: str) -> str:  # noqa: ARG002
+        return self._password
+
+    def get_security_code(self, device: Any = None) -> str:  # noqa: ARG002
+        return ""
+
+    def get_trusted_device(self, devices):  # noqa: ANN001, ARG002
+        return None
 
 
 def _build_default_auth_service() -> AuthApiService:
@@ -82,11 +101,17 @@ def _build_default_auth_service() -> AuthApiService:
     else:
         raise RuntimeError(f"Unsupported auth session backend: {session_backend}")
     store_dir = os.getenv("PYICLOUD_SESSION_STORE_DIR")
+
+    def auth_service_factory(username: str, password: str):
+        settings = Settings.create(username=username, password=password or None)
+        hooks = _ApiSetupHooks(password=password)
+        return build_auth_session_service(settings=settings, hooks=hooks, store_dir=store_dir)
+
     return AuthApiService(
         token_signer=signer,
         session_query=session_store,
         session_command=session_store,
-        store_dir=store_dir,
+        auth_service_factory=auth_service_factory,
     )
 
 
