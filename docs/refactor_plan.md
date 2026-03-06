@@ -493,19 +493,29 @@ Reubicar servicios de negocio por bounded context y descomponer fachadas monolí
 
 ### Checklist
 - [ ] Mover adapters y casos de uso de dominios de servicio a `contexts/services/*`.
-- [ ] Descomponer `CoreServicesApi` monolítico en servicios de aplicación por contexto.
+- [x] Descomponer `CoreServicesApi` monolítico en servicios de aplicación por contexto.
 
 ### Exit Criteria
 Cada servicio queda aislado por bounded context con dependencias semánticas explícitas.
 
 ### Handoff: Phase 39 - Services Context Migration
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: In Progress
 - Summary:
+  - Created context-scoped application services for `devices`, `account`, `drive`, `calendar`, `contacts`, `reminders`, `photos`, and `ubiquity` under `pyicloud/contexts/services/*/application`.
+  - Refactored `pyicloud/application/core_services.py` into a compatibility facade that delegates to those context services while keeping existing API router contract stable.
+  - Added migration test asserting the facade delegates to context-scoped services.
 - Files changed:
+  - `pyicloud/contexts/services/*/application/*`
+  - `pyicloud/application/core_services.py`
+  - `tests/unit/test_services_application_context_migration.py`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_core_services_async_contract.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_services_application_context_migration.py tests/unit/test_core_services_async_contract.py`
 - Risks / TBD:
+  - Service adapters are still located under `pyicloud/adapters/services/*`; moving adapters into `contexts/services/*` remains pending.
 - Next recommended phase:
+  - Continue Phase 39 with adapter migration into `contexts/services/*`.
 
 ---
 
