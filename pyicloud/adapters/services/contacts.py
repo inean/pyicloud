@@ -18,5 +18,6 @@ class ContactsServiceAdapter(LegacyServicesAdapterBase, ContactsServicePort):
     def _contacts_client(self, *, username: str) -> ContactsClient:
         return LegacyContactsClient(runtime=self._runtime, username=username)
 
-    def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_contact(view) for view in self._contacts_client(username=username).all_contacts()]
+    async def all_contacts(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        views = await self._run_blocking(lambda: self._contacts_client(username=username).all_contacts())
+        return [map_contact(view) for view in views]

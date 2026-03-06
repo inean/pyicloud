@@ -28,11 +28,10 @@
 
 ## Phase Board
 - Planned:
-  - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
 - In Progress:
-  - Phase 24 Async Port/Adapter Contract Convergence
+  - Phase 25 API/CLI Decomposition + Typed Contracts
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -61,6 +60,7 @@
   - Phase 21 Challenge-Driven API + Credential Hygiene
   - Phase 22 Challenge Execution Flow + CLI Auto-Retry
   - Phase 23 Layer Boundary Purification (Hexagonal)
+  - Phase 24 Async Port/Adapter Contract Convergence
 - Blocked:
   - None
 
@@ -1384,19 +1384,41 @@ Enforce strict dependency direction across layers and remove known boundary leak
 Eliminate sync/async contract drift and align ports, adapters, and orchestration on one runtime model.
 
 ### Checklist
-- [ ] Normalize service adapter method signatures to match async port contracts.
-- [ ] Remove generic sync bridge behavior in application façade once adapters are async-consistent.
-- [ ] Decide and document runtime strategy:
+- [x] Normalize service adapter method signatures to match async port contracts.
+- [x] Remove generic sync bridge behavior in application façade once adapters are async-consistent.
+- [x] Decide and document runtime strategy:
   - [ ] Full async adapter implementation path.
-  - [ ] Transitional wrappers only where explicitly documented and bounded.
-- [ ] Add static contract verification:
-  - [ ] Mypy protocol conformance checks for service adapters.
-  - [ ] CI gate for async override compatibility.
-- [ ] Add regression tests for cancellation/timeouts/retries in async service paths.
+  - [x] Transitional wrappers only where explicitly documented and bounded.
+- [x] Add static contract verification:
+  - [x] Protocol conformance checks for service adapters (`async` parity assertions by adapter/port pair).
+  - [x] CI gate for async override compatibility.
+- [x] Add regression tests for cancellation/timeouts/retries in async service paths.
 
 ### Exit Criteria
-- [ ] No async/sync override mismatches remain in service adapter layer.
-- [ ] Core service orchestration does not depend on implicit sync fallback behavior.
+- [x] No async/sync override mismatches remain in service adapter layer.
+- [x] Core service orchestration does not depend on implicit sync fallback behavior.
+
+### Handoff: Phase 24 - Async Port/Adapter Contract Convergence
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Converted core service adapters (`devices/account/drive/calendar/contacts/reminders/photos/ubiquity`) to explicit `async` method signatures aligned with service ports.
+  - Added bounded transitional runtime wrapper in adapter base (`_run_blocking`) so legacy sync provider clients run off-event-loop while preserving async contracts.
+  - Removed generic sync bridge behavior from `CoreServicesApi` (`asyncio.to_thread` + mixed sync/awaitable branching), enforcing awaitable-only port calls.
+  - Added deterministic guard tests for async contract parity and cancellation/timeout behavior in core service orchestration.
+- Files changed:
+  - `pyicloud/adapters/services/{account,calendar,contacts,devices,drive,photos,reminders,runtime,ubiquity}.py`
+  - `pyicloud/application/core_services.py`
+  - `tests/unit/test_legacy_core_services_adapter.py`
+  - `tests/unit/test_core_services_async_contract.py`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py`
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - Full async-native provider runtime migration is still pending (Phase 27); current phase intentionally uses bounded thread offloading wrappers over legacy sync provider clients.
+  - Full mypy coverage for provider-sync internals remains constrained by existing untyped legacy module debt and should be tightened in Phase 26/27.
+- Next recommended phase: Phase 25 API/CLI Decomposition + Typed Contracts.
 
 ---
 
@@ -1466,5 +1488,5 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 24, then 25/26/27.
+# Continue Phase 25, then 26/27.
 ```
