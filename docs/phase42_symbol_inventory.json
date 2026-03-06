@@ -1041,7 +1041,7 @@
       "path": "pyicloud/trees/renew.py",
       "tag": "dead-candidate",
       "decision": "remove",
-      "status": "planned-remove",
+      "status": "removed",
       "reason": "Orphan renewal tree replaced by validate-first orchestration in active auth service."
     }
   ],
