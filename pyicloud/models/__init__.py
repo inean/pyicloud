@@ -9,6 +9,7 @@ from typing import (
     ClassVar,
     Literal,
     Self,
+    TypeAlias,
     cast,
     get_args,
     get_origin,
@@ -29,7 +30,7 @@ from pydantic.functional_validators import ModelWrapValidatorHandler
 
 from pyicloud.shared.kernel.context import _init_context_var
 
-type MetaFields = Literal["header", "config", "cookie", "body", "params"]
+MetaFields: TypeAlias = Literal["header", "config", "cookie", "body", "params"]  # noqa: UP040
 
 
 @dataclass(config=ConfigDict(extra="forbid", frozen=True))
