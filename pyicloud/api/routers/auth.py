@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from httpx import ASGITransport, AsyncClient
 
 from pyicloud.application.api_auth import AuthApiService
+from pyicloud.application.operation_suspension import OperationSuspensionService
 from pyicloud.domain import (
     ChallengeExpired,
+    Conflict,
     Forbidden,
     InvalidChallengeTransition,
     InvalidCredentials,
@@ -14,7 +19,7 @@ from pyicloud.domain import (
     Unauthorized,
 )
 
-from ..dependencies import extract_token, get_auth_service
+from ..dependencies import extract_token, get_auth_service, get_operation_suspension_service
 from ..responses import ok
 from ..schemas import (
     AuthChallengeRequest,
@@ -77,10 +82,83 @@ def _to_legacy_login_payload(challenge_payload: dict[str, object]) -> dict[str, 
     raise InvalidChallengeTransition(f"Unsupported challenge payload: {challenge_type or 'unknown'}")
 
 
+async def _resume_suspended_operation(
+    *,
+    request: Request,
+    service: OperationSuspensionService,
+    operation_id: str,
+    token: str,
+) -> tuple[int, dict[str, Any] | None]:
+    operation = service.mark_resuming(operation_id=operation_id)
+    replay_headers = {
+        "Authorization": f"Bearer {token}",
+        "X-PYICLOUD-Operation-Resume": operation.operation_id,
+    }
+    if operation.idempotency_key:
+        replay_headers["Idempotency-Key"] = operation.idempotency_key
+    if operation.content_type:
+        replay_headers["Content-Type"] = operation.content_type
+    replay_url = operation.path
+    if operation.query_string:
+        replay_url = f"{replay_url}?{operation.query_string}"
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=request.app), base_url="http://resume.local") as client:
+            response = await client.request(
+                method=operation.method,
+                url=replay_url,
+                headers=replay_headers,
+                content=operation.body_text.encode("utf-8") if operation.body_text else None,
+            )
+    except Exception as err:  # noqa: BLE001
+        service.mark_failed(operation_id=operation_id, error=f"Operation replay failed: {err}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "operation_resume_failed",
+                "message": "Suspended operation replay failed",
+                "operation_id": operation_id,
+            },
+        ) from err
+
+    try:
+        parsed_payload: dict[str, Any] | None = response.json() if response.content else None
+    except ValueError:
+        parsed_payload = {"raw": response.text}
+
+    error_code = ""
+    if isinstance(parsed_payload, dict):
+        maybe_error = parsed_payload.get("error")
+        if isinstance(maybe_error, dict):
+            error_code = str(maybe_error.get("code", ""))
+    if response.status_code == status.HTTP_409_CONFLICT and error_code == "operation_resume_failed":
+        service.mark_failed(
+            operation_id=operation_id,
+            error="Operation replay triggered another auth challenge",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "operation_resume_failed",
+                "message": "Suspended operation replay requires another auth challenge",
+                "operation_id": operation_id,
+            },
+        )
+
+    service.mark_completed(
+        operation_id=operation_id,
+        response_status=response.status_code,
+        response_payload=parsed_payload,
+    )
+    return (response.status_code, parsed_payload)
+
+
 @router.post("/v1/auth/challenge", response_model=DataEnvelope)
 async def auth_challenge(
     payload: AuthChallengeRequest,
+    request: Request,
     service: AuthApiService = Depends(get_auth_service),
+    suspension_service: OperationSuspensionService = Depends(get_operation_suspension_service),
 ) -> DataEnvelope:
     try:
         result = await service.challenge(
@@ -89,6 +167,19 @@ async def auth_challenge(
             password_envelope=payload.password_envelope,
             security_code=payload.security_code,
         )
+        operation_id = str(result.get("operation_id", "")).strip()
+        token = str(result.get("access_token", "")).strip()
+        if result.get("challenge_type") == "authenticated" and operation_id and token:
+            operation_status, operation_result = await _resume_suspended_operation(
+                request=request,
+                service=suspension_service,
+                operation_id=operation_id,
+                token=token,
+            )
+            result["operation_status"] = operation_status
+            result["operation_result"] = operation_result
+    except Conflict as err:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
     except ChallengeExpired as err:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(err)) from err
     except InvalidChallengeTransition as err:

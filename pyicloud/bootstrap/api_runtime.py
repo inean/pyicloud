@@ -7,6 +7,7 @@ from typing import Any
 
 from pyicloud.adapters.access import FileAccessControlStore, InMemoryAccessControlStore
 from pyicloud.adapters.observability import NullObservabilityAdapter, OTelObservabilityAdapter, ensure_otel_dependencies
+from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, InMemorySuspendedOperationStore
 from pyicloud.adapters.services import build_core_adapter_bundle
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
@@ -14,6 +15,7 @@ from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
+from pyicloud.application.operation_suspension import OperationSuspensionService
 from pyicloud.bootstrap.auth_session import build_auth_session_service
 from pyicloud.models.settings import Settings
 from pyicloud.ports import AccessControlQueryPort
@@ -111,6 +113,30 @@ def build_default_access_control_api() -> AccessControlApiService:
         bootstrap_username=os.getenv("PYICLOUD_API_BOOTSTRAP_ADMIN"),
     )
     return service
+
+
+def build_default_operation_suspension_service() -> OperationSuspensionService:
+    """Compose default suspended-operation service for challenge-driven operation resume."""
+    runtime_env = _runtime_env()
+    is_non_dev = _is_non_dev_runtime(runtime_env)
+
+    backend_default = "file" if is_non_dev else "memory"
+    backend_name = os.getenv("PYICLOUD_API_OPERATION_BACKEND", backend_default).strip().lower()
+    if backend_name in {"memory", "in-memory", "inmemory"}:
+        if is_non_dev:
+            raise RuntimeError("PYICLOUD_API_OPERATION_BACKEND must use file storage in non-dev runtime")
+        store = InMemorySuspendedOperationStore()
+    elif backend_name == "file":
+        store = FileSuspendedOperationStore(root_dir=os.getenv("PYICLOUD_API_OPERATION_STORE_DIR"))
+    else:
+        raise RuntimeError(f"Unsupported operation-suspension backend: {backend_name}")
+
+    ttl_raw = os.getenv("PYICLOUD_API_OPERATION_TTL_SECONDS", "300")
+    try:
+        ttl_seconds = int(ttl_raw)
+    except ValueError as err:
+        raise RuntimeError("PYICLOUD_API_OPERATION_TTL_SECONDS must be an integer") from err
+    return OperationSuspensionService(query=store, command=store, ttl_seconds=ttl_seconds)
 
 
 def build_default_core_services_api() -> CoreServicesApi:

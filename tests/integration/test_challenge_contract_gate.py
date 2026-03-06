@@ -71,10 +71,13 @@ async def test_challenge_contract_is_enforced_for_all_protected_domains(
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
         token = await _login_token(client)
+        headers = {"Authorization": f"Bearer {token}"}
+        if http_method in {"POST", "PUT", "PATCH", "DELETE"}:
+            headers["Idempotency-Key"] = f"idem-{service_method_name}"
         response = await client.request(
             http_method,
             path,
-            headers={"Authorization": f"Bearer {token}"},
+            headers=headers,
             params=params,
             json=json_payload,
         )
@@ -94,9 +97,31 @@ async def test_challenge_contract_is_enforced_for_all_protected_domains(
         "retryable",
         "upstream_status",
         "operation",
+        "operation_id",
     }
     assert details["challenge_type"] == "session_refresh"
     assert details["account_id"] == "success@example.com"
     assert details["upstream_status"] == 450
     assert details["next_step"] == "auth.login"
     assert details["operation"] == f"{http_method} {path}"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_mutating_operation_requires_idempotency_key_for_suspension(tmp_path: Path) -> None:
+    auth_service = build_fake_auth_api_service(tmp_path)
+    core_services = build_deterministic_core_services()
+    setattr(core_services, "reminders_create", _raise_upstream_expired)
+    app = create_app(auth_service=auth_service, core_services=core_services)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        token = await _login_token(client)
+        response = await client.post(
+            "/v1/reminders",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"title": "missing key"},
+        )
+
+    assert response.status_code == 400
+    payload = response.json()["error"]
+    assert payload["code"] == "idempotency_key_required"

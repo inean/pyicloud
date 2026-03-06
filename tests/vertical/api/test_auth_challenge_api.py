@@ -3,6 +3,8 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from pyicloud.exceptions import PyiCloudAPIResponseError
+
 
 @pytest.mark.asyncio
 async def test_auth_challenge_password_and_authenticated_flow(app):
@@ -80,3 +82,45 @@ async def test_auth_challenge_operation_resume_contract(app):
         payload = pending.json()["data"]
         assert payload["challenge_type"] == "operation_resume_required"
         assert payload["operation"] == "GET /v1/devices"
+
+
+@pytest.mark.asyncio
+async def test_auth_challenge_resumes_suspended_operation_server_side(app):
+    calls = {"count": 0}
+    original = app.state.core_services.list_devices
+
+    async def _first_fails_then_succeeds(**kwargs):  # noqa: ANN003
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise PyiCloudAPIResponseError("Client Error (450)", 450)
+        return await original(**kwargs)
+
+    app.state.core_services.list_devices = _first_fails_then_succeeds
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+        login = await client.post(
+            "/v1/auth/login",
+            json={"username": "success@example.com", "password": "secret"},
+        )
+        token = login.json()["data"]["access_token"]
+
+        challenge_required = await client.get(
+            "/v1/devices",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert challenge_required.status_code == 401
+        challenge_id = challenge_required.json()["error"]["details"]["challenge_id"]
+
+        pending = await client.post("/v1/auth/challenge", json={"challenge_id": challenge_id})
+        assert pending.status_code == 200
+        assert pending.json()["data"]["challenge_type"] == "operation_resume_required"
+
+        resumed = await client.post(
+            "/v1/auth/challenge",
+            json={"challenge_id": challenge_id, "password_envelope": "secret"},
+        )
+        assert resumed.status_code == 200
+        payload = resumed.json()["data"]
+        assert payload["challenge_type"] == "authenticated"
+        assert payload["operation_status"] == 200
+        assert isinstance(payload["operation_result"]["data"], list)

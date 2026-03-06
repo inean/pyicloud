@@ -12,6 +12,7 @@ from .observability import (
     PromQLQueryPort,
     TraceQLQueryPort,
 )
+from .operation_suspension import SuspendedOperationCommandPort, SuspendedOperationQueryPort
 from .services import (
     AccountServicePort,
     CalendarServicePort,
@@ -52,6 +53,8 @@ __all__ = [
     "SessionQueryPort",
     "ServiceEndpointPort",
     "SessionStorePort",
+    "SuspendedOperationCommandPort",
+    "SuspendedOperationQueryPort",
     "TokenSignerPort",
     "TraceQLQueryPort",
     "UbiquityServicePort",

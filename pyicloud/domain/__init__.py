@@ -14,7 +14,7 @@ from .api_errors import (
     Unauthorized,
     UnsupportedQueryMode,
 )
-from .api_models import AccessControlEntry, AuthPrincipal
+from .api_models import AccessControlEntry, AuthPrincipal, SuspendedOperation
 from .auth_flow import AuthFlowError, AuthFlowRequest, AuthFlowResult, AuthStep, SecurityCodeRequired
 from .service_contracts import (
     AccountDeviceDTO,
@@ -79,4 +79,5 @@ __all__ = [
     "Unauthorized",
     "UbiquityNodeDTO",
     "AccessControlEntry",
+    "SuspendedOperation",
 ]

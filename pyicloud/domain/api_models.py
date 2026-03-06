@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 AccessRole = Literal["member", "admin"]
 AccessStatus = Literal["active", "disabled"]
+SuspendedOperationState = Literal["pending_auth", "resuming", "completed", "failed", "expired"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,3 +39,25 @@ class AccessControlEntry:
         if "admin" in self.roles:
             return "admin"
         return "member"
+
+
+@dataclass(frozen=True, slots=True)
+class SuspendedOperation:
+    """Persisted record for a backend operation paused pending auth challenge completion."""
+
+    operation_id: str
+    account_id: str
+    method: str
+    path: str
+    query_string: str
+    body_text: str | None
+    content_type: str | None
+    idempotency_key: str | None
+    state: SuspendedOperationState
+    challenge_id: str | None
+    created_at: int
+    updated_at: int
+    expires_at: int
+    response_status: int | None = None
+    response_payload: dict[str, Any] | None = None
+    error: str | None = None

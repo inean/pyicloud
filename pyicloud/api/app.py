@@ -9,11 +9,13 @@ from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
+from pyicloud.application.operation_suspension import OperationSuspensionService
 from pyicloud.bootstrap import (
     build_default_access_control_api,
     build_default_auth_api_service,
     build_default_core_services_api,
     build_default_observability_api,
+    build_default_operation_suspension_service,
 )
 
 from .errors import register_exception_handlers
@@ -53,10 +55,15 @@ def _build_default_observability_service() -> ObservabilityApi:
     return build_default_observability_api()
 
 
+def _build_default_operation_suspension() -> OperationSuspensionService:
+    return build_default_operation_suspension_service()
+
+
 def create_app(
     *,
     auth_service: AuthApiService | None = None,
     access_control_service: AccessControlApiService | None = None,
+    operation_suspension_service: OperationSuspensionService | None = None,
     core_services: CoreServicesApi | None = None,
     observability_service: ObservabilityApi | None = None,
 ) -> FastAPI:
@@ -69,6 +76,7 @@ def create_app(
     resolved_access_control = access_control_service or _build_default_access_control_service()
     app.state.access_control_service = resolved_access_control
     app.state.auth_service = auth_service or _build_default_auth_service(access_control_service=resolved_access_control)
+    app.state.operation_suspension_service = operation_suspension_service or _build_default_operation_suspension()
     app.state.core_services = core_services or _build_default_core_services()
     app.state.observability_service = observability_service or _build_default_observability_service()
     register_exception_handlers(app)

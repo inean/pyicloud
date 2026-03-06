@@ -65,6 +65,19 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def _pyicloud_api_error_handler(request: Request, exc: PyiCloudAPIResponseError) -> JSONResponse:
         upstream_status = _coerce_upstream_status(exc.code)
         if upstream_status in {401, 421, 450}:
+            resume_operation_id = request.headers.get("x-pyicloud-operation-resume", "").strip()
+            if resume_operation_id:
+                return await _http_exception_handler(
+                    request,
+                    HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail={
+                            "code": "operation_resume_failed",
+                            "message": "Operation resume requires another auth challenge and was aborted",
+                            "operation_id": resume_operation_id,
+                        },
+                    ),
+                )
             authorization = request.headers.get("authorization", "")
             token = authorization.split(" ", 1)[1].strip() if authorization.startswith("Bearer ") else ""
             principal = None
@@ -74,11 +87,40 @@ def register_exception_handlers(app: FastAPI) -> None:
                 except Unauthorized:
                     principal = None
             if principal is not None:
+                mutating_method = request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
+                idempotency_key = request.headers.get("idempotency-key")
+                if mutating_method and not idempotency_key:
+                    return await _http_exception_handler(
+                        request,
+                        HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={
+                                "code": "idempotency_key_required",
+                                "message": "Idempotency-Key header is required for mutating operation suspension",
+                            },
+                        ),
+                    )
+                body = await request.body()
+                body_text = body.decode("utf-8", errors="replace") if body else None
+                operation = request.app.state.operation_suspension_service.suspend_operation(
+                    account_id=principal.username,
+                    method=request.method,
+                    path=request.url.path,
+                    query_string=request.url.query,
+                    body_text=body_text,
+                    content_type=request.headers.get("content-type"),
+                    idempotency_key=idempotency_key,
+                )
                 challenge = request.app.state.auth_service.issue_operation_challenge(
                     account_id=principal.username,
                     upstream_status=upstream_status,
                     operation=f"{request.method} {request.url.path}",
                     reason=str(exc.reason or ""),
+                    operation_id=operation.operation_id,
+                )
+                request.app.state.operation_suspension_service.attach_challenge(
+                    operation_id=operation.operation_id,
+                    challenge_id=str(challenge["challenge_id"]),
                 )
                 return await _http_exception_handler(
                     request,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,6 +38,8 @@ class AuthChallengeResponse(BaseModel):
     account_id: str | None = None
     operation: str | None = None
     operation_id: str | None = None
+    operation_status: int | None = None
+    operation_result: dict[str, Any] | None = None
 
 
 class AuthSecurityCodeRequest(BaseModel):

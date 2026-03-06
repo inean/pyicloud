@@ -288,13 +288,16 @@ class AuthApiService:
                 )
             if not resolved_username:
                 raise InvalidChallengeTransition("operation resume challenge is missing account context")
+            operation_id = str(challenge_payload.get("operation_id", "")).strip() or None
             self._session_command.delete_challenge(normalized_challenge_id)
             login_result = await self.login(
                 username=resolved_username,
                 password=normalized_password,
                 flow_id=resolved_flow_id,
             )
-            return self._to_login_challenge_response(login_result=login_result)
+            response = self._to_login_challenge_response(login_result=login_result)
+            response["operation_id"] = operation_id
+            return response
 
         raise InvalidChallengeTransition(f"Unsupported challenge type: {challenge_type or 'unknown'}")
 
@@ -305,6 +308,7 @@ class AuthApiService:
         upstream_status: int | None,
         operation: str,
         reason: str,
+        operation_id: str | None = None,
     ) -> dict[str, Any]:
         challenge = self._issue_challenge(
             account_id=account_id,
@@ -315,10 +319,12 @@ class AuthApiService:
                 "upstream_status": upstream_status,
                 "operation": operation,
                 "reason": reason,
+                "operation_id": operation_id,
             },
         )
         challenge["upstream_status"] = upstream_status
         challenge["operation"] = operation
+        challenge["operation_id"] = operation_id
         return challenge
 
     @staticmethod

@@ -8,6 +8,7 @@ from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
+from pyicloud.application.operation_suspension import OperationSuspensionService
 from pyicloud.domain import AuthPrincipal, Unauthorized
 
 
@@ -19,6 +20,11 @@ def get_auth_service(request: Request) -> AuthApiService:
 def get_access_control_service(request: Request) -> AccessControlApiService:
     """Resolve access-control application service from app state."""
     return request.app.state.access_control_service
+
+
+def get_operation_suspension_service(request: Request) -> OperationSuspensionService:
+    """Resolve operation-suspension application service from app state."""
+    return request.app.state.operation_suspension_service
 
 
 def get_core_services(request: Request) -> CoreServicesApi:

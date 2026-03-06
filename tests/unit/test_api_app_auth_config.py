@@ -3,8 +3,13 @@ from __future__ import annotations
 import pytest
 
 from pyicloud.adapters.access import FileAccessControlStore, InMemoryAccessControlStore
+from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, InMemorySuspendedOperationStore
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
-from pyicloud.api.app import _build_default_access_control_service, _build_default_auth_service
+from pyicloud.api.app import (
+    _build_default_access_control_service,
+    _build_default_auth_service,
+    _build_default_operation_suspension,
+)
 
 
 def _clear_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -17,6 +22,9 @@ def _clear_auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PYICLOUD_API_ACL_BACKEND", raising=False)
     monkeypatch.delenv("PYICLOUD_API_ACL_STORE_DIR", raising=False)
     monkeypatch.delenv("PYICLOUD_API_BOOTSTRAP_ADMIN", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_OPERATION_BACKEND", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_OPERATION_STORE_DIR", raising=False)
+    monkeypatch.delenv("PYICLOUD_API_OPERATION_TTL_SECONDS", raising=False)
 
 
 def test_non_dev_runtime_requires_explicit_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,3 +112,28 @@ def test_build_default_access_control_service_bootstraps_admin_in_non_dev(
 
     assert isinstance(service._query, FileAccessControlStore)
     assert service._query.active_admin_count() == 1
+
+
+def test_build_default_operation_suspension_service_uses_memory_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
+
+    service = _build_default_operation_suspension()
+
+    assert isinstance(service._query, InMemorySuspendedOperationStore)
+    assert isinstance(service._command, InMemorySuspendedOperationStore)
+
+
+def test_build_default_operation_suspension_service_uses_file_in_non_dev(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("PYICLOUD_API_ENV", "production")
+    monkeypatch.setenv("PYICLOUD_API_OPERATION_BACKEND", "file")
+    monkeypatch.setenv("PYICLOUD_API_OPERATION_STORE_DIR", str(tmp_path))
+
+    service = _build_default_operation_suspension()
+
+    assert isinstance(service._query, FileSuspendedOperationStore)
+    assert isinstance(service._command, FileSuspendedOperationStore)
