@@ -13,8 +13,8 @@ from tests.fakes.auth_scenarios import build_deterministic_core_services, build_
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
     login = await client.post(
-        "/v1/auth/login",
-        json={"username": "success@example.com", "password": "password"},
+        "/v1/auth/challenge",
+        json={"username": "success@example.com", "password_envelope": "password"},
     )
     assert login.status_code == 200
     token = login.json()["data"]["access_token"]

@@ -213,3 +213,33 @@ def test_config_path_fspath(contents_dict, config_file):
     expected_suffix = Path(settings.cls_config["file_sub_dir"]).joinpath(settings._file or "")
     assert path.as_posix().endswith(expected_suffix.as_posix())
     assert path.parent.is_dir()
+
+
+def test_settings_file_save_excludes_account_password(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYICLOUD_CONFIG_DIR", str(tmp_path))
+    settings = Settings.create(username="secure.user@example.com", password="top-secret")
+    settings_file = SettingsFile(settings)
+
+    path = Path(os.fspath(settings_file))
+    settings_file.save()
+
+    raw = path.read_text(encoding="utf-8")
+    payload = json.loads(raw)
+    assert payload["account"]["username"] == "secure.user@example.com"
+    assert "password" not in payload["account"]
+    assert "top-secret" not in raw
+
+
+def test_settings_file_save_merges_existing_account_exclude(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYICLOUD_CONFIG_DIR", str(tmp_path))
+    settings = Settings.create(username="secure.user@example.com", password="top-secret")
+    settings.client_settings.scnt = "scnt-value"
+    settings_file = SettingsFile(settings)
+
+    path = Path(os.fspath(settings_file))
+    settings_file.save(exclude={"account": {"country_code"}})
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    account = payload["account"]
+    assert "country_code" not in account
+    assert "password" not in account

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from typing import Any
+from uuid import uuid4
 
 import asyncclick as click
 import httpx
@@ -11,10 +12,12 @@ import httpx
 SendRequest = Callable[..., Awaitable[httpx.Response]]
 LoadToken = Callable[[], str | None]
 SaveToken = Callable[[str], None]
+LoadPassword = Callable[[str], str | None]
+SavePassword = Callable[[str, str], None]
 ParseErrorPayload = Callable[[httpx.Response], tuple[str, dict[str, Any] | None]]
 ExtractChallengeDetails = Callable[[httpx.Response], dict[str, Any] | None]
 RequestJsonData = Callable[..., Awaitable[Any]]
-CompleteAuthChallenge = Callable[[dict[str, Any]], Awaitable[None]]
+CompleteAuthChallenge = Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
 
 
 async def send_request(
@@ -26,10 +29,13 @@ async def send_request(
     json_body: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
     files: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> httpx.Response:
     headers = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    if idempotency_key:
+        headers["Idempotency-Key"] = idempotency_key
     async with httpx.AsyncClient(base_url=api_url, timeout=30.0) as client:
         return await client.request(
             method,
@@ -100,44 +106,59 @@ async def complete_auth_challenge(
     challenge: dict[str, Any],
     request_json_data_fn: RequestJsonData,
     save_token_fn: SaveToken,
-) -> None:
+    load_password_fn: LoadPassword | None = None,
+    save_password_fn: SavePassword | None = None,
+) -> dict[str, Any]:
     username = str(challenge.get("account_id", "")).strip()
-    flow_id = str(challenge.get("flow_id", "")).strip() or None
+    challenge_id = str(challenge.get("challenge_id", "")).strip() or None
+    session_id = str(challenge.get("session_id", "")).strip() or str(challenge.get("flow_id", "")).strip() or None
     if not username:
         username = click.prompt("Apple ID", type=str).strip()
-    password = click.prompt(f"Password for {username}", hide_input=True, type=str)
-    login_payload: dict[str, Any] = {"username": username, "password": password}
-    if flow_id:
-        login_payload["flow_id"] = flow_id
+    password = load_password_fn(username) if load_password_fn is not None else None
+    if not password:
+        password = click.prompt(f"Password for {username}", hide_input=True, type=str)
+
+    step_payload: dict[str, Any] = {"password_envelope": password}
+    if challenge_id:
+        step_payload["challenge_id"] = challenge_id
+    else:
+        step_payload["username"] = username
+    if session_id:
+        step_payload["session_id"] = session_id
 
     auth_result = await request_json_data_fn(
         api_url=api_url,
         method="POST",
-        route="/v1/auth/login",
-        json_body=login_payload,
+        route="/v1/auth/challenge",
+        json_body=step_payload,
     )
-    if isinstance(auth_result, dict) and auth_result.get("status") == "challenge_required":
+    if isinstance(auth_result, dict) and auth_result.get("challenge_type") == "security_code_required":
         challenge_id = str(auth_result.get("challenge_id", "")).strip()
         if not challenge_id:
             raise click.ClickException("Auth challenge response is missing challenge_id")
+        next_session_id = str(auth_result.get("session_id", "")).strip() or session_id
         code = click.prompt("Security code", type=str).strip()
         auth_result = await request_json_data_fn(
             api_url=api_url,
             method="POST",
-            route="/v1/auth/security-code",
+            route="/v1/auth/challenge",
             json_body={
                 "challenge_id": challenge_id,
-                "code": code,
-                "password": password,
+                "security_code": code,
+                "password_envelope": password,
                 "username": username,
+                "session_id": next_session_id,
             },
         )
 
-    if not isinstance(auth_result, dict) or auth_result.get("status") != "authenticated":
+    if not isinstance(auth_result, dict) or auth_result.get("challenge_type") != "authenticated":
         raise click.ClickException("Authentication challenge was not completed successfully")
     token = auth_result.get("access_token")
     if token:
         save_token_fn(str(token))
+    if save_password_fn is not None and username and password:
+        save_password_fn(username, password)
+    return dict(auth_result)
 
 
 async def api_request(
@@ -156,6 +177,11 @@ async def api_request(
     complete_auth_challenge_fn: CompleteAuthChallenge,
     load_token_fn: LoadToken,
 ) -> Any:
+    upper_method = method.strip().upper()
+    idempotency_key = None
+    if upper_method in {"POST", "PUT", "PATCH", "DELETE"} and not route.startswith("/v1/auth/"):
+        idempotency_key = str(uuid4())
+
     response = await send_request_fn(
         api_url=api_url,
         method=method,
@@ -164,9 +190,9 @@ async def api_request(
         json_body=json_body,
         params=params,
         files=files,
+        idempotency_key=idempotency_key,
     )
 
-    upper_method = method.strip().upper()
     if response.status_code >= 400:
         challenge = extract_challenge_details(response)
         if (
@@ -175,7 +201,17 @@ async def api_request(
             and not route.startswith("/v1/auth/")
             and upper_method not in {"HEAD", "OPTIONS"}
         ):
-            await complete_auth_challenge_fn(challenge)
+            challenge_result = await complete_auth_challenge_fn(challenge)
+            if isinstance(challenge_result, dict) and challenge.get("operation_id"):
+                if challenge_result.get("operation_result") is None:
+                    raise click.ClickException("Suspended operation resumed but no operation_result was returned")
+                operation_status = int(challenge_result.get("operation_status", 200))
+                operation_result = challenge_result.get("operation_result")
+                if operation_status >= 400:
+                    raise click.ClickException(f"{operation_status}: Operation resume failed")
+                if isinstance(operation_result, dict) and "data" in operation_result:
+                    return operation_result["data"]
+                return operation_result
             refreshed_token = load_token_fn()
             if not refreshed_token:
                 raise click.ClickException("Auth challenge completed but no local token was stored.")
@@ -194,6 +230,7 @@ async def api_request(
                 json_body=json_body,
                 params=params,
                 files=files,
+                idempotency_key=idempotency_key,
             )
             if response.status_code < 400:
                 if response.headers.get("content-type", "").startswith("application/json"):

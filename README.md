@@ -62,8 +62,7 @@ icloud drive tree --path /
 
 | Legacy intent | HTTP endpoint | CLI command |
 |---|---|---|
-| Login | `POST /v1/auth/login` | `icloud auth login` |
-| Submit 2FA code | `POST /v1/auth/security-code` | `icloud auth security-code` |
+| Start/continue auth challenge | `POST /v1/auth/challenge` | `icloud auth login` / `icloud auth security-code` |
 | List devices | `GET /v1/devices` | `icloud devices list` |
 | Device location | `GET /v1/devices/{device_id}/location` | `icloud devices location --device-id ...` |
 | Account storage | `GET /v1/account/storage` | `icloud account storage` |
@@ -74,7 +73,9 @@ icloud drive tree --path /
 
 - Success envelopes use: `{"data": ...}`.
 - Error envelopes use: `{"error": {"code", "message", "status", "details"}}`.
-- Challenge-driven auth: protected domain routes can return `auth_challenge_required` when Apple session is expired; clients complete auth via `/v1/auth/login` and `/v1/auth/security-code`, then retry the original operation.
+- Challenge-driven auth: protected domain routes can return `auth_challenge_required` (`401`) when Apple session is expired; clients complete auth via `/v1/auth/challenge`.
+- Unified challenge responses use explicit `challenge_type`: `password_required`, `security_code_required`, `operation_resume_required`, `authenticated`.
+- Admin allowlist API is role-gated (`admin`): `GET/POST /v1/admin/allowlist`, `DELETE /v1/admin/allowlist/{username}`, `POST /v1/admin/allowlist/{username}/role`.
 - Provider runtime direction is locked to strict containment (Option B): legacy sync provider clients stay behind async adapters; no legacy runtime alias symbols are exposed in active adapter/runtime paths.
 - Vertical tests run in-process ASGI and block external network access.
 

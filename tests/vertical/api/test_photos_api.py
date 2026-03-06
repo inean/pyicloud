@@ -6,8 +6,8 @@ from httpx import ASGITransport, AsyncClient
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
     login = await client.post(
-        "/v1/auth/login",
-        json={"username": "success@example.com", "password": "secret"},
+        "/v1/auth/challenge",
+        json={"username": "success@example.com", "password_envelope": "secret"},
     )
     assert login.status_code == 200
     payload = login.json()["data"]

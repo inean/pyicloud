@@ -5,13 +5,16 @@ from .api_errors import (
     BackendUnavailable,
     ChallengeExpired,
     ChallengeRequired,
+    Conflict,
+    Forbidden,
+    InvalidChallengeTransition,
     InvalidCredentials,
     InvalidSecurityCode,
     QueryExecutionFailed,
     Unauthorized,
     UnsupportedQueryMode,
 )
-from .api_models import AuthPrincipal
+from .api_models import AccessControlEntry, AuthPrincipal, SuspendedOperation
 from .auth_flow import AuthFlowError, AuthFlowRequest, AuthFlowResult, AuthStep, SecurityCodeRequired
 from .service_contracts import (
     AccountDeviceDTO,
@@ -51,6 +54,7 @@ __all__ = [
     "AccountStorageUsageDTO",
     "ChallengeExpired",
     "ChallengeRequired",
+    "Conflict",
     "CalendarDTO",
     "CalendarEventDTO",
     "CalendarEventDetailDTO",
@@ -60,6 +64,8 @@ __all__ = [
     "DeviceRecordDTO",
     "DriveNodeChildDTO",
     "DriveNodeDTO",
+    "Forbidden",
+    "InvalidChallengeTransition",
     "InvalidCredentials",
     "InvalidSecurityCode",
     "PhotoAlbumDTO",
@@ -72,4 +78,6 @@ __all__ = [
     "UnsupportedQueryMode",
     "Unauthorized",
     "UbiquityNodeDTO",
+    "AccessControlEntry",
+    "SuspendedOperation",
 ]

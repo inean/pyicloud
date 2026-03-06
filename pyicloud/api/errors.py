@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
@@ -12,10 +13,13 @@ from fastapi.responses import JSONResponse
 from pyicloud.domain import Unauthorized
 from pyicloud.exceptions import PyiCloudAPIResponseError
 
+LOGGER = logging.getLogger("pyicloud.audit")
+
 
 def _error_code(status_code: int) -> str:
     mapping = {
         status.HTTP_401_UNAUTHORIZED: "unauthorized",
+        status.HTTP_403_FORBIDDEN: "forbidden",
         status.HTTP_404_NOT_FOUND: "not_found",
         status.HTTP_410_GONE: "expired",
         status.HTTP_422_UNPROCESSABLE_CONTENT: "validation_error",
@@ -64,6 +68,20 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def _pyicloud_api_error_handler(request: Request, exc: PyiCloudAPIResponseError) -> JSONResponse:
         upstream_status = _coerce_upstream_status(exc.code)
         if upstream_status in {401, 421, 450}:
+            resume_operation_id = request.headers.get("x-pyicloud-operation-resume", "").strip()
+            if resume_operation_id:
+                LOGGER.info("audit_event type=operation_resume_failed operation_id=%s", resume_operation_id)
+                return await _http_exception_handler(
+                    request,
+                    HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail={
+                            "code": "operation_resume_failed",
+                            "message": "Operation resume requires another auth challenge and was aborted",
+                            "operation_id": resume_operation_id,
+                        },
+                    ),
+                )
             authorization = request.headers.get("authorization", "")
             token = authorization.split(" ", 1)[1].strip() if authorization.startswith("Bearer ") else ""
             principal = None
@@ -73,11 +91,50 @@ def register_exception_handlers(app: FastAPI) -> None:
                 except Unauthorized:
                     principal = None
             if principal is not None:
+                mutating_method = request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
+                idempotency_key = request.headers.get("idempotency-key")
+                if mutating_method and not idempotency_key:
+                    LOGGER.info(
+                        "audit_event type=idempotency_key_required method=%s path=%s",
+                        request.method,
+                        request.url.path,
+                    )
+                    return await _http_exception_handler(
+                        request,
+                        HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail={
+                                "code": "idempotency_key_required",
+                                "message": "Idempotency-Key header is required for mutating operation suspension",
+                            },
+                        ),
+                    )
+                body = await request.body()
+                body_text = body.decode("utf-8", errors="replace") if body else None
+                operation = request.app.state.operation_suspension_service.suspend_operation(
+                    account_id=principal.username,
+                    method=request.method,
+                    path=request.url.path,
+                    query_string=request.url.query,
+                    body_text=body_text,
+                    content_type=request.headers.get("content-type"),
+                    idempotency_key=idempotency_key,
+                )
                 challenge = request.app.state.auth_service.issue_operation_challenge(
                     account_id=principal.username,
                     upstream_status=upstream_status,
                     operation=f"{request.method} {request.url.path}",
                     reason=str(exc.reason or ""),
+                    operation_id=operation.operation_id,
+                )
+                request.app.state.operation_suspension_service.attach_challenge(
+                    operation_id=operation.operation_id,
+                    challenge_id=str(challenge["challenge_id"]),
+                )
+                LOGGER.info(
+                    "audit_event type=challenge_issued challenge_type=session_refresh account_id=%s operation_id=%s",
+                    principal.username,
+                    operation.operation_id,
                 )
                 return await _http_exception_handler(
                     request,

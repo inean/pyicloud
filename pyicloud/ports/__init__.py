@@ -1,5 +1,6 @@
 """Hexagonal ports for auth/session, core services, and observability use-cases."""
 
+from .access_control import AccessControlCommandPort, AccessControlQueryPort
 from .auth import AuthSessionPort, ServiceEndpointPort, SessionStorePort
 from .auth_state_reset import AuthStateResetPolicy
 from .observability import (
@@ -11,6 +12,7 @@ from .observability import (
     PromQLQueryPort,
     TraceQLQueryPort,
 )
+from .operation_suspension import SuspendedOperationCommandPort, SuspendedOperationQueryPort
 from .services import (
     AccountServicePort,
     CalendarServicePort,
@@ -31,6 +33,8 @@ from .upstream_probe import (
 
 __all__ = [
     "AccountServicePort",
+    "AccessControlCommandPort",
+    "AccessControlQueryPort",
     "AuthSessionPort",
     "AuthStateResetPolicy",
     "CalendarServicePort",
@@ -49,6 +53,8 @@ __all__ = [
     "SessionQueryPort",
     "ServiceEndpointPort",
     "SessionStorePort",
+    "SuspendedOperationCommandPort",
+    "SuspendedOperationQueryPort",
     "TokenSignerPort",
     "TraceQLQueryPort",
     "UbiquityServicePort",

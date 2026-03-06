@@ -255,6 +255,27 @@ class SettingsFile(AbstractPath[Settings]):
             self._file = re.sub(r"\W", "", username) + ".json"
             return super().__fspath__()
 
+    @override
+    def save(self, **kwargs):
+        """Persist settings without writing account password to disk."""
+        existing_exclude = kwargs.get("exclude")
+        password_exclude = {"password"}
+
+        if existing_exclude is None:
+            kwargs["exclude"] = {"account": password_exclude}
+        elif isinstance(existing_exclude, dict):
+            merged = dict(existing_exclude)
+            account_exclude = merged.get("account")
+            if isinstance(account_exclude, set):
+                merged["account"] = set(account_exclude) | password_exclude
+            elif isinstance(account_exclude, dict):
+                merged["account"] = set(account_exclude) | password_exclude
+            else:
+                merged["account"] = password_exclude
+            kwargs["exclude"] = merged
+
+        return super().save(**kwargs)
+
 
 class CookiesJar(AbstractPath[Cookies]):
     cls_config = PathConfigDict(

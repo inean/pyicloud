@@ -28,13 +28,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 29 Access Control Plane (Whitelist + Admin)
-  - Phase 30 Unified Auth Challenge Endpoint
-  - Phase 31 Operation Suspension Pattern (Server-Side)
-  - Phase 32 Abuse/Safety Hardening for New Flows
-  - Phase 33 Migration, Compatibility, and Cutover
+  - None
 - In Progress:
-  - Phase 28 Credential Custody Hardening
+  - None
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -67,6 +63,12 @@
   - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
   - Phase 27 Provider Runtime Containment / Async Migration
+  - Phase 28 Credential Custody Hardening
+  - Phase 29 Access Control Plane (Whitelist + Admin)
+  - Phase 30 Unified Auth Challenge Endpoint
+  - Phase 31 Operation Suspension Pattern (Server-Side)
+  - Phase 32 Abuse/Safety Hardening for New Flows
+  - Phase 33 Migration, Compatibility, and Cutover
 - Blocked:
   - None
 
@@ -1642,16 +1644,40 @@ Finalize the service runtime direction and remove residual legacy coupling/alias
 Ensure backend handles Apple password only in memory, never at rest, while enabling secure CLI-side credential storage.
 
 ### Checklist
-- [ ] Remove backend password persistence from settings/session serialization paths.
-- [ ] Add explicit guard tests proving backend stores/files never persist plaintext password artifacts.
+- [x] Remove backend password persistence from settings/session serialization paths.
+- [x] Add explicit guard tests proving backend stores/files never persist plaintext password artifacts.
 - [ ] Add CLI credential vault adapter:
-  - [ ] OS keyring backend first.
-  - [ ] encrypted-file fallback explicitly disabled by default.
-- [ ] Wire CLI auth commands/challenge middleware to consume credential vault where available.
+  - [x] OS keyring backend first.
+  - [x] encrypted-file fallback explicitly disabled by default.
+- [x] Wire CLI auth commands/challenge middleware to consume credential vault where available.
 
 ### Exit Criteria
 - Backend writes zero plaintext password artifacts in config/session/challenge stores.
 - CLI can securely store/retrieve encrypted credential locally for challenge continuation.
+
+### Handoff: Phase 28 - Credential Custody Hardening
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Enforced password-redaction at persistence boundary by hardening `SettingsFile.save()` to always exclude `account.password`.
+  - Added backend guard tests verifying neither settings persistence nor legacy session update writes plaintext password to disk.
+  - Added optional OS-keyring credential vault adapter for CLI and wired it into auth login + challenge completion flow without enabling file fallback.
+- Files changed:
+  - `pyicloud/paths.py`
+  - `tests/unit/test_paths.py`
+  - `tests/unit/test_session_adapter.py`
+  - `pyicloud/cli/credential_vault.py`
+  - `pyicloud/cli/commands/auth.py`
+  - `pyicloud/cli/transport.py`
+  - `pyicloud/cli/main.py`
+  - `tests/unit/test_cli_credential_vault.py`
+  - `tests/unit/test_cli_transport.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_paths.py tests/unit/test_session_adapter.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_cli_credential_vault.py tests/unit/test_cli_transport.py tests/vertical/cli/test_auth_cli.py`
+- Risks / TBD:
+  - Keyring remains optional (`import keyring` best-effort); non-keyring environments fall back to prompt-based password entry (no at-rest storage).
+- Next recommended phase: Phase 29 Access Control Plane (Whitelist + Admin).
 
 ---
 
@@ -1660,18 +1686,66 @@ Ensure backend handles Apple password only in memory, never at rest, while enabl
 Prevent arbitrary Apple accounts from using backend by enforcing admin-managed allowlist policies.
 
 ### Checklist
-- [ ] Introduce allowlist/admin domain model:
-  - [ ] fields include `username`, `roles`, `status`, `created_by`, timestamps.
-- [ ] Add persistence adapter for access-control state.
-- [ ] Enforce allowlist gate before auth flow starts.
-- [ ] Add bootstrap-admin mechanism for first setup in non-dev environments.
-- [ ] Add admin API for allowlist management:
-  - [ ] list/add/remove/promote/demote.
-- [ ] Add role-aware JWT claim issuance/validation (`role`, `acl_version`) and stale-ACL invalidation behavior.
+- [x] Introduce allowlist/admin domain model:
+  - [x] fields include `username`, `roles`, `status`, `created_by`, timestamps.
+- [x] Add persistence adapter for access-control state.
+- [x] Enforce allowlist gate before auth flow starts.
+- [x] Add bootstrap-admin mechanism for first setup in non-dev environments.
+- [x] Add admin API for allowlist management:
+  - [x] list/add/remove/promote/demote.
+- [x] Add role-aware JWT claim issuance/validation (`role`, `acl_version`) and stale-ACL invalidation behavior.
 
 ### Exit Criteria
 - Unauthorized Apple accounts are rejected with `403` before auth/challenge execution.
 - Admin can manage allowlist lifecycle without direct file edits.
+
+### Handoff: Phase 29 - Access Control Plane (Whitelist + Admin)
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added a dedicated access-control domain model and ports with `memory`/`file` adapters for allowlist/admin state.
+  - Enforced allowlist gates before auth execution in strict environments and added bootstrap-admin setup for non-dev runtime initialization.
+  - Extended JWT ACL context with `role` and `acl_version`, including stale-ACL token invalidation in session validation.
+  - Added admin management endpoints (`list/add/remove/role`) protected by admin-role authorization with last-admin guards.
+- Files changed:
+  - `pyicloud/domain/api_models.py`
+  - `pyicloud/domain/api_errors.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/ports/access_control.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyicloud/adapters/access/__init__.py`
+  - `pyicloud/adapters/access/in_memory_access_control.py`
+  - `pyicloud/adapters/access/file_access_control.py`
+  - `pyicloud/application/access_control.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/dependencies.py`
+  - `pyicloud/api/errors.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/routers/admin.py`
+  - `pyicloud/api/routers/__init__.py`
+  - `pyicloud/api/schemas/admin.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `tests/fakes/auth_scenarios.py`
+  - `tests/unit/test_access_control_store.py`
+  - `tests/unit/test_access_control_api_service.py`
+  - `tests/unit/test_api_auth_access_control.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/vertical/api/test_admin_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_access_control_store.py tests/unit/test_access_control_api_service.py tests/unit/test_api_app_auth_config.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_auth_service.py tests/unit/test_api_auth_access_control.py tests/vertical/api/test_auth_api.py tests/integration/test_api_contracts.py`
+  - `uv run pytest -q -o addopts='' tests/vertical/api/test_admin_api.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_devices_api.py tests/integration/test_challenge_contract_gate.py`
+  - `uv run pytest -q -o addopts='' tests/vertical/api`
+  - `uv run pytest -q -o addopts='' tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py tests/integration/test_challenge_contract_gate.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_access_control_store.py tests/unit/test_access_control_api_service.py tests/unit/test_api_auth_access_control.py tests/unit/test_api_auth_service.py tests/unit/test_api_app_auth_config.py`
+- Risks / TBD:
+  - Default `memory` ACL backend remains acceptable only for dev/local; production-grade distributed consistency requirements stay deferred to upcoming phases.
+  - Legacy `/v1/auth/login` and `/v1/auth/security-code` remain active and must be migrated to unified challenge endpoint in Phase 30.
+- Next recommended phase: Phase 30 Unified Auth Challenge Endpoint.
 
 ---
 
@@ -1680,21 +1754,46 @@ Prevent arbitrary Apple accounts from using backend by enforcing admin-managed a
 Consolidate interactive authentication into one state-machine endpoint.
 
 ### Checklist
-- [ ] Introduce `POST /v1/auth/challenge` as the canonical interactive auth endpoint.
-- [ ] Support staged request inputs:
-  - [ ] `username`
-  - [ ] `challenge_id`
-  - [ ] `password_envelope`
-  - [ ] `security_code`
-- [ ] Standardize response contract:
-  - [ ] explicit `challenge_type` in `password_required | security_code_required | authenticated | operation_resume_required`.
-  - [ ] include `challenge_id`, `session_id`, `expires_at`, `retryable`.
-- [ ] Keep `/v1/auth/login` and `/v1/auth/security-code` as temporary compatibility shims forwarding internally to challenge service.
-- [ ] Add strict transition validation to reject invalid or replayed challenge steps.
+- [x] Introduce `POST /v1/auth/challenge` as the canonical interactive auth endpoint.
+- [x] Support staged request inputs:
+  - [x] `username`
+  - [x] `challenge_id`
+  - [x] `password_envelope`
+  - [x] `security_code`
+- [x] Standardize response contract:
+  - [x] explicit `challenge_type` in `password_required | security_code_required | authenticated | operation_resume_required`.
+  - [x] include `challenge_id`, `session_id`, `expires_at`, `retryable`.
+- [x] Keep `/v1/auth/login` and `/v1/auth/security-code` as temporary compatibility shims forwarding internally to challenge service.
+- [x] Add strict transition validation to reject invalid or replayed challenge steps.
 
 ### Exit Criteria
 - Auth handshake is represented by one explicit server-side state machine and one public interactive entrypoint.
 - Legacy auth endpoints remain operational only as compatibility wrappers.
+
+### Handoff: Phase 30 - Unified Auth Challenge Endpoint
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added unified interactive endpoint `POST /v1/auth/challenge` with staged request fields and explicit challenge state responses.
+  - Implemented state-machine orchestration in `AuthApiService.challenge` for `password_required`, `security_code_required`, `authenticated`, and `operation_resume_required`.
+  - Converted legacy `/v1/auth/login` and `/v1/auth/security-code` handlers into compatibility shims that forward internally to the challenge service.
+  - Added strict transition checks and replay rejection semantics for invalid challenge step combinations and consumed challenge IDs.
+- Files changed:
+  - `pyicloud/domain/api_errors.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `pyicloud/api/routers/auth.py`
+  - `tests/unit/test_api_auth_challenge_state_machine.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_auth_api.py tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py`
+  - `uv run pytest -q -o addopts='' tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py`
+- Risks / TBD:
+  - `/v1/auth/challenge` currently expects plaintext `password_envelope` while cryptographic envelope transport remains pending for later hardening phases.
+  - Operation suspension resume semantics are limited to challenge signaling; server-side suspended operation execution is deferred to Phase 31.
+- Next recommended phase: Phase 31 Operation Suspension Pattern (Server-Side).
 
 ---
 
@@ -1703,16 +1802,55 @@ Consolidate interactive authentication into one state-machine endpoint.
 Pause protected operations while auth challenges complete, then resume server-side safely.
 
 ### Checklist
-- [ ] Add suspended-operation store with TTL and explicit states:
-  - [ ] `pending_auth`, `resuming`, `completed`, `failed`, `expired`.
-- [ ] On upstream reauth errors, return `401 auth_challenge_required` including `operation_id`.
-- [ ] On successful challenge completion, resume suspended operation in backend and return final operation result.
-- [ ] Enforce idempotency key requirement for mutating operations during suspend/resume.
-- [ ] Enforce terminal-state semantics to prevent duplicate resume execution.
+- [x] Add suspended-operation store with TTL and explicit states:
+  - [x] `pending_auth`, `resuming`, `completed`, `failed`, `expired`.
+- [x] On upstream reauth errors, return `401 auth_challenge_required` including `operation_id`.
+- [x] On successful challenge completion, resume suspended operation in backend and return final operation result.
+- [x] Enforce idempotency key requirement for mutating operations during suspend/resume.
+- [x] Enforce terminal-state semantics to prevent duplicate resume execution.
 
 ### Exit Criteria
 - Client no longer needs to manually replay original business operations after MFA.
 - Mutating operations remain replay-safe under retries and partial failures.
+
+### Handoff: Phase 31 - Operation Suspension Pattern (Server-Side)
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added suspended-operation persistence model with explicit lifecycle states and TTL expiry behavior (`pending_auth`, `resuming`, `completed`, `failed`, `expired`).
+  - Extended upstream challenge mapping to persist suspended operation context and include `operation_id` in `auth_challenge_required` responses.
+  - Implemented server-side operation replay from `POST /v1/auth/challenge` after successful auth completion, returning replay status/payload in challenge response.
+  - Enforced `Idempotency-Key` requirement for mutating operations when suspension is triggered and added terminal-state guards to avoid duplicate resume execution.
+- Files changed:
+  - `pyicloud/domain/api_models.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/ports/operation_suspension.py`
+  - `pyicloud/ports/__init__.py`
+  - `pyicloud/adapters/operation_suspension/__init__.py`
+  - `pyicloud/adapters/operation_suspension/in_memory_operation_store.py`
+  - `pyicloud/adapters/operation_suspension/file_operation_store.py`
+  - `pyicloud/application/operation_suspension.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/dependencies.py`
+  - `pyicloud/api/errors.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `tests/unit/test_operation_suspension_store.py`
+  - `tests/unit/test_operation_suspension_service.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_operation_suspension_store.py tests/unit/test_operation_suspension_service.py tests/unit/test_api_app_auth_config.py tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_upstream_error_mapping.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_auth_service.py tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py tests/vertical/api`
+- Risks / TBD:
+  - Operation replay currently re-dispatches requests in-process and assumes JSON/text request bodies; broader content-type support requires follow-up hardening.
+  - Distributed concurrency controls and replay-abuse quotas remain pending for Phase 32.
+- Next recommended phase: Phase 32 Abuse/Safety Hardening for New Flows.
 
 ---
 
@@ -1721,23 +1859,62 @@ Pause protected operations while auth challenges complete, then resume server-si
 Bound abuse surface introduced by challenge and operation-suspension state.
 
 ### Checklist
-- [ ] Add challenge attempt limits, lockout windows, and rate limits per account/IP/session.
-- [ ] Add anti-replay controls:
-  - [ ] single-use challenge steps.
-  - [ ] nonce/session binding.
-  - [ ] strict transition graph enforcement.
-- [ ] Add quotas and payload caps for suspended operations:
-  - [ ] per user
-  - [ ] global
-- [ ] Add audit events:
-  - [ ] admin changes
-  - [ ] allowlist decisions
-  - [ ] challenge lifecycle
-  - [ ] operation resume outcomes
-- [ ] Add TTL sweepers and cleanup determinism tests for all new stores.
+- [x] Add challenge attempt limits, lockout windows, and rate limits per account/IP/session.
+- [x] Add anti-replay controls:
+  - [x] single-use challenge steps.
+  - [x] nonce/session binding.
+  - [x] strict transition graph enforcement.
+- [x] Add quotas and payload caps for suspended operations:
+  - [x] per user
+  - [x] global
+- [x] Add audit events:
+  - [x] admin changes
+  - [x] allowlist decisions
+  - [x] challenge lifecycle
+  - [x] operation resume outcomes
+- [x] Add TTL sweepers and cleanup determinism tests for all new stores.
 
 ### Exit Criteria
 - Auth/challenge/suspension paths have bounded resource usage, replay protections, and auditable security events.
+
+### Handoff: Phase 32 - Abuse/Safety Hardening for New Flows
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added auth abuse guard with per-account/IP/session attempt counters, lockout windows, and `429 auth_rate_limited` responses.
+  - Hardened challenge transition checks with username/session binding and stricter invalid-transition rejection.
+  - Added suspended-operation abuse controls: payload size caps plus per-user/global pending operation quotas.
+  - Added structured audit events for admin allowlist mutations, allowlist deny decisions, challenge lifecycle, idempotency-key denials, and operation resume outcomes.
+  - Added deterministic TTL/cleanup and guardrail tests covering new hardening controls.
+- Files changed:
+  - `pyicloud/application/auth_abuse_guard.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/application/operation_suspension.py`
+  - `pyicloud/application/__init__.py`
+  - `pyicloud/api/app.py`
+  - `pyicloud/api/dependencies.py`
+  - `pyicloud/api/errors.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/routers/admin.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/bootstrap/__init__.py`
+  - `pyicloud/ports/operation_suspension.py`
+  - `pyicloud/adapters/operation_suspension/in_memory_operation_store.py`
+  - `pyicloud/adapters/operation_suspension/file_operation_store.py`
+  - `tests/unit/test_auth_abuse_guard_service.py`
+  - `tests/unit/test_api_auth_challenge_state_machine.py`
+  - `tests/unit/test_operation_suspension_service.py`
+  - `tests/unit/test_api_app_auth_config.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_auth_abuse_guard_service.py tests/unit/test_operation_suspension_service.py tests/unit/test_operation_suspension_store.py tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_app_auth_config.py tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_admin_api.py`
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_app_auth_config.py tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_auth_api.py tests/vertical/api/test_admin_api.py tests/vertical/api/test_upstream_error_mapping.py tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py`
+  - `uv run pytest -q -o addopts='' tests/vertical/api`
+- Risks / TBD:
+  - Abuse guard counters are in-memory and instance-local; distributed rate-limit coordination remains a deployment concern.
+  - Audit events are currently log-based; durable audit retention/queries are left for future observability hardening.
+- Next recommended phase: Phase 33 Migration, Compatibility, and Cutover.
 
 ---
 
@@ -1746,19 +1923,64 @@ Bound abuse surface introduced by challenge and operation-suspension state.
 Migrate clients safely to unified challenge + suspension model and retire old auth endpoints.
 
 ### Checklist
-- [ ] Update CLI to use unified challenge endpoint and operation-resume semantics.
-- [ ] Roll out compatibility window for legacy auth endpoints.
-- [ ] Remove legacy `/v1/auth/login` and `/v1/auth/security-code` once cutover criteria are met.
-- [ ] Update docs/contracts/examples for new auth and admin surfaces.
-- [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on post-cutover path.
+- [x] Update CLI to use unified challenge endpoint and operation-resume semantics.
+- [x] Roll out compatibility window for legacy auth endpoints.
+- [x] Remove legacy `/v1/auth/login` and `/v1/auth/security-code` once cutover criteria are met.
+- [x] Update docs/contracts/examples for new auth and admin surfaces.
+- [x] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on post-cutover path.
 
 ### Exit Criteria
 - No active clients depend on legacy auth endpoints.
 - Unified challenge + suspension path is the only supported authentication flow.
 
+### Handoff: Phase 33 - Migration, Compatibility, and Cutover
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Migrated CLI auth and challenge middleware flows to `POST /v1/auth/challenge`.
+  - Updated CLI auto-recovery to consume server-side `operation_result` and avoid redundant client-side replay when operation suspension resumes server-side.
+  - Added automatic `Idempotency-Key` propagation for mutating CLI requests during challenge/retry handling.
+- Files changed:
+  - `pyicloud/cli/commands/auth.py`
+  - `pyicloud/cli/transport.py`
+  - `pyicloud/cli/main.py`
+  - `pyicloud/api/routers/auth.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `README.md`
+  - `CODE_SAMPLES.md`
+  - `tests/integration/test_api_contracts.py`
+  - `tests/integration/test_api_end_to_end.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `tests/unit/test_api_auth_service.py`
+  - `tests/unit/test_api_telemetry_middleware.py`
+  - `tests/vertical/api/test_account_api.py`
+  - `tests/vertical/api/test_admin_api.py`
+  - `tests/vertical/api/test_auth_api.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+  - `tests/vertical/api/test_calendar_api.py`
+  - `tests/vertical/api/test_contacts_api.py`
+  - `tests/vertical/api/test_devices_api.py`
+  - `tests/vertical/api/test_drive_api.py`
+  - `tests/vertical/api/test_observability_api.py`
+  - `tests/vertical/api/test_photos_api.py`
+  - `tests/vertical/api/test_reminders_api.py`
+  - `tests/vertical/api/test_ubiquity_api.py`
+  - `tests/vertical/api/test_upstream_error_mapping.py`
+  - `pyicloud/application/api_auth.py`
+  - `tests/unit/test_cli_transport.py`
+  - `tests/vertical/cli/test_auth_cli.py`
+- Tests executed:
+  - `make check`
+  - `uv run pytest -q -o addopts='' tests/unit/test_cli_transport.py tests/vertical/cli/test_auth_cli.py`
+- Risks / TBD:
+  - None identified in this phase after cutover and gate execution.
+- Next recommended phase:
+  - None (phase plan complete).
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 28: Credential Custody Hardening.
+# Phase 28-33 plan completed; continue from new planning input.
 ```
