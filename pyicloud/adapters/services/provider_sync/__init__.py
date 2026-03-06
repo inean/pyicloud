@@ -26,8 +26,6 @@ from .findmyiphone import FindMyiPhoneServiceManager
 from .photos import PhotosService
 from .reminders import RemindersService
 from .ubiquity import UbiquityService
-from pyicloud.sessions._contracts import DynamicEndpoint
-from pyicloud.sessions.session import create_session
 
 
 class PyiCloudServices:
@@ -265,6 +263,8 @@ class FindMyiPhone(Service):
         This ensures that the location data is up-to-date.
 
         """
+        from pyicloud.sessions._contracts import DynamicEndpoint
+        from pyicloud.sessions.session import create_session
 
         class Endpoint(DynamicEndpoint):
             verb = "POST"

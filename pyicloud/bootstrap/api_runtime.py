@@ -116,26 +116,6 @@ def build_default_auth_api_service(*, access_query: AccessControlQueryPort | Non
             auth_adapter = FakeScenarioAuthSessionAdapter(scenario=scenario)  # type: ignore[arg-type]
             store_adapter = FileSessionStoreAdapter(root_dir=store_dir)
             return AuthSessionService(auth=auth_adapter, store=store_adapter)
-        if auth_backend in {"legacy_tree", "tree_legacy", "tree"}:
-            from pyicloud.bootstrap.auth_session import build_auth_session_service
-            from pyicloud.models.settings import Settings
-
-            class _LegacyApiSetupHooks:
-                def __init__(self, *, secret: str):
-                    self._secret = secret
-
-                def get_password(self, username: str) -> str:  # noqa: ARG002
-                    return self._secret
-
-                def get_security_code(self, device=None) -> str:  # noqa: ANN001, ARG002
-                    return ""
-
-                def get_trusted_device(self, devices):  # noqa: ANN001, ARG002
-                    return None
-
-            settings = Settings.create(username=username, password=password or None)
-            hooks = _LegacyApiSetupHooks(secret=password)
-            return build_auth_session_service(settings=settings, hooks=hooks, store_dir=store_dir)
         raise RuntimeError(f"Unsupported PYICLOUD_API_AUTH_BACKEND value: {auth_backend}")
 
     return AuthApiService(
