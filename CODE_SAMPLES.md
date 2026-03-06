@@ -3,18 +3,50 @@
 ## HTTP API flow
 
 ```bash
-# 1) login
-curl -sS http://127.0.0.1:8000/v1/auth/login \
+# 1) start auth challenge
+curl -sS http://127.0.0.1:8000/v1/auth/challenge \
   -H 'content-type: application/json' \
-  -d '{"username":"you@example.com","password":"***"}'
+  -d '{"username":"you@example.com"}'
 
-# 2) session
+# 2) continue challenge with password
+curl -sS http://127.0.0.1:8000/v1/auth/challenge \
+  -H 'content-type: application/json' \
+  -d '{"challenge_id":"<challenge-id>","password_envelope":"***"}'
+
+# If response challenge_type is security_code_required:
+curl -sS http://127.0.0.1:8000/v1/auth/challenge \
+  -H 'content-type: application/json' \
+  -d '{"challenge_id":"<challenge-id>","security_code":"123456","password_envelope":"***"}'
+
+# 3) session
 curl -sS http://127.0.0.1:8000/v1/auth/session \
   -H "authorization: Bearer <token>"
 
-# 3) devices
+# 4) devices
 curl -sS http://127.0.0.1:8000/v1/devices \
   -H "authorization: Bearer <token>"
+```
+
+## Admin allowlist (API)
+
+```bash
+# list entries (admin JWT required)
+curl -sS http://127.0.0.1:8000/v1/admin/allowlist \
+  -H "authorization: Bearer <admin-token>"
+
+# add member
+curl -sS http://127.0.0.1:8000/v1/admin/allowlist \
+  -X POST \
+  -H 'content-type: application/json' \
+  -H "authorization: Bearer <admin-token>" \
+  -d '{"username":"member@example.com","role":"member","status":"active"}'
+
+# promote to admin
+curl -sS http://127.0.0.1:8000/v1/admin/allowlist/member@example.com/role \
+  -X POST \
+  -H 'content-type: application/json' \
+  -H "authorization: Bearer <admin-token>" \
+  -d '{"role":"admin"}'
 ```
 
 ## CLI flow
