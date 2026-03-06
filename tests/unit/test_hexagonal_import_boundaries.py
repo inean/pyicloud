@@ -5,6 +5,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYICLOUD_ROOT = REPO_ROOT / "pyicloud"
+MANAGED_LAYERS = {
+    "domain": {"domain"},
+    "ports": {"ports", "domain"},
+    "application": {"application", "ports", "domain"},
+    "adapters": {"adapters", "ports", "domain"},
+    "api": {"api", "application", "ports", "domain", "bootstrap", "adapters"},
+    "cli": {"cli", "application", "ports", "domain"},
+    "bootstrap": {"bootstrap", "application", "adapters", "ports", "domain"},
+}
 
 
 def _matches_prefix(module: str, prefixes: set[str]) -> bool:
@@ -57,6 +66,55 @@ def _find_boundary_violations(*, package_dir: Path, forbidden_prefixes: set[str]
             if _matches_prefix(imported_module, forbidden_prefixes):
                 violations.append(f"{rel} -> {imported_module}")
     return violations
+
+
+def _managed_layer_for_path(path: Path) -> str:
+    rel = path.relative_to(PYICLOUD_ROOT)
+    return rel.parts[0]
+
+
+def _managed_layer_for_module(module: str) -> str | None:
+    if not module.startswith("pyicloud."):
+        return None
+    parts = module.split(".")
+    if len(parts) < 2:
+        return None
+    layer = parts[1]
+    if layer not in MANAGED_LAYERS:
+        return None
+    return layer
+
+
+def _iter_managed_layer_files() -> list[Path]:
+    files: list[Path] = []
+    for layer in MANAGED_LAYERS:
+        files.extend((PYICLOUD_ROOT / layer).rglob("*.py"))
+    return sorted(files)
+
+
+def _find_layer_policy_violations() -> list[str]:
+    violations: list[str] = []
+    for path in _iter_managed_layer_files():
+        source_layer = _managed_layer_for_path(path)
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        allowed_layers = MANAGED_LAYERS[source_layer]
+        for imported_module in _iter_import_modules(path):
+            target_layer = _managed_layer_for_module(imported_module)
+            if target_layer is None:
+                continue
+            if target_layer not in allowed_layers:
+                violations.append(f"{rel} -> {imported_module} (layer {source_layer} cannot import {target_layer})")
+    return violations
+
+
+def test_architecture_layer_map_is_complete_for_managed_roots() -> None:
+    managed_roots = {path.name for path in PYICLOUD_ROOT.iterdir() if path.is_dir() and path.name in MANAGED_LAYERS}
+    assert managed_roots == set(MANAGED_LAYERS)
+
+
+def test_managed_layers_follow_import_policy_matrix() -> None:
+    violations = _find_layer_policy_violations()
+    assert violations == [], f"Layer policy violations found: {violations}"
 
 
 def test_domain_layer_has_no_outbound_layer_imports() -> None:
