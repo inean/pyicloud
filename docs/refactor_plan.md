@@ -39,7 +39,6 @@
 
 ## Phase Board
 - Planned:
-  - Phase 35 Context Skeleton + Initial Moves
   - Phase 36 API/CLI Externalization to Interfaces
   - Phase 37 Crosscutting Auth Rewrite
   - Phase 38 Telemetry/Observability Split
@@ -47,7 +46,7 @@
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 34 Semantic Taxonomy + Guardrails
+  - Phase 35 Context Skeleton + Initial Moves
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -86,6 +85,7 @@
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
+  - Phase 34 Semantic Taxonomy + Guardrails
 - Blocked:
   - None
 
@@ -2009,22 +2009,32 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 Establecer taxonomía semántica obligatoria y guardrails de arquitectura para Programa 34+.
 
 ### Checklist
-- [ ] Crear tests de taxonomía de contextos (`core`, `services`, `crosscutting`).
-- [ ] Crear tests de matriz de imports/dependencias (strict inward).
-- [ ] Bloquear nuevos imports legacy mediante ratchets adicionales.
-- [ ] Definir convenciones de naming por contexto y validarlas en tests/guardrails.
+- [x] Crear tests de taxonomía de contextos (`core`, `services`, `crosscutting`).
+- [x] Crear tests de matriz de imports/dependencias (strict inward).
+- [x] Bloquear nuevos imports legacy mediante ratchets adicionales.
+- [x] Definir convenciones de naming por contexto y validarlas en tests/guardrails.
 
 ### Exit Criteria
 CI falla ante nuevas violaciones semánticas y el baseline queda verde.
 
 ### Handoff: Phase 34 - Semantic Taxonomy + Guardrails
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Added semantic guardrail tests for Program 34+ taxonomy roots and strict inward context import policy.
+  - Added naming convention guardrails for context roots and locked services/crosscutting catalogs.
+  - Added ratchet test to block reintroduction of removed legacy runtime import paths.
 - Files changed:
+  - `tests/unit/test_context_taxonomy_guardrails.py`
+  - `tests/unit/test_legacy_import_ratchet.py`
+  - `docs/refactor_plan.md`
 - Tests executed:
+  - `uv run --extra test pytest -q`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_context_taxonomy_guardrails.py tests/unit/test_legacy_import_ratchet.py`
 - Risks / TBD:
+  - Strict inward and catalog checks are active only when `pyicloud/contexts/*` exists; Phase 35 introduces those packages.
 - Next recommended phase:
+  - Phase 35 Context Skeleton + Initial Moves.
 
 ---
 
@@ -2189,6 +2199,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 34 Semantic Taxonomy + Guardrails.
-# Start by adding taxonomy/import-matrix guardrails before structural moves.
+# Continue with: Phase 35 Context Skeleton + Initial Moves.
+# Start by creating context trees and moving high-level contracts with shims.
 ```
