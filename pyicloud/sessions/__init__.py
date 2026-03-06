@@ -103,7 +103,7 @@ class BaseResponse[H: HeadersModel, C: CookiesModel, B: BodyModel](BaseModel):
     cookies: C
 
     body: B | None = None
-    errors: list[Error] = Field(default=[])
+    errors: list[Error] = Field(default_factory=list)
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
@@ -728,6 +728,98 @@ class Serialize(BaseSerialize):
     options: SerializationInfo = field(default_factory=SerializationInfo)
 
 
+def _default_serialize_settings() -> Serialize:
+    return Serialize(
+        options=SerializationInfo(
+            by_alias=True,
+            exclude_none=True,
+            indent=2,
+        ),
+    )
+
+
+def _default_serialize_cookies() -> Serialize:
+    return Serialize(
+        options=SerializationInfo(
+            by_alias=True,
+            exclude_defaults=True,
+            exclude_none=True,
+            exclude_unset=True,
+            indent=2,
+        ),
+    )
+
+
+def _copy_serialization_info(value: SerializationInfo | dict[str, Any] | None = None) -> SerializationInfo:
+    if value is None:
+        return SerializationInfo()
+    if isinstance(value, SerializationInfo):
+        return SerializationInfo(**value.to_dict())
+    if isinstance(value, dict):
+        return SerializationInfo(**value)
+    raise TypeError("Serialization options must be a SerializationInfo, dict, or None")
+
+
+def _copy_serialize(value: Serialize | dict[str, Any] | None = None) -> Serialize:
+    if value is None:
+        return Serialize()
+    if isinstance(value, Serialize):
+        return Serialize(
+            read=value.read,
+            write=value.write,
+            options=_copy_serialization_info(value.options),
+        )
+    if isinstance(value, dict):
+        payload = dict(value)
+        payload["options"] = _copy_serialization_info(payload.get("options"))
+        return Serialize(**payload)
+    raise TypeError("Serialize config must be a Serialize instance, dict, or None")
+
+
+def _merge_serialization_info(
+    *,
+    base: SerializationInfo,
+    override: SerializationInfo | dict[str, Any] | None,
+) -> SerializationInfo:
+    merged = _copy_serialization_info(base)
+    if override is None:
+        return merged
+    if isinstance(override, SerializationInfo):
+        merged.update(_copy_serialization_info(override))
+        return merged
+    if isinstance(override, dict):
+        for config_field in fields(SerializationInfo):
+            if config_field.name in override:
+                setattr(merged, config_field.name, override[config_field.name])
+        return merged
+    raise TypeError("Serialization options must be a SerializationInfo, dict, or None")
+
+
+def _normalize_serialize_config(
+    value: Serialize | dict[str, Any] | None,
+    *,
+    default: Serialize,
+) -> Serialize:
+    merged = _copy_serialize(default)
+    if value is None:
+        return merged
+    if isinstance(value, Serialize):
+        merged.update(_copy_serialize(value))
+        return merged
+    if isinstance(value, dict):
+        if "read" in value:
+            merged.read = value["read"]
+        if "write" in value:
+            merged.write = value["write"]
+        if "options" in value:
+            merged.options = _merge_serialization_info(
+                base=merged.options,
+                override=value.get("options"),
+            )
+        return merged
+    raise TypeError("Serialize config must be a Serialize instance, dict, or None")
+
+
 @overload
 def serialize[BT: BaseTransport](cls: type[BT]) -> type[BT]: ...
 
@@ -771,58 +863,26 @@ def serialize[BT: BaseTransport](
         def __init__(self, *args, **kwargs):
             assert issubclass(cls, cast(Any, BT.__bound__))
 
-            context = _init_context_var.get()
-
-            # Sanity Defaults
-            self._serialize_settings_ = Serialize(
-                options=SerializationInfo(
-                    by_alias=True,
-                    exclude_none=True,
-                    indent=2,
-                ),
+            self._serialize_settings_ = _normalize_serialize_config(
+                settings,
+                default=_default_serialize_settings(),
             )
-            # Settings set at decorator level
-            if settings is not None:
-                if isinstance(settings, dict):
-                    self._serialize_settings_.update(Serialize(**settings))
-                elif isinstance(settings, Serialize):
-                    self._serialize_settings = settings
-
-            # Sanity Defaults
-            self._serialize_cookies_ = Serialize(
-                options=SerializationInfo(
-                    by_alias=True,
-                    exclude_defaults=True,
-                    exclude_none=True,
-                    exclude_unset=True,
-                    indent=2,
-                ),
+            self._serialize_cookies_ = _normalize_serialize_config(
+                cookies,
+                default=_default_serialize_cookies(),
             )
-            # cookies set at decorator level
-            if cookies is not None:
-                if isinstance(cookies, dict):
-                    self._serialize_cookies_.update(Serialize(**cookies))
-                elif isinstance(cookies, Serialize):
-                    self._serialize_cookies = cookies
 
-            # Info set at runtime
-            if context := context.get("serialize_info", {}):
-                assert isinstance(context, dict)
-
-                if "settings" in context:
-                    context_settings: dict[str, Any] | Serialize = context["settings"]
-                    if isinstance(context_settings, dict):
-                        self._serialize_settings_.update(Serialize(**context_settings))
-                    elif isinstance(context_settings, Serialize):
-                        self._serialize_settings_ = context_settings
-
-                # cookies set at runtime
-                if "cookies" in context:
-                    context_cookies: dict[str, Any] | Serialize = context["cookies"]
-                    if isinstance(context_cookies, dict):
-                        self._serialize_cookies_.update(Serialize(**context_cookies))
-                    elif isinstance(context_cookies, Serialize):
-                        self._serialize_cookies_ = context_cookies
+            context_data = _init_context_var.get()
+            runtime_serialize_info = context_data.get("serialize_info", {}) if isinstance(context_data, dict) else {}
+            if isinstance(runtime_serialize_info, dict):
+                self._serialize_settings_ = _normalize_serialize_config(
+                    runtime_serialize_info.get("settings"),
+                    default=self._serialize_settings_,
+                )
+                self._serialize_cookies_ = _normalize_serialize_config(
+                    runtime_serialize_info.get("cookies"),
+                    default=self._serialize_cookies_,
+                )
 
             # Call the original __init__ method
             super().__init__(*args, **kwargs)
