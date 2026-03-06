@@ -1,0 +1,47 @@
+"""Legacy-backed adapter for calendar domain operations."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from datetime import datetime
+
+from pyicloud.adapters.services.clients.calendar import CalendarClient, LegacyCalendarClient
+from pyicloud.adapters.services.clients.common import TimeRangeFilter
+from pyicloud.adapters.services.mappers.calendar import map_calendar, map_calendar_event, map_calendar_event_detail
+from pyicloud.adapters.services.runtime import ServicesAdapterBase
+from pyicloud.contexts.services.contracts.services import CalendarServicePort
+from pyicloud.domain import CalendarDTO, CalendarEventDetailDTO, CalendarEventDTO
+
+
+class CalendarServiceAdapter(ServicesAdapterBase, CalendarServicePort):
+    """Map calendar operations to the calendar service port contract."""
+
+    def _calendar_client(self, *, username: str) -> CalendarClient:
+        return LegacyCalendarClient(runtime=self._runtime, username=username)
+
+    async def calendars(self, *, username: str) -> Sequence[CalendarDTO]:
+        views = await self._run_blocking(lambda: self._calendar_client(username=username).calendars())
+        return [map_calendar(view) for view in views]
+
+    async def events(
+        self,
+        *,
+        username: str,
+        from_dt: datetime | None = None,
+        to_dt: datetime | None = None,
+    ) -> Sequence[CalendarEventDTO]:
+        views = await self._run_blocking(
+            lambda: self._calendar_client(username=username).events(
+                time_range=TimeRangeFilter(from_dt=from_dt, to_dt=to_dt),
+            )
+        )
+        return [map_calendar_event(view) for view in views]
+
+    async def event_detail(self, *, username: str, calendar_guid: str, event_guid: str) -> CalendarEventDetailDTO:
+        view = await self._run_blocking(
+            lambda: self._calendar_client(username=username).event_detail(
+                calendar_guid=calendar_guid,
+                event_guid=event_guid,
+            )
+        )
+        return map_calendar_event_detail(view)

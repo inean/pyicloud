@@ -44,11 +44,10 @@
 
 ## Phase Board
 - Planned:
-  - Phase 39 Services Context Migration
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 39 Services Context Migration
+  - Phase 40 Platform Extraction + Legacy Deletion
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -58,6 +57,7 @@
   - Phase 36 API/CLI Externalization to Interfaces
   - Phase 37 Crosscutting Auth Rewrite
   - Phase 38 Telemetry/Observability Split
+  - Phase 39 Services Context Migration
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -492,20 +492,36 @@ La trazabilidad end-to-end funciona sin acoplar servicios a la API de consulta o
 Reubicar servicios de negocio por bounded context y descomponer fachadas monolíticas.
 
 ### Checklist
-- [ ] Mover adapters y casos de uso de dominios de servicio a `contexts/services/*`.
-- [ ] Descomponer `CoreServicesApi` monolítico en servicios de aplicación por contexto.
+- [x] Mover adapters y casos de uso de dominios de servicio a `contexts/services/*`.
+- [x] Descomponer `CoreServicesApi` monolítico en servicios de aplicación por contexto.
 
 ### Exit Criteria
 Cada servicio queda aislado por bounded context con dependencias semánticas explícitas.
 
 ### Handoff: Phase 39 - Services Context Migration
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Created context-scoped application services for `devices`, `account`, `drive`, `calendar`, `contacts`, `reminders`, `photos`, and `ubiquity` under `pyicloud/contexts/services/*/application`.
+  - Refactored `pyicloud/application/core_services.py` into a compatibility facade that delegates to those context services while keeping existing API router contract stable.
+  - Added canonical context adapters under `pyicloud/contexts/services/*/adapters` and rewired active composition (`pyicloud/adapters/services/composition.py`) to use them.
+  - Converted legacy service adapter modules in `pyicloud/adapters/services/*` into compatibility shims that re-export context adapter classes.
+  - Added migration tests asserting both facade and adapter composition now resolve to context-scoped implementations.
 - Files changed:
+  - `pyicloud/contexts/services/*/application/*`
+  - `pyicloud/contexts/services/*/adapters/*`
+  - `pyicloud/application/core_services.py`
+  - `pyicloud/adapters/services/{__init__.py,composition.py,account.py,calendar.py,contacts.py,devices.py,drive.py,photos.py,reminders.py,ubiquity.py}`
+  - `tests/unit/test_services_application_context_migration.py`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_core_services_async_contract.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_services_application_context_migration.py tests/unit/test_core_services_async_contract.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_services_application_context_migration.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py tests/vertical/api/test_devices_api.py tests/vertical/api/test_account_api.py tests/vertical/api/test_drive_api.py tests/vertical/api/test_calendar_api.py tests/vertical/api/test_contacts_api.py tests/vertical/api/test_reminders_api.py tests/vertical/api/test_photos_api.py tests/vertical/api/test_ubiquity_api.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - Shared runtime/clients/mappers are still hosted in `pyicloud/adapters/services/*` and are candidates for extraction into `platform` in Phase 40.
 - Next recommended phase:
+  - Phase 40 Platform Extraction + Legacy Deletion.
 
 ---
 
@@ -556,6 +572,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 39 Services Context Migration.
-# Start by decomposing CoreServicesApi into context-scoped application services under contexts/services/*.
+# Continue with: Phase 40 Platform Extraction + Legacy Deletion.
+# Start by extracting shared provider runtime/storage/telemetry infrastructure into platform/*.
 ```

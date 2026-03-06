@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pyicloud.contexts.services.account.adapters import AccountServiceAdapter
+from pyicloud.contexts.services.calendar.adapters import CalendarServiceAdapter
+from pyicloud.contexts.services.contacts.adapters import ContactsServiceAdapter
+from pyicloud.contexts.services.devices.adapters import DevicesServiceAdapter
+from pyicloud.contexts.services.drive.adapters import DriveServiceAdapter
+from pyicloud.contexts.services.photos.adapters import PhotosServiceAdapter
+from pyicloud.contexts.services.reminders.adapters import RemindersServiceAdapter
+from pyicloud.contexts.services.ubiquity.adapters import UbiquityServiceAdapter
 from pyicloud.ports import (
     AccountServicePort,
     CalendarServicePort,
@@ -17,15 +25,7 @@ from pyicloud.ports import (
     UbiquityServicePort,
 )
 
-from .account import AccountServiceAdapter
-from .calendar import CalendarServiceAdapter
-from .contacts import ContactsServiceAdapter
-from .devices import DevicesServiceAdapter
-from .drive import DriveServiceAdapter
-from .photos import PhotosServiceAdapter
-from .reminders import RemindersServiceAdapter
 from .runtime import ServiceRuntime
-from .ubiquity import UbiquityServiceAdapter
 
 
 @dataclass(frozen=True)
