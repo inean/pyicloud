@@ -44,9 +44,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 41 Shim Removal + Final Cutover
-- In Progress:
   - None
+- In Progress:
+  - Phase 41 Shim Removal + Final Cutover
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -587,13 +587,34 @@ Cerrar Programa 34+ eliminando compatibilidad temporal y consolidando documentac
 Estructura final estable, guardrails estrictos y documentación totalmente alineada.
 
 ### Handoff: Phase 41 - Shim Removal + Final Cutover
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: In Progress
 - Summary:
+  - Removed legacy upstream telemetry shim package (`pyicloud/upstream/*`) and rewired runtime imports/tests to canonical `pyicloud.platform.telemetry.upstream`.
+  - Removed legacy `pyicloud.adapters.store` shim and moved remaining in-repo references to `pyicloud.platform.storage`.
+  - Removed legacy `pyicloud.adapters.services.runtime` shim and rewired adapter composition/content/core facade and tests to canonical `pyicloud.platform.provider.runtime`.
+  - Hardened legacy import ratchets to forbid reintroducing removed shim namespaces (`pyicloud.upstream`, `pyicloud.adapters.store`, `pyicloud.adapters.services.runtime`).
 - Files changed:
+  - `pyicloud/upstream/*` (deleted)
+  - `pyicloud/adapters/store/*` (deleted)
+  - `pyicloud/adapters/services/{__init__.py,composition.py,content.py,legacy_core.py,runtime.py}` (runtime shim deleted)
+  - `pyicloud/sessions/{__init__.py,_transport.py}`
+  - `pyicloud/adapters/session/service_http.py`
+  - `pyicloud/contexts/services/*/application/service.py`
+  - `pyicloud/contexts/crosscutting/{auth/application/auth_session.py,observability/adapters/otel.py}`
+  - `tests/unit/{test_platform_upstream_migration.py,test_upstream_probe_classification.py,test_upstream_probe_context.py,test_upstream_probe_sanitize.py,test_file_session_store_adapter.py,test_platform_runtime_storage_migration.py,test_service_runtime_containment.py,test_legacy_core_services_adapter.py,test_legacy_import_ratchet.py}`
+  - `tests/integration/test_upstream_flow_sequence.py`
+  - `tests/fakes/auth_scenarios.py`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_platform_upstream_migration.py tests/unit/test_upstream_probe_classification.py tests/unit/test_upstream_probe_context.py tests/unit/test_upstream_probe_sanitize.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_session_base_transport.py tests/integration/test_upstream_flow_sequence.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_file_session_store_adapter.py tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_legacy_import_ratchet.py tests/vertical/api/test_auth_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_service_runtime_containment.py tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_file_session_store_adapter.py tests/unit/test_api_app_auth_config.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - `pyicloud.application/*` and `pyicloud.ports/*` compatibility shims still exist and remain to be cut over or explicitly retained as final facades.
+  - Final docs alignment (`ARCHITECTURE.md`, `README.md`, `CODE_SAMPLES.md`) is still pending.
 - Next recommended phase:
+  - Continue Phase 41 by deciding final policy for `application/ports` facades and hardening ratchets accordingly.
 
 ## Next Session Start Here
 ```bash
