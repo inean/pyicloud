@@ -29,7 +29,7 @@ def _probe_runtime() -> tuple[Any, int]:
     return sessions_module.get_upstream_probe(), sessions_module.upstream_capture_body_max_bytes()
 
 
-class BaseTransport[T: BaseRequest, K: BaseResponse](ABC):
+class SessionTransport[T: BaseRequest, K: BaseResponse](ABC):
     _cookies: Cookies
     _settings: Settings
 
@@ -186,7 +186,7 @@ class BaseTransport[T: BaseRequest, K: BaseResponse](ABC):
         for mro_cls in cls.__mro__:
             for base in get_original_bases(mro_cls):
                 origin = get_origin(base)
-                if not isinstance(origin, type) or not issubclass(origin, BaseTransport):
+                if not isinstance(origin, type) or not issubclass(origin, SessionTransport):
                     continue
                 args = get_args(base)
                 if len(args) != 2:
@@ -318,7 +318,7 @@ class BaseTransport[T: BaseRequest, K: BaseResponse](ABC):
         return await client.send(self.request.create_request())
 
 
-class OAuthTransport[T: BaseRequest, K: BaseResponse](BaseTransport[T, K], ABC):
+class AppleSessionTransport[T: BaseRequest, K: BaseResponse](SessionTransport[T, K], ABC):
     @override
     def dump_headers(
         self,
@@ -385,6 +385,12 @@ class OAuthTransport[T: BaseRequest, K: BaseResponse](BaseTransport[T, K], ABC):
 
 
 __all__ = [
+    "AppleSessionTransport",
     "BaseTransport",
     "OAuthTransport",
+    "SessionTransport",
 ]
+
+# One-phase compatibility alias window for historical transport names.
+BaseTransport = SessionTransport
+OAuthTransport = AppleSessionTransport

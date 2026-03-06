@@ -18,12 +18,13 @@ from ._contracts import (
     StaticEndpoint,
 )
 from ._serialize import BaseSerialize, IncEx, SerializationInfo, Serialize, serialize
-from ._transport import BaseTransport, OAuthTransport
+from ._transport import AppleSessionTransport, BaseTransport, OAuthTransport, SessionTransport
 
 __all__ = [
     "BaseRequest",
     "BaseResponse",
     "BaseSerialize",
+    "AppleSessionTransport",
     "BaseTransport",
     "BodyModel",
     "ContentTypeType",
@@ -41,6 +42,7 @@ __all__ = [
     "SerializationInfo",
     "Serialize",
     "ServiceErrorsModel",
+    "SessionTransport",
     "Settings",
     "StaticEndpoint",
     "get_upstream_probe",

@@ -11,7 +11,15 @@ from pyicloud.models.cookies import Cookies, CookiesModel
 from pyicloud.models.errors import Error
 from pyicloud.models.headers import HeadersModel
 from pyicloud.models.settings import Settings
-from pyicloud.sessions import BaseResponse, OAuthTransport, SerializationInfo, Serialize, serialize
+from pyicloud.sessions import (
+    AppleSessionTransport,
+    BaseResponse,
+    OAuthTransport,
+    SerializationInfo,
+    Serialize,
+    SessionTransport,
+    serialize,
+)
 from pyicloud.sessions.validate import Validate, ValidateRequest, ValidateResponse
 from pyicloud.utils.context import sync_context
 from tests.const import AUTHENTICATED_USER, SCNT, SESSION_ID, VALID_TOKEN
@@ -255,6 +263,12 @@ def test_base_response_create_handles_malformed_json_error_payload_with_fallback
     assert parsed.errors
     assert parsed.errors[0].code == 500
     assert "HTTP 500" in parsed.errors[0].message
+
+
+def test_session_transport_alias_window_exposes_legacy_and_new_names() -> None:
+    assert SessionTransport is not None
+    assert AppleSessionTransport is not None
+    assert OAuthTransport is AppleSessionTransport
 
 
 async def test_base_transport_does_not_close_injected_client(
