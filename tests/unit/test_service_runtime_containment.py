@@ -5,7 +5,7 @@ import threading
 import pytest
 
 from pyicloud.adapters.services.composition import build_core_adapter_bundle
-from pyicloud.adapters.services.runtime import ServiceRuntime, ServicesAdapterBase
+from pyicloud.platform.provider.runtime import ServiceRuntime, ServicesAdapterBase
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_services_adapter_base_contains_blocking_calls_off_event_loop() ->
 
 def test_runtime_modules_do_not_expose_legacy_alias_names() -> None:
     import pyicloud.adapters.services.composition as composition_module
-    import pyicloud.adapters.services.runtime as runtime_module
+    import pyicloud.platform.provider.runtime as runtime_module
 
     assert not hasattr(runtime_module, "LegacyServicesRuntime")
     assert not hasattr(runtime_module, "LegacyServicesAdapterBase")

@@ -11,7 +11,6 @@ from pyicloud.contexts.services.ubiquity.adapters import UbiquityServiceAdapter
 from .composition import CoreAdapterBundle, build_core_adapter_bundle
 from .legacy_core import LegacyCoreServicesAdapter
 from .reminders import RemindersServiceAdapter
-from .runtime import ServiceRuntime
 
 __all__ = [
     "AccountServiceAdapter",
@@ -21,7 +20,6 @@ __all__ = [
     "DriveServiceAdapter",
     "CoreAdapterBundle",
     "LegacyCoreServicesAdapter",
-    "ServiceRuntime",
     "PhotosServiceAdapter",
     "RemindersServiceAdapter",
     "UbiquityServiceAdapter",

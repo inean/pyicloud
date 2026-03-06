@@ -15,6 +15,7 @@ FORBIDDEN_LEGACY_IMPORT_PREFIXES = {
     "pyicloud.adapters.service_endpoint",
     "pyicloud.adapters.auth.endpoint_restore",
     "pyicloud.adapters.store",
+    "pyicloud.adapters.services.runtime",
     "pyicloud.bootstrap.service_endpoint",
     "pyicloud.upstream",
 }

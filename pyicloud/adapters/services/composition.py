@@ -12,6 +12,7 @@ from pyicloud.contexts.services.drive.adapters import DriveServiceAdapter
 from pyicloud.contexts.services.photos.adapters import PhotosServiceAdapter
 from pyicloud.contexts.services.reminders.adapters import RemindersServiceAdapter
 from pyicloud.contexts.services.ubiquity.adapters import UbiquityServiceAdapter
+from pyicloud.platform.provider.runtime import ServiceRuntime
 from pyicloud.ports import (
     AccountServicePort,
     CalendarServicePort,
@@ -24,8 +25,6 @@ from pyicloud.ports import (
     SessionStorePort,
     UbiquityServicePort,
 )
-
-from .runtime import ServiceRuntime
 
 
 @dataclass(frozen=True)

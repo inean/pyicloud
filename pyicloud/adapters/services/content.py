@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .runtime import ServiceRuntime
+from pyicloud.platform.provider.runtime import ServiceRuntime
 
 
 class StreamingBinaryContentAdapter:
