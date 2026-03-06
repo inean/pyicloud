@@ -13,6 +13,7 @@ from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionSto
 from pyicloud.adapters.token import JwtTokenSigner
 from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
+from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
 from pyicloud.application.operation_suspension import OperationSuspensionService
@@ -132,11 +133,48 @@ def build_default_operation_suspension_service() -> OperationSuspensionService:
         raise RuntimeError(f"Unsupported operation-suspension backend: {backend_name}")
 
     ttl_raw = os.getenv("PYICLOUD_API_OPERATION_TTL_SECONDS", "300")
+    max_user_raw = os.getenv("PYICLOUD_API_OPERATION_MAX_PENDING_PER_USER", "25")
+    max_global_raw = os.getenv("PYICLOUD_API_OPERATION_MAX_PENDING_GLOBAL", "500")
+    max_payload_raw = os.getenv("PYICLOUD_API_OPERATION_MAX_PAYLOAD_BYTES", "65536")
     try:
         ttl_seconds = int(ttl_raw)
+        max_pending_per_user = int(max_user_raw)
+        max_pending_global = int(max_global_raw)
+        max_payload_bytes = int(max_payload_raw)
     except ValueError as err:
-        raise RuntimeError("PYICLOUD_API_OPERATION_TTL_SECONDS must be an integer") from err
-    return OperationSuspensionService(query=store, command=store, ttl_seconds=ttl_seconds)
+        raise RuntimeError("Operation suspension configuration values must be integers") from err
+    return OperationSuspensionService(
+        query=store,
+        command=store,
+        ttl_seconds=ttl_seconds,
+        max_pending_per_user=max_pending_per_user,
+        max_pending_global=max_pending_global,
+        max_payload_bytes=max_payload_bytes,
+    )
+
+
+def build_default_auth_abuse_guard_service() -> AuthAbuseGuardService:
+    """Compose auth abuse guard service (rate-limit + lockout) for challenge flows."""
+    window_raw = os.getenv("PYICLOUD_API_AUTH_RATE_WINDOW_SECONDS", "300")
+    lockout_raw = os.getenv("PYICLOUD_API_AUTH_LOCKOUT_SECONDS", "300")
+    per_account_raw = os.getenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_ACCOUNT", "30")
+    per_ip_raw = os.getenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_IP", "60")
+    per_session_raw = os.getenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_SESSION", "12")
+    try:
+        window_seconds = int(window_raw)
+        lockout_seconds = int(lockout_raw)
+        max_attempts_per_account = int(per_account_raw)
+        max_attempts_per_ip = int(per_ip_raw)
+        max_attempts_per_session = int(per_session_raw)
+    except ValueError as err:
+        raise RuntimeError("Auth abuse guard configuration values must be integers") from err
+    return AuthAbuseGuardService(
+        window_seconds=window_seconds,
+        lockout_seconds=lockout_seconds,
+        max_attempts_per_account=max_attempts_per_account,
+        max_attempts_per_ip=max_attempts_per_ip,
+        max_attempts_per_session=max_attempts_per_session,
+    )
 
 
 def build_default_core_services_api() -> CoreServicesApi:

@@ -16,6 +16,7 @@ class AuthLoginRequest(BaseModel):
 class AuthChallengeRequest(BaseModel):
     username: str | None = Field(default=None, min_length=3)
     challenge_id: str | None = Field(default=None, min_length=1)
+    session_id: str | None = Field(default=None, min_length=1)
     password_envelope: str | None = Field(default=None, min_length=1)
     security_code: str | None = Field(default=None, pattern=r"^\d{6}$")
 

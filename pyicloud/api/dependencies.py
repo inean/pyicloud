@@ -6,6 +6,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 
 from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
+from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
 from pyicloud.application.operation_suspension import OperationSuspensionService
@@ -25,6 +26,11 @@ def get_access_control_service(request: Request) -> AccessControlApiService:
 def get_operation_suspension_service(request: Request) -> OperationSuspensionService:
     """Resolve operation-suspension application service from app state."""
     return request.app.state.operation_suspension_service
+
+
+def get_auth_abuse_guard_service(request: Request) -> AuthAbuseGuardService:
+    """Resolve auth abuse-guard service from app state."""
+    return request.app.state.auth_abuse_guard_service
 
 
 def get_core_services(request: Request) -> CoreServicesApi:

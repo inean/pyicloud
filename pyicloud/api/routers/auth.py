@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from httpx import ASGITransport, AsyncClient
 
 from pyicloud.application.api_auth import AuthApiService
+from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.application.operation_suspension import OperationSuspensionService
 from pyicloud.domain import (
     ChallengeExpired,
@@ -19,7 +21,12 @@ from pyicloud.domain import (
     Unauthorized,
 )
 
-from ..dependencies import extract_token, get_auth_service, get_operation_suspension_service
+from ..dependencies import (
+    extract_token,
+    get_auth_abuse_guard_service,
+    get_auth_service,
+    get_operation_suspension_service,
+)
 from ..responses import ok
 from ..schemas import (
     AuthChallengeRequest,
@@ -33,6 +40,7 @@ from ..schemas import (
 )
 
 router = APIRouter()
+LOGGER = logging.getLogger("pyicloud.audit")
 
 
 def _to_legacy_login_payload(challenge_payload: dict[str, object]) -> dict[str, object]:
@@ -159,11 +167,28 @@ async def auth_challenge(
     request: Request,
     service: AuthApiService = Depends(get_auth_service),
     suspension_service: OperationSuspensionService = Depends(get_operation_suspension_service),
+    abuse_guard: AuthAbuseGuardService = Depends(get_auth_abuse_guard_service),
 ) -> DataEnvelope:
+    client_ip = request.client.host if request.client is not None else "unknown"
+    try:
+        abuse_guard.guard_attempt(
+            account_id=payload.username,
+            client_ip=client_ip,
+            challenge_id=payload.challenge_id,
+            session_id=payload.session_id,
+        )
+    except Forbidden as err:
+        LOGGER.info("audit_event type=challenge_rate_limited account_id=%s ip=%s", payload.username or "", client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "auth_rate_limited", "message": str(err)},
+        ) from err
+
     try:
         result = await service.challenge(
             username=payload.username,
             challenge_id=payload.challenge_id,
+            session_id=payload.session_id,
             password_envelope=payload.password_envelope,
             security_code=payload.security_code,
         )
@@ -178,6 +203,23 @@ async def auth_challenge(
             )
             result["operation_status"] = operation_status
             result["operation_result"] = operation_result
+            LOGGER.info(
+                "audit_event type=operation_resumed operation_id=%s status=%s",
+                operation_id,
+                operation_status,
+            )
+        if result.get("challenge_type") == "authenticated":
+            abuse_guard.record_success(
+                account_id=str(result.get("account_id", "") or payload.username or ""),
+                client_ip=client_ip,
+                challenge_id=payload.challenge_id,
+                session_id=str(result.get("session_id", "") or payload.session_id or ""),
+            )
+        LOGGER.info(
+            "audit_event type=challenge_completed challenge_type=%s account_id=%s",
+            str(result.get("challenge_type", "")),
+            str(result.get("account_id", "") or payload.username or ""),
+        )
     except Conflict as err:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(err)) from err
     except ChallengeExpired as err:
@@ -189,6 +231,10 @@ async def auth_challenge(
     except InvalidCredentials as err:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
     except Forbidden as err:
+        LOGGER.info(
+            "audit_event type=allowlist_decision decision=deny account_id=%s",
+            payload.username or "",
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     return ok(AuthChallengeResponse.model_validate(result))
 
@@ -196,8 +242,22 @@ async def auth_challenge(
 @router.post("/v1/auth/login", response_model=DataEnvelope)
 async def auth_login(
     payload: AuthLoginRequest,
+    request: Request,
     service: AuthApiService = Depends(get_auth_service),
+    abuse_guard: AuthAbuseGuardService = Depends(get_auth_abuse_guard_service),
 ) -> DataEnvelope:
+    client_ip = request.client.host if request.client is not None else "unknown"
+    try:
+        abuse_guard.guard_attempt(
+            account_id=payload.username,
+            client_ip=client_ip,
+            session_id=payload.flow_id,
+        )
+    except Forbidden as err:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "auth_rate_limited", "message": str(err)},
+        ) from err
     try:
         challenge_result = await service.challenge(
             username=payload.username,
@@ -205,11 +265,18 @@ async def auth_login(
             session_id=payload.flow_id,
         )
         result = _to_legacy_login_payload(challenge_result)
+        if str(result.get("status", "")) == "authenticated":
+            abuse_guard.record_success(
+                account_id=payload.username,
+                client_ip=client_ip,
+                session_id=payload.flow_id,
+            )
     except InvalidCredentials as err:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
     except InvalidChallengeTransition as err:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err)) from err
     except Forbidden as err:
+        LOGGER.info("audit_event type=allowlist_decision decision=deny account_id=%s", payload.username)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     return ok(AuthLoginResponse.model_validate(result))
 
@@ -217,8 +284,22 @@ async def auth_login(
 @router.post("/v1/auth/security-code", response_model=DataEnvelope)
 async def auth_security_code(
     payload: AuthSecurityCodeRequest,
+    request: Request,
     service: AuthApiService = Depends(get_auth_service),
+    abuse_guard: AuthAbuseGuardService = Depends(get_auth_abuse_guard_service),
 ) -> DataEnvelope:
+    client_ip = request.client.host if request.client is not None else "unknown"
+    try:
+        abuse_guard.guard_attempt(
+            account_id=payload.username,
+            client_ip=client_ip,
+            challenge_id=payload.challenge_id,
+        )
+    except Forbidden as err:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "auth_rate_limited", "message": str(err)},
+        ) from err
     try:
         challenge_result = await service.challenge(
             challenge_id=payload.challenge_id,
@@ -227,6 +308,12 @@ async def auth_security_code(
             username=payload.username,
         )
         result = _to_legacy_login_payload(challenge_result)
+        if str(result.get("status", "")) == "authenticated":
+            abuse_guard.record_success(
+                account_id=payload.username,
+                client_ip=client_ip,
+                challenge_id=payload.challenge_id,
+            )
     except ChallengeExpired as err:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(err)) from err
     except InvalidChallengeTransition as err:
@@ -236,6 +323,10 @@ async def auth_security_code(
     except InvalidCredentials as err:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
     except Forbidden as err:
+        LOGGER.info(
+            "audit_event type=allowlist_decision decision=deny account_id=%s",
+            payload.username or "",
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(err)) from err
     return ok(AuthLoginResponse.model_validate(result))
 
