@@ -26,11 +26,28 @@
 - Challenge-driven auth policy (locked): clients attempt normal domain operations first; when Apple session is expired/invalid, backend returns an auth challenge response and drives recovery (`client -> backend -> Apple`) instead of requiring preemptive login.
 - Challenge persistence policy (locked): backend challenge state must never store plaintext credentials.
 
+## Program 34+ Decision Addendum (locked)
+- Taxonomía semántica por raíces: `contexts/core`, `contexts/services`, `contexts/crosscutting`.
+- Contextos `services`: `devices`, `account`, `drive`, `calendar`, `contacts`, `reminders`, `photos`, `ubiquity`.
+- Contextos `crosscutting`: `auth`, `telemetry`, `observability`.
+- `identity_access` se renombra de forma definitiva a `auth`.
+- `auth` se implementa como contexto transversal (`contexts/crosscutting/auth`), no en `core`.
+- `API/CLI` salen de contextos de negocio y se ubican en `pyicloud/interfaces/api` y `pyicloud/interfaces/cli`.
+- Regla de dependencias: strict inward (hacia dominio/puertos de contexto).
+- Observabilidad separada en write/read: `crosscutting/telemetry` (emisión) y `crosscutting/observability` (consulta).
+- Estrategia de migración: strangler por fases con shims internos temporales y retiro final obligatorio.
+
 ## Phase Board
 - Planned:
-  - None
+  - Phase 35 Context Skeleton + Initial Moves
+  - Phase 36 API/CLI Externalization to Interfaces
+  - Phase 37 Crosscutting Auth Rewrite
+  - Phase 38 Telemetry/Observability Split
+  - Phase 39 Services Context Migration
+  - Phase 40 Platform Extraction + Legacy Deletion
+  - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - None
+  - Phase 34 Semantic Taxonomy + Guardrails
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -79,6 +96,13 @@
 - Unit and vertical suites run without external network; integration follows the repository policy.
 - Client behavior assumption: no preflight session refresh; CLI/API clients call target operation first and only enter auth flow when backend returns challenge.
 - Challenge completion is backend-mediated; clients never call Apple endpoints directly.
+- La semántica de contexto prevalece sobre la estructura previa por capas globales.
+- Los adapters de entrada (`api`, `cli`) son infraestructura de interfaz, no dominio.
+- Los contextos `services` no invocan casos de uso de `observability`; emiten trazabilidad vía puerto técnico de `telemetry`.
+- Se permiten breaking changes durante Programa 34+ cuando desbloquean la taxonomía semántica final.
+- El protocolo de resume actual del documento se mantiene sin cambios.
+- El Programa 34+ no reescribe el histórico de fases 0-33; añade una nueva ola de refactor semántico.
+- `auth` queda definitivamente ubicado en `contexts/crosscutting/auth`.
 
 ## Handoff Template (append after each phase)
 ```md
@@ -1978,9 +2002,193 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 - Next recommended phase:
   - None (phase plan complete).
 
+---
+
+## Phase 34: Semantic Taxonomy + Guardrails
+### Goal
+Establecer taxonomía semántica obligatoria y guardrails de arquitectura para Programa 34+.
+
+### Checklist
+- [ ] Crear tests de taxonomía de contextos (`core`, `services`, `crosscutting`).
+- [ ] Crear tests de matriz de imports/dependencias (strict inward).
+- [ ] Bloquear nuevos imports legacy mediante ratchets adicionales.
+- [ ] Definir convenciones de naming por contexto y validarlas en tests/guardrails.
+
+### Exit Criteria
+CI falla ante nuevas violaciones semánticas y el baseline queda verde.
+
+### Handoff: Phase 34 - Semantic Taxonomy + Guardrails
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 35: Context Skeleton + Initial Moves
+### Goal
+Crear estructura base de contextos y mover contratos iniciales con compatibilidad temporal.
+
+### Checklist
+- [ ] Crear árboles `contexts/*`, `shared/kernel`, `platform`, `interfaces/*`.
+- [ ] Mover contratos de alto nivel de `domain/ports` a la nueva estructura de contextos.
+- [ ] Crear shims temporales para mantener runtime y tests durante la transición.
+
+### Exit Criteria
+La nueva estructura compila sin romper el runtime actual.
+
+### Handoff: Phase 35 - Context Skeleton + Initial Moves
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 36: API/CLI Externalization to Interfaces
+### Goal
+Mover `api` y `cli` a infraestructura de entrada fuera de contextos de negocio.
+
+### Checklist
+- [ ] Mover `pyicloud/api` y `pyicloud/cli` a `pyicloud/interfaces/api` y `pyicloud/interfaces/cli`.
+- [ ] Mantener routers/comandos agrupados por contexto semántico.
+- [ ] Adaptar composition root/bootstrap para resolver servicios desde la nueva ubicación.
+
+### Exit Criteria
+Los contratos API/CLI operan desde `interfaces/*` sin regresión funcional.
+
+### Handoff: Phase 36 - API/CLI Externalization to Interfaces
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 37: Crosscutting Auth Rewrite
+### Goal
+Completar la migración de autenticación al contexto transversal `auth`.
+
+### Checklist
+- [ ] Renombrar semánticamente `identity_access` a `auth` en estructuras y referencias.
+- [ ] Implementar flujo auth/challenge/session/token/ACL dentro de `contexts/crosscutting/auth`.
+- [ ] Retirar dependencias nucleares en `sessions/trees` del path activo de autenticación.
+
+### Exit Criteria
+Auth funciona completamente sobre el nuevo contexto transversal.
+
+### Handoff: Phase 37 - Crosscutting Auth Rewrite
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 38: Telemetry/Observability Split
+### Goal
+Separar emisión de trazas y consulta observability en contextos transversales distintos.
+
+### Checklist
+- [ ] Extraer write-side de trazabilidad a `contexts/crosscutting/telemetry`.
+- [ ] Mantener query-side en `contexts/crosscutting/observability`.
+- [ ] Instrumentar adapters outbound para emitir señales vía puerto técnico de telemetry.
+
+### Exit Criteria
+La trazabilidad end-to-end funciona sin acoplar servicios a la API de consulta observability.
+
+### Handoff: Phase 38 - Telemetry/Observability Split
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 39: Services Context Migration
+### Goal
+Reubicar servicios de negocio por bounded context y descomponer fachadas monolíticas.
+
+### Checklist
+- [ ] Mover adapters y casos de uso de dominios de servicio a `contexts/services/*`.
+- [ ] Descomponer `CoreServicesApi` monolítico en servicios de aplicación por contexto.
+
+### Exit Criteria
+Cada servicio queda aislado por bounded context con dependencias semánticas explícitas.
+
+### Handoff: Phase 39 - Services Context Migration
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 40: Platform Extraction + Legacy Deletion
+### Goal
+Extraer infraestructura técnica transversal y eliminar rutas legacy activas.
+
+### Checklist
+- [ ] Mover runtime de proveedor, storage y telemetry infra a `platform`.
+- [ ] Eliminar `sessions/trees` y rutas legacy equivalentes del path activo.
+
+### Exit Criteria
+Cero rutas de ejecución activas hacia paquetes legacy retirados.
+
+### Handoff: Phase 40 - Platform Extraction + Legacy Deletion
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 41: Shim Removal + Final Cutover
+### Goal
+Cerrar Programa 34+ eliminando compatibilidad temporal y consolidando documentación final.
+
+### Checklist
+- [ ] Eliminar shims internos temporales de migración.
+- [ ] Endurecer ratchets/guardrails para impedir regresión estructural.
+- [ ] Actualizar `ARCHITECTURE.md`, `README.md`, `CODE_SAMPLES.md`.
+
+### Exit Criteria
+Estructura final estable, guardrails estrictos y documentación totalmente alineada.
+
+### Handoff: Phase 41 - Shim Removal + Final Cutover
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Phase 28-33 plan completed; continue from new planning input.
+# Continue with: Phase 34 Semantic Taxonomy + Guardrails.
+# Start by adding taxonomy/import-matrix guardrails before structural moves.
 ```
