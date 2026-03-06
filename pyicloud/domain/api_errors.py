@@ -23,6 +23,10 @@ class ChallengeExpired(ApiDomainError):
     """Raised when a challenge identifier is unknown or expired."""
 
 
+class InvalidChallengeTransition(ApiDomainError):
+    """Raised when a challenge request attempts an invalid state transition."""
+
+
 class Unauthorized(ApiDomainError):
     """Raised when bearer token validation fails."""
 

@@ -28,12 +28,11 @@
 
 ## Phase Board
 - Planned:
-  - Phase 30 Unified Auth Challenge Endpoint
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
   - Phase 33 Migration, Compatibility, and Cutover
 - In Progress:
-  - None
+  - Phase 31 Operation Suspension Pattern (Server-Side)
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -68,6 +67,7 @@
   - Phase 27 Provider Runtime Containment / Async Migration
   - Phase 28 Credential Custody Hardening
   - Phase 29 Access Control Plane (Whitelist + Admin)
+  - Phase 30 Unified Auth Challenge Endpoint
 - Blocked:
   - None
 
@@ -1753,21 +1753,46 @@ Prevent arbitrary Apple accounts from using backend by enforcing admin-managed a
 Consolidate interactive authentication into one state-machine endpoint.
 
 ### Checklist
-- [ ] Introduce `POST /v1/auth/challenge` as the canonical interactive auth endpoint.
-- [ ] Support staged request inputs:
-  - [ ] `username`
-  - [ ] `challenge_id`
-  - [ ] `password_envelope`
-  - [ ] `security_code`
-- [ ] Standardize response contract:
-  - [ ] explicit `challenge_type` in `password_required | security_code_required | authenticated | operation_resume_required`.
-  - [ ] include `challenge_id`, `session_id`, `expires_at`, `retryable`.
-- [ ] Keep `/v1/auth/login` and `/v1/auth/security-code` as temporary compatibility shims forwarding internally to challenge service.
-- [ ] Add strict transition validation to reject invalid or replayed challenge steps.
+- [x] Introduce `POST /v1/auth/challenge` as the canonical interactive auth endpoint.
+- [x] Support staged request inputs:
+  - [x] `username`
+  - [x] `challenge_id`
+  - [x] `password_envelope`
+  - [x] `security_code`
+- [x] Standardize response contract:
+  - [x] explicit `challenge_type` in `password_required | security_code_required | authenticated | operation_resume_required`.
+  - [x] include `challenge_id`, `session_id`, `expires_at`, `retryable`.
+- [x] Keep `/v1/auth/login` and `/v1/auth/security-code` as temporary compatibility shims forwarding internally to challenge service.
+- [x] Add strict transition validation to reject invalid or replayed challenge steps.
 
 ### Exit Criteria
 - Auth handshake is represented by one explicit server-side state machine and one public interactive entrypoint.
 - Legacy auth endpoints remain operational only as compatibility wrappers.
+
+### Handoff: Phase 30 - Unified Auth Challenge Endpoint
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Added unified interactive endpoint `POST /v1/auth/challenge` with staged request fields and explicit challenge state responses.
+  - Implemented state-machine orchestration in `AuthApiService.challenge` for `password_required`, `security_code_required`, `authenticated`, and `operation_resume_required`.
+  - Converted legacy `/v1/auth/login` and `/v1/auth/security-code` handlers into compatibility shims that forward internally to the challenge service.
+  - Added strict transition checks and replay rejection semantics for invalid challenge step combinations and consumed challenge IDs.
+- Files changed:
+  - `pyicloud/domain/api_errors.py`
+  - `pyicloud/domain/__init__.py`
+  - `pyicloud/application/api_auth.py`
+  - `pyicloud/api/schemas/auth.py`
+  - `pyicloud/api/schemas/__init__.py`
+  - `pyicloud/api/routers/auth.py`
+  - `tests/unit/test_api_auth_challenge_state_machine.py`
+  - `tests/vertical/api/test_auth_challenge_api.py`
+- Tests executed:
+  - `uv run pytest -q -o addopts='' tests/unit/test_api_auth_challenge_state_machine.py tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_challenge_api.py tests/vertical/api/test_auth_api.py tests/integration/test_api_contracts.py tests/integration/test_api_end_to_end.py`
+  - `uv run pytest -q -o addopts='' tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py`
+- Risks / TBD:
+  - `/v1/auth/challenge` currently expects plaintext `password_envelope` while cryptographic envelope transport remains pending for later hardening phases.
+  - Operation suspension resume semantics are limited to challenge signaling; server-side suspended operation execution is deferred to Phase 31.
+- Next recommended phase: Phase 31 Operation Suspension Pattern (Server-Side).
 
 ---
 
@@ -1833,5 +1858,5 @@ Migrate clients safely to unified challenge + suspension model and retire old au
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with Phase 30: Unified Auth Challenge Endpoint.
+# Continue with Phase 31: Operation Suspension Pattern (Server-Side).
 ```

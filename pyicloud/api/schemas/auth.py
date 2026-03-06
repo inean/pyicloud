@@ -13,6 +13,33 @@ class AuthLoginRequest(BaseModel):
     flow_id: str | None = Field(default=None, min_length=1)
 
 
+class AuthChallengeRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=3)
+    challenge_id: str | None = Field(default=None, min_length=1)
+    password_envelope: str | None = Field(default=None, min_length=1)
+    security_code: str | None = Field(default=None, pattern=r"^\d{6}$")
+
+
+class AuthChallengeResponse(BaseModel):
+    challenge_type: Literal[
+        "password_required",
+        "security_code_required",
+        "authenticated",
+        "operation_resume_required",
+    ]
+    challenge_id: str | None = None
+    session_id: str | None = None
+    access_token: str | None = None
+    token_type: str | None = None
+    expires_in: int | None = None
+    expires_at: int | None = None
+    retryable: bool
+    next_step: str | None = None
+    account_id: str | None = None
+    operation: str | None = None
+    operation_id: str | None = None
+
+
 class AuthSecurityCodeRequest(BaseModel):
     challenge_id: str = Field(min_length=1)
     code: str = Field(pattern=r"^\d{6}$")
