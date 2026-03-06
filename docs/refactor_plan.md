@@ -23,12 +23,19 @@
 - Internal runtime lock: domain ports/adapters move to async-only runtime (no sync compatibility shims).
 - Observability query scope: PromQL, TraceQL, and LogQL.
 - Observability backend policy: project must run without observability dependencies via `null` adapters; `otel` adapter remains optional.
+- Challenge-driven auth policy (locked): clients attempt normal domain operations first; when Apple session is expired/invalid, backend returns an auth challenge response and drives recovery (`client -> backend -> Apple`) instead of requiring preemptive login.
+- Challenge persistence policy (locked): backend challenge state must never store plaintext credentials.
 
 ## Phase Board
 - Planned:
-  - None
+  - Phase 22 Challenge Execution Flow + CLI Auto-Retry
+  - Phase 23 Layer Boundary Purification (Hexagonal)
+  - Phase 24 Async Port/Adapter Contract Convergence
+  - Phase 25 API/CLI Decomposition + Typed Contracts
+  - Phase 26 Architecture Guardrails + Quality Gate Hardening
+  - Phase 27 Provider Runtime Containment / Async Migration
 - In Progress:
-  - None
+  - Phase 21 Challenge-Driven API + Credential Hygiene
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -62,6 +69,8 @@
 - Preserve plan history/order and distribute async migration work inside existing phases/subphases.
 - Operate on the current worktree without reverting unrelated changes.
 - Unit and vertical suites run without external network; integration follows the repository policy.
+- Client behavior assumption: no preflight session refresh; CLI/API clients call target operation first and only enter auth flow when backend returns challenge.
+- Challenge completion is backend-mediated; clients never call Apple endpoints directly.
 
 ## Handoff Template (append after each phase)
 ```md
@@ -1214,9 +1223,177 @@ API surface is contract-stable, consistently validated, and predictable for CLI/
   - Current phase covers route-level middleware; deeper per-use-case/per-adapter telemetry can be extended incrementally if needed.
 - Next recommended phase: None in this plan.
 
+---
+
+## Phase 21: Challenge-Driven API + Credential Hygiene
+### Goal
+Implement the locked challenge-driven behavior: client tries normal operation first; backend detects expired Apple session and responds with an auth challenge that is completed via backend-mediated flow (`client -> backend -> Apple`).
+
+### Checklist
+- [ ] Define and freeze challenge response contract for expired upstream sessions:
+  - [ ] Error code: `auth_challenge_required`.
+  - [ ] Challenge payload fields: `challenge_id`, `challenge_type`, `account_id`, `flow_id`, `expires_at`, `next_step`, `retryable`.
+  - [ ] Deterministic HTTP semantics (status code + headers) for all protected `/v1/*` domain endpoints.
+- [ ] Add challenge mapping in API layer for upstream auth/session expiration conditions:
+  - [ ] Map Apple/session expiration signals (`401`/`421`/`450` or equivalent domain errors) to challenge response.
+  - [ ] Preserve existing non-auth upstream error mapping (`502`, `503`, etc.).
+- [ ] Add challenge lifecycle operations in auth API:
+  - [ ] Start/resume challenge (from domain failure context).
+  - [ ] Submit credential step (if required by policy).
+  - [ ] Submit security-code/trust step.
+  - [ ] Complete challenge and return renewed API session context.
+- [ ] Remove plaintext credentials from challenge persistence:
+  - [ ] No `password` in challenge payload at any layer.
+  - [ ] Store opaque, minimal challenge context only.
+  - [ ] Add redaction and serialization safety tests for challenge state.
+- [ ] Add deterministic test coverage:
+  - [ ] Vertical: domain call -> challenge response.
+  - [ ] Vertical: challenge completion -> operation retry success.
+  - [ ] Unit: challenge payload schema and expiry behavior.
+
+### Exit Criteria
+- [ ] Every protected domain route returns challenge envelope (not generic auth failure) on expired Apple session.
+- [ ] Challenge persistence contains no plaintext credentials (verified by tests + fixtures).
+- [ ] Contract documented in API schemas and examples.
+
+---
+
+## Phase 22: Challenge Execution Flow + CLI Auto-Retry
+### Goal
+Make CLI behavior truly challenge-driven and ergonomic: operation-first execution with backend challenge handling and controlled retry.
+
+### Checklist
+- [ ] Add CLI challenge interceptor for protected commands:
+  - [ ] Attempt requested operation first.
+  - [ ] If response is `auth_challenge_required`, run challenge completion flow.
+  - [ ] Retry original operation once challenge is completed.
+- [ ] Define retry policy by command safety:
+  - [ ] Auto-retry for idempotent reads (`list`, `get`, `tree`, etc.).
+  - [ ] Explicit confirmation/flag for non-idempotent mutations where needed.
+- [ ] Keep transport model HTTP-first:
+  - [ ] CLI never talks to Apple directly.
+  - [ ] All challenge steps go through `/v1/auth/*`.
+- [ ] Improve UX and telemetry:
+  - [ ] Clear challenge prompts and progress states.
+  - [ ] Correlate original operation and challenge flow by one `flow_id`.
+- [ ] Add deterministic vertical tests:
+  - [ ] `icloud devices list` -> challenge -> success.
+  - [ ] `icloud drive tree` -> challenge -> success.
+  - [ ] Mutation command challenge behavior according to safety policy.
+
+### Exit Criteria
+- [ ] CLI users can recover expired sessions without manually restarting full login flow.
+- [ ] Challenge flow is deterministic and covered in vertical tests.
+
+---
+
+## Phase 23: Layer Boundary Purification (Hexagonal)
+### Goal
+Enforce strict dependency direction across layers and remove known boundary leaks.
+
+### Checklist
+- [ ] Remove `application -> bootstrap/trees/models` coupling in auth application services.
+- [ ] Replace concrete auth service construction inside `application` with injected ports/factories.
+- [ ] Remove `adapters -> cli` imports and invert control to composition/bootstrap.
+- [ ] Move composition/default wiring to dedicated bootstrap modules.
+- [ ] Add architecture dependency rules:
+  - [ ] `domain` must not import `application/adapters/api/cli/bootstrap`.
+  - [ ] `application` must not import `adapters/api/cli/bootstrap/trees`.
+  - [ ] `adapters` must not import `cli`.
+- [ ] Add enforcement tests for forbidden imports and expected package boundaries.
+
+### Exit Criteria
+- [ ] Import-sweep checks pass for all forbidden dependency directions.
+- [ ] Auth and challenge flows compile/run with boundary-compliant wiring only.
+
+---
+
+## Phase 24: Async Port/Adapter Contract Convergence
+### Goal
+Eliminate sync/async contract drift and align ports, adapters, and orchestration on one runtime model.
+
+### Checklist
+- [ ] Normalize service adapter method signatures to match async port contracts.
+- [ ] Remove generic sync bridge behavior in application façade once adapters are async-consistent.
+- [ ] Decide and document runtime strategy:
+  - [ ] Full async adapter implementation path.
+  - [ ] Transitional wrappers only where explicitly documented and bounded.
+- [ ] Add static contract verification:
+  - [ ] Mypy protocol conformance checks for service adapters.
+  - [ ] CI gate for async override compatibility.
+- [ ] Add regression tests for cancellation/timeouts/retries in async service paths.
+
+### Exit Criteria
+- [ ] No async/sync override mismatches remain in service adapter layer.
+- [ ] Core service orchestration does not depend on implicit sync fallback behavior.
+
+---
+
+## Phase 25: API/CLI Decomposition + Typed Contracts
+### Goal
+Reduce monolithic modules and replace dictionary-shaped cross-layer contracts with typed models.
+
+### Checklist
+- [ ] Decompose API app module into:
+  - [ ] Composition/bootstrap wiring.
+  - [ ] Exception/response mapping.
+  - [ ] Domain routers.
+  - [ ] Dependency providers.
+- [ ] Decompose CLI module into command groups + shared transport/challenge middleware.
+- [ ] Introduce typed domain DTOs for high-traffic service contracts:
+  - [ ] devices/account/drive first.
+  - [ ] then calendar/contacts/reminders/photos/ubiquity.
+- [ ] Reduce `Mapping[str, Any]` / `Any` usage in ports and application façades.
+- [ ] Add serializer/mapper tests for typed contract compatibility.
+
+### Exit Criteria
+- [ ] `api` and `cli` entry modules are thin composition shells.
+- [ ] Critical ports no longer rely on unbounded dict contracts.
+
+---
+
+## Phase 26: Architecture Guardrails + Quality Gate Hardening
+### Goal
+Turn architecture expectations into enforceable automated checks and close current gate blind spots.
+
+### Checklist
+- [ ] Add architecture test suite (forbidden imports + layer map assertions).
+- [ ] Add challenge-driven contract tests as non-optional gate.
+- [ ] Tighten static quality gates incrementally:
+  - [ ] Remove/ratchet lint exclusions around migrated service runtime files.
+  - [ ] Raise mypy coverage in adapters/services integration surface.
+  - [ ] Expand coverage targets to challenge and adapter runtime hotspots.
+- [ ] Add CI ratchet rules to prevent reintroduction of:
+  - [ ] plaintext credential persistence.
+  - [ ] legacy alias exports.
+  - [ ] sync adapter implementations for async ports.
+
+### Exit Criteria
+- [ ] CI blocks architecture regressions by default.
+- [ ] Quality gates reflect real risk areas (not only easy surfaces).
+
+---
+
+## Phase 27: Provider Runtime Containment / Async Migration
+### Goal
+Finalize the service runtime direction and remove residual legacy coupling/aliases.
+
+### Checklist
+- [ ] Choose and lock final provider runtime target:
+  - [ ] Option A: async-native provider runtime for all domains.
+  - [ ] Option B: strict containment layer for legacy runtime behind stable async adapter boundary.
+- [ ] Remove internal legacy alias symbols that invite accidental reuse.
+- [ ] Ensure challenge-driven behavior works consistently across all service domains under final runtime.
+- [ ] Update migration/release documentation for runtime transition impact.
+- [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on final runtime path.
+
+### Exit Criteria
+- [ ] Runtime direction is explicit, enforced, and documented.
+- [ ] No hidden dependency on legacy-named runtime symbols remains in active paths.
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Plan phases 16A-20 completed. Start a new plan item if additional refactors are needed.
+# Continue Phase 21, then 22/23/24/25/26/27.
 ```
