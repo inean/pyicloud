@@ -52,7 +52,7 @@ class ServiceRuntime:
         return PyiCloudServices(endpoint=endpoint)
 
     @staticmethod
-    def resolve_path(*, root: Any, path: str):
+    def resolve_path(*, root: Any, path: str) -> Any:
         node = root
         clean_path = path.strip()
         if not clean_path or clean_path == "/":
