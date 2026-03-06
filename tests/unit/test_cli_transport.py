@@ -26,11 +26,11 @@ async def test_complete_auth_challenge_uses_vault_password_without_prompt(monkey
         json_body: dict[str, object] | None = None,
     ):
         calls.append((route, json_body))
-        if route == "/v1/auth/login":
+        if route == "/v1/auth/challenge":
             assert json_body is not None
             assert json_body["username"] == "vault-user@example.com"
-            assert json_body["password"] == "vault-secret"
-            return {"status": "authenticated", "access_token": "token-1"}
+            assert json_body["password_envelope"] == "vault-secret"
+            return {"challenge_type": "authenticated", "access_token": "token-1"}
         raise AssertionError(f"Unexpected route: {route}")
 
     saved_tokens: list[str] = []
@@ -48,8 +48,8 @@ async def test_complete_auth_challenge_uses_vault_password_without_prompt(monkey
     assert prompts == []
     assert calls == [
         (
-            "/v1/auth/login",
-            {"username": "vault-user@example.com", "password": "vault-secret"},
+            "/v1/auth/challenge",
+            {"username": "vault-user@example.com", "password_envelope": "vault-secret"},
         )
     ]
     assert saved_tokens == ["token-1"]
@@ -81,13 +81,18 @@ async def test_complete_auth_challenge_prompts_when_vault_is_empty(monkeypatch: 
         json_body: dict[str, object] | None = None,
     ):
         calls.append((route, json_body))
-        if route == "/v1/auth/login":
-            return {"status": "challenge_required", "challenge_id": "challenge-1"}
-        if route == "/v1/auth/security-code":
+        if route == "/v1/auth/challenge" and json_body and "security_code" not in json_body:
+            return {
+                "challenge_type": "security_code_required",
+                "challenge_id": "challenge-1",
+                "session_id": "flow-123",
+            }
+        if route == "/v1/auth/challenge" and json_body and "security_code" in json_body:
             assert json_body is not None
-            assert json_body["password"] == "typed-secret"
+            assert json_body["password_envelope"] == "typed-secret"
             assert json_body["username"] == "typed-user@example.com"
-            return {"status": "authenticated", "access_token": "token-2"}
+            assert json_body["session_id"] == "flow-123"
+            return {"challenge_type": "authenticated", "access_token": "token-2"}
         raise AssertionError(f"Unexpected route: {route}")
 
     saved_tokens: list[str] = []
@@ -105,16 +110,17 @@ async def test_complete_auth_challenge_prompts_when_vault_is_empty(monkeypatch: 
     assert prompt_calls == ["Password for typed-user@example.com", "Security code"]
     assert calls == [
         (
-            "/v1/auth/login",
-            {"username": "typed-user@example.com", "password": "typed-secret", "flow_id": "flow-123"},
+            "/v1/auth/challenge",
+            {"username": "typed-user@example.com", "password_envelope": "typed-secret", "session_id": "flow-123"},
         ),
         (
-            "/v1/auth/security-code",
+            "/v1/auth/challenge",
             {
                 "challenge_id": "challenge-1",
-                "code": "123456",
-                "password": "typed-secret",
+                "security_code": "123456",
+                "password_envelope": "typed-secret",
                 "username": "typed-user@example.com",
+                "session_id": "flow-123",
             },
         ),
     ]

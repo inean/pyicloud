@@ -67,7 +67,7 @@ async def test_cli_auth_login_session_logout_flow(app, monkeypatch: pytest.Monke
     )
     assert login.exit_code == 0
     assert token_file.exists()
-    assert json.loads(login.output)["status"] == "authenticated"
+    assert json.loads(login.output)["challenge_type"] == "authenticated"
 
     session = await runner.invoke(main, ["--api-url", "http://testserver", "auth", "session"])
     assert session.exit_code == 0
@@ -132,7 +132,7 @@ async def test_cli_auth_security_code_flow_requires_password(app, monkeypatch: p
     )
     assert login.exit_code == 0
     challenge = json.loads(login.output)
-    assert challenge["status"] == "challenge_required"
+    assert challenge["challenge_type"] == "security_code_required"
 
     complete = await runner.invoke(
         main,
@@ -151,7 +151,7 @@ async def test_cli_auth_security_code_flow_requires_password(app, monkeypatch: p
     )
     assert complete.exit_code == 0
     payload = json.loads(complete.output)
-    assert payload["status"] == "authenticated"
+    assert payload["challenge_type"] == "authenticated"
     assert token_file.exists()
 
 
@@ -182,10 +182,13 @@ async def test_cli_auto_recovers_from_auth_challenge_and_retries_read_operation(
         json_body=None,
         params=None,
         files=None,
+        idempotency_key: str | None = None,
     ):
         headers = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
             return await client.request(
                 method,
@@ -244,7 +247,7 @@ async def test_cli_auto_recovers_from_auth_challenge_and_retries_read_operation(
 
 
 @pytest.mark.asyncio
-async def test_cli_requires_confirmation_before_retrying_mutation_after_auth_challenge(
+async def test_cli_uses_server_side_resume_for_mutation_after_auth_challenge(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     auth_service = build_fake_auth_api_service(tmp_path)
@@ -270,10 +273,13 @@ async def test_cli_requires_confirmation_before_retrying_mutation_after_auth_cha
         json_body=None,
         params=None,
         files=None,
+        idempotency_key: str | None = None,
     ):
         headers = {}
         if token:
             headers["Authorization"] = f"Bearer {token}"
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
             return await client.request(
                 method,
@@ -336,4 +342,4 @@ async def test_cli_requires_confirmation_before_retrying_mutation_after_auth_cha
     payload = json.loads(mutation.output)
     assert payload["ok"] is True
     assert state["calls"] == 2
-    assert state["confirm_calls"] == 1
+    assert state["confirm_calls"] == 0

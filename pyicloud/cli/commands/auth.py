@@ -41,12 +41,14 @@ def register_auth_commands(
         data = await api_request(
             api_url=ctx.obj["api_url"],
             method="POST",
-            route="/v1/auth/login",
-            json_body={"username": username, "password": password},
+            route="/v1/auth/challenge",
+            json_body={"username": username, "password_envelope": password},
         )
-        token = data.get("access_token") if isinstance(data, dict) else None
-        if token:
-            save_token(str(token))
+        challenge_type = str(data.get("challenge_type", "")) if isinstance(data, dict) else ""
+        if isinstance(data, dict) and challenge_type == "authenticated":
+            token = data.get("access_token")
+            if token:
+                save_token(str(token))
         if save_password is not None:
             save_password(username, password)
         print_json(data)
@@ -74,17 +76,19 @@ def register_auth_commands(
         data = await api_request(
             api_url=ctx.obj["api_url"],
             method="POST",
-            route="/v1/auth/security-code",
+            route="/v1/auth/challenge",
             json_body={
                 "challenge_id": challenge_id,
-                "code": code,
-                "password": resolved_password,
+                "security_code": code,
+                "password_envelope": resolved_password,
                 "username": username,
             },
         )
-        token = data.get("access_token") if isinstance(data, dict) else None
-        if token:
-            save_token(str(token))
+        challenge_type = str(data.get("challenge_type", "")) if isinstance(data, dict) else ""
+        if isinstance(data, dict) and challenge_type == "authenticated":
+            token = data.get("access_token")
+            if token:
+                save_token(str(token))
         if save_password is not None and username and resolved_password:
             save_password(username, resolved_password)
         print_json(data)
