@@ -44,12 +44,11 @@
 
 ## Phase Board
 - Planned:
-  - Phase 38 Telemetry/Observability Split
   - Phase 39 Services Context Migration
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
 - In Progress:
-  - Phase 38 Telemetry/Observability Split
+  - Phase 39 Services Context Migration
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -58,6 +57,7 @@
   - Phase 35 Context Skeleton + Initial Moves
   - Phase 36 API/CLI Externalization to Interfaces
   - Phase 37 Crosscutting Auth Rewrite
+  - Phase 38 Telemetry/Observability Split
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -445,21 +445,45 @@ Auth funciona completamente sobre el nuevo contexto transversal.
 Separar emisión de trazas y consulta observability en contextos transversales distintos.
 
 ### Checklist
-- [ ] Extraer write-side de trazabilidad a `contexts/crosscutting/telemetry`.
-- [ ] Mantener query-side en `contexts/crosscutting/observability`.
-- [ ] Instrumentar adapters outbound para emitir señales vía puerto técnico de telemetry.
+- [x] Extraer write-side de trazabilidad a `contexts/crosscutting/telemetry`.
+- [x] Mantener query-side en `contexts/crosscutting/observability`.
+- [x] Instrumentar adapters outbound para emitir señales vía puerto técnico de telemetry.
 
 ### Exit Criteria
 La trazabilidad end-to-end funciona sin acoplar servicios a la API de consulta observability.
 
 ### Handoff: Phase 38 - Telemetry/Observability Split
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Migrated active observability query application and adapter wiring to canonical context modules under `pyicloud/contexts/crosscutting/observability/*`.
+  - Migrated telemetry write-side upstream probe runtime/adapters to canonical context modules under `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`.
+  - Left legacy module paths (`pyicloud/application/observability.py`, `pyicloud/adapters/observability/*`, `pyicloud/adapters/upstream_probe/*`) as compatibility shims.
+  - Rewired active API and transport paths to the context modules (`bootstrap`, `interfaces/api`, `service_http`, `upstream/runtime`).
+  - Added telemetry-probe instrumentation to outbound observability backend calls in `OTelObservabilityAdapter` via `UpstreamTrafficProbePort`.
+  - Added migration and adapter instrumentation tests for compatibility and active-path guardrails.
 - Files changed:
+  - `pyicloud/contexts/crosscutting/observability/application/*`
+  - `pyicloud/contexts/crosscutting/observability/adapters/*`
+  - `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`
+  - `pyicloud/application/observability.py`
+  - `pyicloud/adapters/observability/*`
+  - `pyicloud/adapters/upstream_probe/*`
+  - `pyicloud/bootstrap/api_runtime.py`
+  - `pyicloud/interfaces/api/{app.py,dependencies.py,routers/observability.py}`
+  - `pyicloud/adapters/session/service_http.py`
+  - `pyicloud/upstream/runtime.py`
+  - `tests/unit/{test_observability_context_migration.py,test_observability_otel_adapter.py}`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_observability_application.py tests/unit/test_observability_context_migration.py tests/vertical/api/test_observability_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_upstream_probe_runtime.py tests/unit/test_observability_context_migration.py tests/integration/test_upstream_probe_otel.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_observability_null_adapter.py tests/unit/test_observability_otel_adapter.py tests/unit/test_observability_application.py tests/unit/test_observability_context_migration.py tests/vertical/api/test_observability_api.py tests/vertical/cli/test_observability_cli.py tests/integration/test_observability_otel_adapter.py tests/unit/test_upstream_probe_runtime.py tests/integration/test_upstream_probe_otel.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/integration/test_upstream_flow_sequence.py tests/unit/test_observability_context_migration.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - Legacy compatibility shims for observability and upstream probe remain intentionally active and are scheduled for removal in later cutover phases.
 - Next recommended phase:
+  - Phase 39 Services Context Migration.
 
 ---
 
@@ -532,6 +556,6 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 38 Telemetry/Observability Split.
-# Start by splitting telemetry write-side contracts/adapters from observability query-side contracts.
+# Continue with: Phase 39 Services Context Migration.
+# Start by decomposing CoreServicesApi into context-scoped application services under contexts/services/*.
 ```
