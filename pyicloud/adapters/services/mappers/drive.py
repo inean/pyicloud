@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
 from pyicloud.adapters.services.clients.drive import DriveNodeView
+from pyicloud.domain import DriveNodeDTO
 
 
-def map_drive_node(view: DriveNodeView) -> Mapping[str, Any]:
-    payload: dict[str, Any] = {
+def map_drive_node(view: DriveNodeView) -> DriveNodeDTO:
+    payload: DriveNodeDTO = {
         "path": view.path,
         "name": view.name,
         "type": view.node_type,

@@ -6,6 +6,14 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Protocol
 
+from pyicloud.domain import (
+    AccountDeviceDTO,
+    AccountFamilyMemberDTO,
+    AccountStorageDTO,
+    DeviceRecordDTO,
+    DriveNodeDTO,
+)
+
 
 class DeviceServicePort(Protocol):
     """
@@ -21,7 +29,7 @@ class DeviceServicePort(Protocol):
     Implemented by: DevicesServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_devices(self, *, username: str) -> Sequence[DeviceRecordDTO]:
         """
         CoreServicesApi calls this method to list devices visible for an authenticated account.
 
@@ -32,7 +40,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Device list cannot be retrieved from upstream services.
         """
 
-    async def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def location(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         """
         CoreServicesApi calls this method to fetch current location data for one device.
 
@@ -44,7 +52,7 @@ class DeviceServicePort(Protocol):
             RuntimeError: Location retrieval fails in provider service.
         """
 
-    async def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def status(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         """
         CoreServicesApi calls this method to fetch status information for one device.
 
@@ -115,7 +123,7 @@ class AccountServicePort(Protocol):
     Implemented by: AccountServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_devices(self, *, username: str) -> Sequence[AccountDeviceDTO]:
         """
         CoreServicesApi calls this method to list account-managed device metadata.
 
@@ -126,7 +134,7 @@ class AccountServicePort(Protocol):
             RuntimeError: Account device data cannot be retrieved.
         """
 
-    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_family(self, *, username: str) -> Sequence[AccountFamilyMemberDTO]:
         """
         CoreServicesApi calls this method to fetch family membership details.
 
@@ -137,7 +145,7 @@ class AccountServicePort(Protocol):
             RuntimeError: Family data cannot be retrieved.
         """
 
-    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
+    async def account_storage(self, *, username: str) -> AccountStorageDTO:
         """
         CoreServicesApi calls this method to fetch account storage summary information.
 
@@ -163,7 +171,7 @@ class DriveServicePort(Protocol):
     Implemented by: DriveServiceAdapter, LegacyCoreServicesAdapter
     """
 
-    async def tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def tree(self, *, username: str, path: str) -> DriveNodeDTO:
         """
         CoreServicesApi calls this method to list drive node metadata and children for a path.
 
@@ -175,7 +183,7 @@ class DriveServicePort(Protocol):
             RuntimeError: Drive tree retrieval fails.
         """
 
-    async def file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def file_metadata(self, *, username: str, path: str) -> DriveNodeDTO:
         """
         CoreServicesApi calls this method to fetch metadata for one drive file path.
 

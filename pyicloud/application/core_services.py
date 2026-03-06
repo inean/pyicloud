@@ -6,6 +6,13 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from pyicloud.domain import (
+    AccountDeviceDTO,
+    AccountFamilyMemberDTO,
+    AccountStorageDTO,
+    DeviceRecordDTO,
+    DriveNodeDTO,
+)
 from pyicloud.ports import (
     AccountServicePort,
     CalendarServicePort,
@@ -54,21 +61,21 @@ class CoreServicesApi:
         with bind_upstream_context(username=username, operation=operation, step=step):
             return await call()
 
-    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def list_devices(self, *, username: str) -> Sequence[DeviceRecordDTO]:
         return await self._run_with_operation(
             username=username,
             operation="devices.list",
             call=lambda: self._devices.list_devices(username=username),
         )
 
-    async def device_location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def device_location(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         return await self._run_with_operation(
             username=username,
             operation="devices.location",
             call=lambda: self._devices.location(username=username, device_id=device_id),
         )
 
-    async def device_status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+    async def device_status(self, *, username: str, device_id: str) -> DeviceRecordDTO:
         return await self._run_with_operation(
             username=username,
             operation="devices.status",
@@ -116,35 +123,35 @@ class CoreServicesApi:
             ),
         )
 
-    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_devices(self, *, username: str) -> Sequence[AccountDeviceDTO]:
         return await self._run_with_operation(
             username=username,
             operation="account.devices",
             call=lambda: self._accounts.account_devices(username=username),
         )
 
-    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+    async def account_family(self, *, username: str) -> Sequence[AccountFamilyMemberDTO]:
         return await self._run_with_operation(
             username=username,
             operation="account.family",
             call=lambda: self._accounts.account_family(username=username),
         )
 
-    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
+    async def account_storage(self, *, username: str) -> AccountStorageDTO:
         return await self._run_with_operation(
             username=username,
             operation="account.storage",
             call=lambda: self._accounts.account_storage(username=username),
         )
 
-    async def drive_tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def drive_tree(self, *, username: str, path: str) -> DriveNodeDTO:
         return await self._run_with_operation(
             username=username,
             operation="drive.tree",
             call=lambda: self._drive.tree(username=username, path=path),
         )
 
-    async def drive_file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def drive_file_metadata(self, *, username: str, path: str) -> DriveNodeDTO:
         return await self._run_with_operation(
             username=username,
             operation="drive.file_metadata",

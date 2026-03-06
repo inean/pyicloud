@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
-
+from pyicloud.domain import DriveNodeDTO
 from pyicloud.ports import DriveServicePort
 
 from .clients.drive import DriveClient, LegacyDriveClient
@@ -18,11 +16,11 @@ class DriveServiceAdapter(LegacyServicesAdapterBase, DriveServicePort):
     def _drive_client(self, *, username: str) -> DriveClient:
         return LegacyDriveClient(runtime=self._runtime, username=username)
 
-    async def tree(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def tree(self, *, username: str, path: str) -> DriveNodeDTO:
         node = await self._run_blocking(lambda: self._drive_client(username=username).tree(path=path))
         return map_drive_node(node)
 
-    async def file_metadata(self, *, username: str, path: str) -> Mapping[str, Any]:
+    async def file_metadata(self, *, username: str, path: str) -> DriveNodeDTO:
         node = await self._run_blocking(lambda: self._drive_client(username=username).metadata(path=path))
         return map_drive_node(node)
 

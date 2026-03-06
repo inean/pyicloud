@@ -13,6 +13,16 @@ from .api_errors import (
 )
 from .api_models import AuthPrincipal
 from .auth_flow import AuthFlowError, AuthFlowRequest, AuthFlowResult, AuthStep, SecurityCodeRequired
+from .service_contracts import (
+    AccountDeviceDTO,
+    AccountFamilyMemberDTO,
+    AccountStorageDTO,
+    AccountStorageMediaUsageDTO,
+    AccountStorageUsageDTO,
+    DeviceRecordDTO,
+    DriveNodeChildDTO,
+    DriveNodeDTO,
+)
 
 __all__ = [
     "ApiDomainError",
@@ -22,8 +32,16 @@ __all__ = [
     "AuthFlowResult",
     "AuthStep",
     "BackendUnavailable",
+    "AccountDeviceDTO",
+    "AccountFamilyMemberDTO",
+    "AccountStorageDTO",
+    "AccountStorageMediaUsageDTO",
+    "AccountStorageUsageDTO",
     "ChallengeExpired",
     "ChallengeRequired",
+    "DeviceRecordDTO",
+    "DriveNodeChildDTO",
+    "DriveNodeDTO",
     "InvalidCredentials",
     "InvalidSecurityCode",
     "QueryExecutionFailed",
