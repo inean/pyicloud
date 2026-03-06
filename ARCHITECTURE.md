@@ -14,6 +14,9 @@ La libreria ya no expone superficies legacy sincronas para uso publico.
 - API-first y CLI-first.
 - Dependencias dirigidas hacia el dominio (puertos en `pyicloud/ports`).
 - Adaptadores de infraestructura en `pyicloud/adapters`.
+- Runtime de proveedor bloqueado en **Option B (strict containment)**:
+  - clientes legacy sincronos encapsulados detras de frontera async estable.
+  - operaciones bloqueantes aisladas en `ServicesAdapterBase._run_blocking` (thread offload).
 - Contratos HTTP estables con envelope:
   - exito: `{"data": ...}`
   - error: `{"error": {"code", "message", "status", "details"}}`
@@ -98,6 +101,11 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
   - `pyicloud.services`
   - `pyicloud.legacy`
   - `pyicloud.cmdline`
+- No reintroducir aliases legacy internos retirados del runtime/composicion:
+  - `LegacyServicesRuntime`
+  - `LegacyServicesAdapterBase`
+  - `LegacyCoreAdapterBundle`
+  - `build_legacy_core_adapter_bundle`
 - Nuevas capacidades deben entrar por:
   1. Puerto en `pyicloud/ports`.
   2. Implementacion en `pyicloud/adapters`.

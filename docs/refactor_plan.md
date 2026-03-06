@@ -28,9 +28,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 27 Provider Runtime Containment / Async Migration
+  - None
 - In Progress:
-  - Phase 27 Provider Runtime Containment / Async Migration
+  - None
 - Done:
   - Phase 0 Artifact Bootstrap
   - Phase 1 Architecture Skeleton + Guardrails
@@ -62,6 +62,7 @@
   - Phase 24 Async Port/Adapter Contract Convergence
   - Phase 25 API/CLI Decomposition + Typed Contracts
   - Phase 26 Architecture Guardrails + Quality Gate Hardening
+  - Phase 27 Provider Runtime Containment / Async Migration
 - Blocked:
   - None
 
@@ -1529,21 +1530,53 @@ Turn architecture expectations into enforceable automated checks and close curre
 Finalize the service runtime direction and remove residual legacy coupling/aliases.
 
 ### Checklist
-- [ ] Choose and lock final provider runtime target:
+- [x] Choose and lock final provider runtime target:
   - [ ] Option A: async-native provider runtime for all domains.
-  - [ ] Option B: strict containment layer for legacy runtime behind stable async adapter boundary.
-- [ ] Remove internal legacy alias symbols that invite accidental reuse.
-- [ ] Ensure challenge-driven behavior works consistently across all service domains under final runtime.
-- [ ] Update migration/release documentation for runtime transition impact.
-- [ ] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on final runtime path.
+  - [x] Option B: strict containment layer for legacy runtime behind stable async adapter boundary.
+- [x] Remove internal legacy alias symbols that invite accidental reuse.
+- [x] Ensure challenge-driven behavior works consistently across all service domains under final runtime.
+- [x] Update migration/release documentation for runtime transition impact.
+- [x] Execute full gate (`format`, `lint`, `typecheck`, `tests`) on final runtime path.
 
 ### Exit Criteria
-- [ ] Runtime direction is explicit, enforced, and documented.
-- [ ] No hidden dependency on legacy-named runtime symbols remains in active paths.
+- [x] Runtime direction is explicit, enforced, and documented.
+- [x] No hidden dependency on legacy-named runtime symbols remains in active paths.
+
+### Handoff: Phase 27 - Provider Runtime Containment / Async Migration
+- Date: 2026-03-06
+- Status: Done
+- Summary:
+  - Locked runtime strategy to Option B (strict containment) and enforced it with dedicated containment tests (`tests/unit/test_service_runtime_containment.py`).
+  - Removed internal legacy alias symbols in runtime/composition (`LegacyServicesRuntime`, `LegacyServicesAdapterBase`, `LegacyCoreAdapterBundle`, `build_legacy_core_adapter_bundle`) and migrated all service adapters/clients to canonical runtime names.
+  - Extended challenge-contract parity coverage to read and mutation endpoints across all service domains via `tests/integration/test_challenge_contract_gate.py`.
+  - Updated release/migration documentation to reflect final runtime direction and alias removals (`ARCHITECTURE.md`, `README.md`, `CHANGELOG.md`).
+- Files changed:
+  - `pyicloud/adapters/services/{runtime.py,composition.py,legacy_core.py,account.py,calendar.py,contacts.py,devices.py,drive.py,photos.py,reminders.py,ubiquity.py,content.py}`
+  - `pyicloud/adapters/services/clients/{account.py,calendar.py,contacts.py,devices.py,drive.py,photos.py,reminders.py,ubiquity.py}`
+  - `tests/unit/test_legacy_alias_export_ratchet.py`
+  - `tests/unit/test_service_runtime_containment.py`
+  - `tests/integration/test_challenge_contract_gate.py`
+  - `Makefile`
+  - `.github/workflows/pythonlint.yml`
+  - `ARCHITECTURE.md`
+  - `README.md`
+  - `CHANGELOG.md`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest --no-cov -q tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_contract_dto_mappers.py`
+  - `uv run --extra test pytest --no-cov -q tests/integration/test_challenge_contract_gate.py tests/unit/test_service_runtime_containment.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_core_services_async_contract.py`
+  - `uv run --extra lint ruff format pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_runtime_containment.py --check`
+  - `uv run --extra lint ruff check pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_runtime_containment.py`
+  - `uv run --extra lint mypy --follow-imports=skip pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py`
+  - `uv run --extra test pytest -q -o addopts='' --cov=pyicloud.application.api_auth --cov=pyicloud.api.errors --cov=pyicloud.adapters.services.runtime --cov=pyicloud.adapters.services --cov-report=term-missing --cov-fail-under=82 tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py tests/unit/test_service_runtime_containment.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - None for this phase.
+- Next recommended phase: None (current refactor plan scope completed).
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue Phase 27.
+# Refactor plan scope complete (Phases 0-27 done).
 ```

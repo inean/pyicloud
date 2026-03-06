@@ -25,7 +25,7 @@ PROMQL_ENDPOINT ?= http://127.0.0.1:9090/api/v1/query
 TRACEQL_ENDPOINT ?= http://127.0.0.1:3200/api/search
 LOGQL_ENDPOINT ?= http://127.0.0.1:3100/loki/api/v1/query
 FLOW_FORMAT ?= table
-QUALITY_HOTSPOT_PATHS ?= pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py
+QUALITY_HOTSPOT_PATHS ?= pyicloud/api/errors.py pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/adapters/services/runtime.py tests/integration/test_challenge_contract_gate.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_legacy_alias_export_ratchet.py tests/unit/test_service_runtime_containment.py
 MYPY_HOTSPOT_MODULES ?= pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py
 HOTSPOT_TEST_TARGETS ?= tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py
 
