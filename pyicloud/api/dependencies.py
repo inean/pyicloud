@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
+from pyicloud.application.access_control import AccessControlApiService
 from pyicloud.application.api_auth import AuthApiService
 from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
-from pyicloud.domain import Unauthorized
+from pyicloud.domain import AuthPrincipal, Unauthorized
 
 
 def get_auth_service(request: Request) -> AuthApiService:
     """Resolve auth application service from app state."""
     return request.app.state.auth_service
+
+
+def get_access_control_service(request: Request) -> AccessControlApiService:
+    """Resolve access-control application service from app state."""
+    return request.app.state.access_control_service
 
 
 def get_core_services(request: Request) -> CoreServicesApi:
@@ -32,13 +38,26 @@ def extract_token(authorization: str | None = Header(default=None)) -> str:
     return authorization.split(" ", 1)[1].strip()
 
 
-def get_username(
+def get_principal(
     token: str = Depends(extract_token),
     service: AuthApiService = Depends(get_auth_service),
-) -> str:
-    """Resolve authenticated username from API token."""
+) -> AuthPrincipal:
+    """Resolve authenticated principal from API token."""
     try:
-        principal = service.session(token=token)
+        return service.session(token=token)
     except Unauthorized as err:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)) from err
+
+
+def get_username(
+    principal: AuthPrincipal = Depends(get_principal),
+) -> str:
+    """Resolve authenticated username from API token."""
     return principal.username
+
+
+def require_admin_principal(principal: AuthPrincipal = Depends(get_principal)) -> AuthPrincipal:
+    """Require admin role for protected management routes."""
+    if principal.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role is required")
+    return principal

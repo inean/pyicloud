@@ -20,6 +20,7 @@ from .errors import register_exception_handlers
 from .instrumentation import ApiTelemetryMiddleware, telemetry_enabled
 from .routers import (
     account_router,
+    admin_router,
     auth_router,
     calendar_router,
     contacts_router,
@@ -73,6 +74,7 @@ def create_app(
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(admin_router)
     app.include_router(devices_router)
     app.include_router(account_router)
     app.include_router(calendar_router)

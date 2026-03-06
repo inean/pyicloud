@@ -1,6 +1,7 @@
 """API domain routers."""
 
 from .account import router as account_router
+from .admin import router as admin_router
 from .auth import router as auth_router
 from .calendar import router as calendar_router
 from .contacts import router as contacts_router
@@ -12,6 +13,7 @@ from .reminders import router as reminders_router
 from .ubiquity import router as ubiquity_router
 
 __all__ = [
+    "admin_router",
     "auth_router",
     "devices_router",
     "account_router",
