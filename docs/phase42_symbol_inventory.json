@@ -1,0 +1,1078 @@
+{
+  "version": "phase42-cleanup-baseline",
+  "decision_locked_at": "2026-03-06",
+  "targets": [
+    "pyicloud/utils",
+    "pyicloud/trees",
+    "pyicloud/sessions",
+    "pyicloud/log"
+  ],
+  "files": [
+    {
+      "path": "pyicloud/utils/__init__.py",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/context.py",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/decorators.py",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/session.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/setup.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/__init__.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_transport.py",
+      "tag": "legacy-boundary",
+      "decision": "move"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/log/__init__.py",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/log/httpx.py",
+      "tag": "legacy-boundary",
+      "decision": "move"
+    }
+  ],
+  "symbols": [
+    {
+      "path": "pyicloud/utils/context.py",
+      "name": "update_context_var",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/context.py",
+      "name": "reset_context_var",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/context.py",
+      "name": "sync_context",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/context.py",
+      "name": "async_context",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/decorators.py",
+      "name": "deprecated",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/decorators.py",
+      "name": "Deprecated",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/decorators.py",
+      "name": "classproperty",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "flatten",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "unflatten",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "deep_getitem",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "deep_setitem",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "deep_popitem",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "deep_update",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "compare",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "name": "map",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "TreeAction",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "TreeConfig",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "_set_ctx_factory",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "set_blackboard",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "set_context",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "_del_ctx_factory",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "del_blackboard",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "_use_ctx_factory",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "use_blackboard",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "use_context",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "blackboard",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "Tree",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "TickError",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "TreeState",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "TreeTransition",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "TreeTransitionExtra",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "with_context_once",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "shortest_path",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "ExponentialBackoff",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/__init__.py",
+      "name": "BehaveTree",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/session.py",
+      "name": "_NoopAuthStateResetPolicy",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/session.py",
+      "name": "SessionModelTree",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/setup.py",
+      "name": "SetupHooks",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/trees/setup.py",
+      "name": "SetupModelTree",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "Endpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "DynamicEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "StaticEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "ResponseConfig",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "_summarize_error_payload",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "_parse_service_errors",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "BaseResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "RequestConfig",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "_resolve_model_type",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "_resolve_parametric_base_from_original_bases",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "_resolve_config_from_origin",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_contracts.py",
+      "name": "BaseRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "BaseSerialize",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "SerializationInfo",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "Serialize",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "SerializeRuntimeInfo",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_default_serialize_settings",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_default_serialize_cookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_copy_serialization_info",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_copy_serialize",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_merge_serialization_info",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_normalize_serialize_config",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_resolve_runtime_serialize_info",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_configure_serialize_wrapper_state",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_wrapper_aenter",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_wrapper_aexit",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_build_serialize_wrapper_class",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "_build_serialize_decorator",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_serialize.py",
+      "name": "serialize",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/_transport.py",
+      "name": "_probe_runtime",
+      "tag": "legacy-boundary",
+      "decision": "move"
+    },
+    {
+      "path": "pyicloud/sessions/_transport.py",
+      "name": "SessionTransport",
+      "tag": "legacy-boundary",
+      "decision": "move"
+    },
+    {
+      "path": "pyicloud/sessions/_transport.py",
+      "name": "AppleSessionTransport",
+      "tag": "legacy-boundary",
+      "decision": "move"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginServiceRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginServiceRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginServiceRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginResponseHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginResponseCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginResponseBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLoginResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/account_login.py",
+      "name": "AccountLogin",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeRequestEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeResponseHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeResponseCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeResponseBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCodeResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/security_code.py",
+      "name": "SecurityCode",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "SessionHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "SessionCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "SessionBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "SessionRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "SessionResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "Session",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/session.py",
+      "name": "create_session",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "_SrpPassword",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "_SrpInitState",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "_SrpSigninFlow",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitResponseHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitResponseCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitResponseBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInitResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInInit",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteResponseHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteResponseCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteResponseBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInCompleteResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignInComplete",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "SignIn",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "name": "FreshSignIn",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustResponseHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustResponseCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustResponseBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "TrustResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/trust.py",
+      "name": "Trust",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateEndpoint",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateRequestHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateRequestCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateRequestBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateRequest",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateResponseHeaders",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateResponseCookies",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateResponseBody",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "ValidateResponse",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/sessions/validate.py",
+      "name": "Validate",
+      "tag": "legacy-boundary",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/log/__init__.py",
+      "name": "Secret",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/log/__init__.py",
+      "name": "logger_get",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/log/__init__.py",
+      "name": "hide_sensitive_data",
+      "tag": "active",
+      "decision": "keep"
+    },
+    {
+      "path": "pyicloud/log/__init__.py",
+      "name": "PyiCloudPasswordFilter",
+      "tag": "active",
+      "decision": "keep"
+    }
+  ],
+  "removed_files": [
+    {
+      "path": "pyicloud/trees/renew.py",
+      "tag": "dead-candidate",
+      "decision": "remove",
+      "status": "planned-remove",
+      "reason": "Orphan renewal tree replaced by validate-first orchestration in active auth service."
+    }
+  ],
+  "ambiguous_constructs": [
+    {
+      "path": "pyicloud/utils/mapping.py",
+      "symbol": "deep_popitem",
+      "construct": "silent KeyError fallthrough (returns None)",
+      "classification": "intentional",
+      "notes": "Compatibility behavior retained; callers treat missing keys as optional pop."
+    },
+    {
+      "path": "pyicloud/sessions/signin.py",
+      "symbol": "SignInCompleteResponse.is_error",
+      "construct": "status-code special-case override (409 is not treated as error)",
+      "classification": "intentional",
+      "notes": "Required for SRP signin continuation semantics."
+    },
+    {
+      "path": "pyicloud/sessions/_transport.py",
+      "symbol": "BaseTransport/OAuthTransport aliases",
+      "construct": "temporary alias compatibility window",
+      "classification": "intentional",
+      "notes": "Phase-43 rename bridge to SessionTransport/AppleSessionTransport."
+    },
+    {
+      "path": "pyicloud/log/httpx.py",
+      "symbol": "module shim",
+      "construct": "re-export compatibility shim",
+      "classification": "intentional",
+      "notes": "Rich console rendering moved to optional telemetry adapter."
+    }
+  ]
+}

@@ -42,11 +42,22 @@
 - Observabilidad separada en write/read: `crosscutting/telemetry` (emisión) y `crosscutting/observability` (consulta).
 - Estrategia de migración: strangler por fases con shims internos temporales y retiro final obligatorio.
 
+## Program 42+ Cleanup Decisions (locked)
+- Dead-code checks are mandatory and enforced as CI hard-fail.
+- `utils`, `trees`, `sessions`, and `log` must have explicit behavior ownership and no undefined runtime behavior.
+- Renewal behavior must be efficient (`validate-first` fast path) and must not depend on orphan tree orchestration.
+- `BaseTransport`/`OAuthTransport` refactor remains adapter-layer work (not port/domain redesign), with one-phase rename aliases.
+- No API/CLI contract changes are allowed during cleanup (`/v1/*` and `pyicloud.interfaces.cli.main`).
+- `pyicloud/log/httpx.py` evolves into optional telemetry-console adapter behavior; structured telemetry remains primary.
+- Tree strategy is boundary-focused: keep btree only at the active auth/session boundary and remove orphan orchestration.
+- Active renewal orchestration is `validate-first`; full auth flow executes only as fallback after failed validation.
+- Session transport refactor is responsibility-split + session-oriented renaming with alias window.
+
 ## Phase Board
 - Planned:
-  - None
+  - Phase 43 Consolidation Execution + Final Prune
 - In Progress:
-  - None
+  - Phase 42 Dead Code Baseline + Behavioral Definition
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -67,7 +78,7 @@
   - None
 
 ## Closed Assumptions (locked)
-- Prioritize functional continuity for `/v1/*` routes and `pyicloud.cli.main` subcommands during async migration; no intentional downtime window for domain routes.
+- Prioritize functional continuity for `/v1/*` routes and `pyicloud.interfaces.cli.main` subcommands during async migration; no intentional downtime window for domain routes.
 - Preserve plan history/order and distribute async migration work inside existing phases/subphases.
 - Operate on the current worktree without reverting unrelated changes.
 - Unit and vertical suites run without external network; integration follows the repository policy.
@@ -80,6 +91,9 @@
 - El protocolo de resume actual del documento se mantiene sin cambios.
 - El Programa 34+ no reescribe el histórico de fases 0-33; añade una nueva ola de refactor semántico.
 - `auth` queda definitivamente ubicado en `contexts/crosscutting/auth`.
+- No HTTP/CLI public behavior break is allowed in Program 42+ cleanup phases.
+- `pyicloud.ports/*` remains a compatibility facade unless explicitly scheduled for later removal.
+- New Program 42+ sections and handoff entries are English-only.
 
 ## Handoff Template (append after each phase)
 ```md
@@ -626,10 +640,115 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 - Next recommended phase:
   - Program 34+ complete (no pending refactor phase on board).
 
+---
+
+## Phase 42: Dead Code Baseline + Behavioral Definition
+### Goal
+Produce a decision-complete keep/move/remove map for `utils`, `trees`, `sessions`, and `log`, and lock cleanup behavior before execution.
+
+### Checklist
+- [ ] Build symbol inventory for `utils`, `trees`, `sessions`, and `log` with tags: `active`, `legacy-boundary`, `dead-candidate`.
+- [ ] Classify ambiguous constructs (`pass`, ellipsis classes, silent fallthroughs) as intentional vs undefined behavior.
+- [ ] Define transport split plan for session transport:
+  - [ ] request resolution
+  - [ ] telemetry emission
+  - [ ] HTTP execution
+  - [ ] session state synchronization
+  - [ ] Apple header/content policy
+- [ ] Define rename plan:
+  - [ ] `BaseTransport`/`OAuthTransport` -> session-oriented naming (Apple session transport naming).
+  - [ ] one-phase alias window for migration.
+- [ ] Define logging consolidation:
+  - [ ] move rich console HTTP output to optional telemetry-console adapter behavior.
+  - [ ] remove default runtime coupling from core session/service transport paths.
+- [ ] Define tree cleanup:
+  - [ ] remove orphan `trees/renew.py`.
+  - [ ] keep active boundary tree code only (`setup`/`session`).
+  - [ ] codify `validate-first` renewal fast path in active auth orchestration.
+- [ ] Add CI dead-code/ratchet design (hard-fail), including no-reintroduction guardrails.
+- [ ] Define acceptance test matrix to execute in Phase 43:
+  - [ ] renewal fast path tests:
+    - [ ] valid session -> `session_validate` path without full sign-in chain.
+    - [ ] invalid session -> fallback to full auth sequence.
+  - [ ] transport refactor parity tests:
+    - [ ] request/response mapping semantics remain unchanged.
+    - [ ] cookie/settings synchronization behavior remains unchanged.
+    - [ ] telemetry request/response event sequencing remains unchanged.
+  - [ ] logging tests:
+    - [ ] telemetry console adapter is opt-in.
+    - [ ] no implicit pretty-print logging in default runtime paths.
+  - [ ] ratchet tests:
+    - [ ] removed files/symbols cannot reappear.
+    - [ ] dead-code CI gate hard-fails on newly unused symbols.
+  - [ ] full gate command definition:
+    - [ ] `uv run --extra test pytest -q`.
+
+### Exit Criteria
+- Every symbol in target packages is classified with explicit keep/move/remove decision.
+- No unresolved undefined behavior remains in the Phase 42 inventory.
+- Phase 43 execution tasks are decision-complete.
+
+### Handoff: Phase 42 - Dead Code Baseline + Behavioral Definition
+- Date:
+- Status: In Progress
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
+---
+
+## Phase 43: Consolidation Execution + Final Prune
+### Goal
+Implement Phase 42 decisions and enforce permanent dead-code guardrails in `utils`, `trees`, `sessions`, and `log`.
+
+### Checklist
+- [ ] Apply session transport split and session-oriented rename with alias window.
+- [ ] Implement `validate-first` renewal fast path in active auth service orchestration.
+- [ ] Remove `trees/renew.py`; prune dead tree orchestration helpers not used by active boundary.
+- [ ] Move/trim `log` utilities into telemetry-console adapter shape; eliminate default rich transport coupling.
+- [ ] Remove dead utilities and move surviving generic helpers to semantically aligned modules (`contexts/*`, `platform/*`, or `shared/kernel/*`).
+- [ ] Harden ratchets:
+  - [ ] removed files/symbols cannot reappear.
+  - [ ] dead-code scanner baseline cannot regress.
+- [ ] Execute acceptance matrix:
+  - [ ] renewal fast path tests:
+    - [ ] valid session uses `session_validate` without full sign-in chain.
+    - [ ] invalid session falls back to full auth sequence.
+  - [ ] transport parity tests:
+    - [ ] request/response mapping semantics preserved.
+    - [ ] cookie/settings synchronization preserved.
+    - [ ] telemetry request/response event sequencing preserved.
+  - [ ] logging tests:
+    - [ ] telemetry console adapter remains opt-in.
+    - [ ] default runtime path has no implicit pretty-print logging.
+  - [ ] ratchet tests:
+    - [ ] removed files/symbols reintroduction is rejected.
+    - [ ] dead-code scanner hard-fails on new unused symbols.
+  - [ ] full gate:
+    - [ ] `uv run --extra test pytest -q`.
+- [ ] Update architecture/docs to reflect final ownership and behavior.
+
+### Exit Criteria
+- Dead-code scanner and ratchets pass in CI hard-fail mode.
+- Renewal fast path, transport parity, logging opt-in, and ratchet tests all pass.
+- Full suite passes: `uv run --extra test pytest -q`.
+- No dead/orphan code remains in `utils`, `trees`, `sessions`, and `log` according to Phase 42 classification.
+
+### Handoff: Phase 43 - Consolidation Execution + Final Prune
+- Date:
+- Status: Done | In Progress | Blocked
+- Summary:
+- Files changed:
+- Tests executed:
+- Risks / TBD:
+- Next recommended phase:
+
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Program 34+ phase board complete.
-# Start from maintenance/new feature work on top of `dev`.
+# Continue with: Phase 42 Dead Code Baseline + Behavioral Definition.
+# Start by generating symbol inventory and behavior classification for utils/trees/sessions/log.
 ```
