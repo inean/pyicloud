@@ -14,13 +14,9 @@ from pyicloud.models.fields import (
     XAppleWebauthValidateType,
 )
 from pyicloud.models.headers import HeadersModel
-from pyicloud.sessions import (
-    BaseRequest,
-    BaseResponse,
-    OAuthTransport,
-    StaticEndpoint,
-    serialize,
-)
+from pyicloud.sessions._contracts import BaseRequest, BaseResponse, StaticEndpoint
+from pyicloud.sessions._serialize import serialize
+from pyicloud.sessions._transport import OAuthTransport
 from pyicloud.sessions.session import SessionBody, SessionHeaders
 
 

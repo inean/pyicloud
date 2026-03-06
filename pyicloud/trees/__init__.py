@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import types
 from abc import ABC, abstractmethod
 from asyncio import Runner, iscoroutine, sleep
 from collections import deque
-from collections.abc import Generator, Sequence
+from collections.abc import Awaitable, Callable, Coroutine, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar, Token, copy_context
 from enum import Enum
@@ -16,26 +15,21 @@ from functools import partial, wraps
 from inspect import BoundArguments, Parameter, iscoroutinefunction, signature
 from typing import (
     Any,
-    Awaitable,
-    Callable,
     ClassVar,
-    Coroutine,
-    Iterator,
     ParamSpec,
     Self,
     TypedDict,
     TypeVar,
     cast,
-    overload,
 )
 
 from httpx import AsyncClient
 from pydantic import Secret
 
-from pyicloud.log import LOGGER, PyiCloudPasswordFilter
+from pyicloud.log import LOGGER
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.paths import CookiesJar, SettingsFile
+from pyicloud.ports import TreeRuntimeLifecyclePort
 
 
 class TreeAction(Enum):
@@ -308,7 +302,7 @@ def blackboard(
 
 
 class Tree(ABC):
-    __slots__ = ("settings", "cookies", "_context")
+    __slots__ = ("settings", "cookies", "_context", "_runtime_port", "_runtime_detach", "_runtime_initialized")
 
     cookies: Cookies
     """Cookies for the model."""
@@ -321,6 +315,10 @@ class Tree(ABC):
 
     _context: ContextVar[dict[Any, Any]]
     """Context variable for the blackboard pattern."""
+
+    _runtime_port: TreeRuntimeLifecyclePort | None
+    _runtime_detach: Callable[[], None] | None
+    _runtime_initialized: bool
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -342,26 +340,50 @@ class Tree(ABC):
         self.settings = settings
         self.cookies = cookies or Cookies({})
         self._context = ContextVar("blackboard", default=context or {})
+        self._runtime_port = None
+        self._runtime_detach = None
+        self._runtime_initialized = False
 
-        # Add a filter so password is not logged
-        PyiCloudPasswordFilter.register(self.settings)
-        self.settings.account.events.password.connect(
-            partial(PyiCloudPasswordFilter.on_changed_password, context=self.settings)
-        )
+    def set_runtime_port(self, runtime_port: TreeRuntimeLifecyclePort) -> None:
+        """Configure runtime side-effects provider for this tree instance."""
+        self.teardown_runtime()
+        self._runtime_port = runtime_port
 
-        # Listen to username updates and reload config if necessary
-        self.settings.account.events.username.connect(
-            lambda u: SettingsFile(self.settings).loads(),
-        )
-        self.settings.account.events.username.connect(
-            lambda u: CookiesJar(self.cookies).loads(username=u),
-        )
+    def has_runtime_port(self) -> bool:
+        """Return True when a runtime side-effects provider has been configured."""
+        return self._runtime_port is not None
 
-        # Emit to force reload
-        assert self.settings.account.username, "Username is required"
-        self.settings.account.events.username.emit(self.settings.account.username)
+    def ensure_runtime_initialized(self) -> None:
+        """
+        Attach runtime listeners and perform initial state sync exactly once.
+        """
+        if self._runtime_initialized:
+            return
+        if self._runtime_port is None:
+            raise RuntimeError("Tree runtime port is not configured.")
+        username = self.settings.account.username
+        if not username:
+            raise ValueError("Username is required")
 
-        return self
+        detach = self._runtime_port.attach(settings=self.settings, cookies=self.cookies)
+        try:
+            self._runtime_port.sync_now(
+                settings=self.settings,
+                cookies=self.cookies,
+                username=username,
+            )
+        except Exception:
+            detach()
+            raise
+        self._runtime_detach = detach
+        self._runtime_initialized = True
+
+    def teardown_runtime(self) -> None:
+        """Detach runtime listeners and reset initialization state."""
+        if self._runtime_detach is not None:
+            self._runtime_detach()
+            self._runtime_detach = None
+        self._runtime_initialized = False
 
     @contextmanager
     def context(self, **blackboard) -> Iterator[Self]:
@@ -643,7 +665,7 @@ class BehaveTree:
             if (action := transition["action"]) is None:
                 return None
 
-            if not isinstance(action, (types.FunctionType, types.MethodType)):
+            if not isinstance(action, types.FunctionType | types.MethodType):
                 trigger = transition["trigger"]
                 trigger = trigger if isinstance(trigger, str) else trigger[0]
                 action = getattr(action, trigger)

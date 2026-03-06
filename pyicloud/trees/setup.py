@@ -11,7 +11,6 @@ from typing import Any, cast
 
 import async_btree as bt
 
-from pyicloud.adapters.auth_state_reset import CookieAuthStateResetPolicy
 from pyicloud.constants import AppleCookies as Cookie
 from pyicloud.constants import AppleHeaders as Header
 from pyicloud.exceptions import PyiCloudUserCancelledError
@@ -21,7 +20,7 @@ from pyicloud.models.errors import Error
 from pyicloud.models.fields import Meta
 from pyicloud.models.settings import Settings
 from pyicloud.ports import AuthStateResetPolicy
-from pyicloud.sessions import BaseResponse
+from pyicloud.sessions._contracts import BaseResponse
 from pyicloud.sessions.account_login import AccountLogin
 from pyicloud.sessions.security_code import SecurityCode, SecurityCodeRequestCookies, SecurityCodeRequestHeaders
 from pyicloud.sessions.signin import FreshSignIn, SignIn
@@ -58,8 +57,6 @@ class SetupModelTree(SessionModelTree):
         auth_reset_policy: AuthStateResetPolicy | None = None,
         context: dict[str, Any] | None = None,
     ):
-        if auth_reset_policy is None:
-            auth_reset_policy = CookieAuthStateResetPolicy()
         super().__init__(
             settings=settings,
             cookies=cookies,
@@ -195,7 +192,14 @@ class SetupModelTree(SessionModelTree):
             # No error -> No need to reset
             return False
         # If a previous attempt failed, show error...
-        error = response.errors.pop(0)
+        error = (
+            response.errors.pop(0)
+            if response.errors
+            else Error(
+                code=response.status_code,
+                message=f"HTTP {response.status_code} error response.",
+            )
+        )
         # Pop security code from blackboard if exists
         LOGGER.debug(f"Resetting security code: '{error.message}' ({error.code})")
         self.blackboard.pop("security_code", None)

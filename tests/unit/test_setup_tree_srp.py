@@ -7,12 +7,16 @@ import httpx
 import pytest
 
 from pyicloud.models.cookies import Cookies
+from pyicloud.models.errors import Error
 from pyicloud.models.settings import Settings
 from pyicloud.trees.setup import SetupHooks, SetupModelTree
 from tests.const import AUTHENTICATED_USER, SCNT, SESSION_ID, VALID_PASSWORD, VALID_TOKEN
 
 
 class DummyHooks(SetupHooks):
+    def __init__(self) -> None:
+        self.security_errors: list[tuple[int, str]] = []
+
     def get_password(self, username: str) -> str:
         return VALID_PASSWORD
 
@@ -21,6 +25,9 @@ class DummyHooks(SetupHooks):
 
     def get_trusted_device(self, devices):  # noqa: ANN001
         return None
+
+    def on_security_code_error(self, error: Error) -> None:
+        self.security_errors.append((error.code, error.message))
 
 
 @pytest.fixture
@@ -130,3 +137,22 @@ async def test_account_login_without_trust_token_does_not_fail_early(
 
     assert _FakeAccountLogin.calls == 1
     assert bool(response) is True
+
+
+class _FailedResponseWithoutErrors:
+    status_code = 500
+    errors: list = []
+
+    def __bool__(self) -> bool:
+        return False
+
+
+async def test_security_code_reset_uses_fallback_error_when_error_list_is_empty(setup_tree: SetupModelTree) -> None:
+    setup_tree.blackboard["security_code"] = "123456"
+    response = _FailedResponseWithoutErrors()
+
+    reset = await setup_tree.security_code_reset(response=response)  # type: ignore[arg-type]
+
+    assert reset is True
+    assert "security_code" not in setup_tree.blackboard
+    assert setup_tree.hooks.security_errors == [(500, "HTTP 500 error response.")]

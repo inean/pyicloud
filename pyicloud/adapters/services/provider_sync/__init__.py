@@ -26,7 +26,7 @@ from .findmyiphone import FindMyiPhoneServiceManager
 from .photos import PhotosService
 from .reminders import RemindersService
 from .ubiquity import UbiquityService
-from pyicloud.sessions import DynamicEndpoint
+from pyicloud.sessions._contracts import DynamicEndpoint
 from pyicloud.sessions.session import create_session
 
 

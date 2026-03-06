@@ -9,10 +9,12 @@ MANAGED_LAYERS = {
     "domain": {"domain"},
     "ports": {"ports", "domain"},
     "application": {"application", "ports", "domain"},
-    "adapters": {"adapters", "ports", "domain"},
+    "adapters": {"adapters", "ports", "domain", "sessions", "trees"},
     "api": {"api", "application", "ports", "domain", "bootstrap", "adapters"},
     "cli": {"cli", "application", "ports", "domain"},
-    "bootstrap": {"bootstrap", "application", "adapters", "ports", "domain"},
+    "bootstrap": {"bootstrap", "application", "adapters", "ports", "domain", "trees"},
+    "sessions": {"sessions", "ports", "domain"},
+    "trees": {"trees", "sessions", "ports", "domain"},
 }
 
 
@@ -155,3 +157,16 @@ def test_adapters_layer_does_not_depend_on_cli_entrypoints() -> None:
         forbidden_prefixes=forbidden,
     )
     assert violations == [], f"Adapters layer import violations found: {violations}"
+
+
+def test_sessions_and_trees_layers_avoid_direct_adapter_dependencies() -> None:
+    sessions_violations = _find_boundary_violations(
+        package_dir=PYICLOUD_ROOT / "sessions",
+        forbidden_prefixes={"pyicloud.adapters"},
+    )
+    trees_violations = _find_boundary_violations(
+        package_dir=PYICLOUD_ROOT / "trees",
+        forbidden_prefixes={"pyicloud.adapters"},
+    )
+    violations = [*sessions_violations, *trees_violations]
+    assert violations == [], f"Sessions/trees direct adapter import violations found: {violations}"

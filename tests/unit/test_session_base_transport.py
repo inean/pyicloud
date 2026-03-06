@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import httpx
 import pytest
 
 from pyicloud.constants import AppleCookies as Jar
@@ -113,6 +114,13 @@ def _build_serializable_transport(
         pass
 
     return serialize(PlainValidate, settings=settings, cookies=cookies)
+
+
+def _build_plain_transport() -> type[OAuthTransport]:
+    class PlainValidate(OAuthTransport[ValidateRequest, ValidateResponse]):
+        pass
+
+    return PlainValidate
 
 
 def test_serialize_applies_explicit_serialize_instances(
@@ -229,3 +237,75 @@ def test_base_response_errors_default_is_not_shared_between_instances() -> None:
     first.errors.append(Error(code=1, message="boom"))
 
     assert second.errors == []
+
+
+def test_base_response_create_handles_malformed_json_error_payload_with_fallback() -> None:
+    class _TestResponse(BaseResponse[HeadersModel, CookiesModel, BodyModel]):
+        pass
+
+    response = httpx.Response(
+        500,
+        request=httpx.Request("POST", "https://example.test/failure"),
+        headers={"content-type": "application/json"},
+        content=b'{"serviceErrors": [',
+    )
+
+    parsed = _TestResponse.create(response)
+
+    assert parsed.errors
+    assert parsed.errors[0].code == 500
+    assert "HTTP 500" in parsed.errors[0].message
+
+
+async def test_base_transport_does_not_close_injected_client(
+    validate_settings: Settings,
+    validate_cookies_with_domain_mismatch: Cookies,
+) -> None:
+    plain_transport = _build_plain_transport()
+    client = httpx.AsyncClient()
+    transport = plain_transport(
+        settings=validate_settings, cookies=validate_cookies_with_domain_mismatch, client=client
+    )
+
+    async with transport:
+        pass
+
+    assert client.is_closed is False
+    await client.aclose()
+
+
+async def test_base_transport_closes_owned_client(
+    validate_settings: Settings,
+    validate_cookies_with_domain_mismatch: Cookies,
+) -> None:
+    plain_transport = _build_plain_transport()
+    transport = plain_transport(settings=validate_settings, cookies=validate_cookies_with_domain_mismatch)
+    client = transport._client
+
+    async with transport:
+        pass
+
+    assert client.is_closed is True
+
+
+async def test_base_transport_detaches_event_hooks_after_context_exit(
+    validate_settings: Settings,
+    validate_cookies_with_domain_mismatch: Cookies,
+) -> None:
+    plain_transport = _build_plain_transport()
+    client = httpx.AsyncClient()
+    request_hooks_before = len(client.event_hooks["request"])
+    response_hooks_before = len(client.event_hooks["response"])
+
+    transport = plain_transport(
+        settings=validate_settings, cookies=validate_cookies_with_domain_mismatch, client=client
+    )
+    assert len(client.event_hooks["request"]) == request_hooks_before + 1
+    assert len(client.event_hooks["response"]) == response_hooks_before + 1
+
+    async with transport:
+        pass
+
+    assert len(client.event_hooks["request"]) == request_hooks_before
+    assert len(client.event_hooks["response"]) == response_hooks_before
+    await client.aclose()
