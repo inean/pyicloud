@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Sequence
 
 from pyicloud.contexts.services.contracts.services import DeviceServicePort
 from pyicloud.domain import DeviceRecordDTO
-from pyicloud.upstream import bind_upstream_context
+from pyicloud.platform.telemetry.upstream import bind_upstream_context
 
 
 class DevicesApplicationService:

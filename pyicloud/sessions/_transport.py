@@ -15,7 +15,7 @@ from pyicloud.constants import Endpoints
 from pyicloud.log import PyiCloudPasswordFilter, logger_get
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.upstream import build_request_event, build_response_event
+from pyicloud.platform.telemetry.upstream import build_request_event, build_response_event
 
 from ._contracts import BaseRequest, BaseResponse, _resolve_model_type
 

@@ -17,9 +17,7 @@ from pyicloud.adapters.services import (
     build_core_adapter_bundle,
     legacy_core,
 )
-from pyicloud.adapters.services import (
-    runtime as legacy_runtime,
-)
+from pyicloud.platform.provider import runtime as platform_runtime
 
 
 def test_legacy_core_services_adapter_restores_endpoint_from_store(monkeypatch: pytest.MonkeyPatch):
@@ -38,7 +36,7 @@ def test_legacy_core_services_adapter_restores_endpoint_from_store(monkeypatch: 
         def __init__(self, endpoint: object):
             self.endpoint = endpoint
 
-    monkeypatch.setattr(legacy_runtime, "PyiCloudServices", FakePyiCloudServices)
+    monkeypatch.setattr(platform_runtime, "PyiCloudServices", FakePyiCloudServices)
     adapter = legacy_core.LegacyCoreServicesAdapter(
         session_store=store,
         endpoint_factory=FakeEndpointFactory(),

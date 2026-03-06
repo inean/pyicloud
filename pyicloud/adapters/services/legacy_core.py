@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pyicloud.platform.provider.runtime import ServiceRuntime
 from pyicloud.ports import ServiceEndpointPort, SessionStorePort
 
 from .account import AccountServiceAdapter
@@ -11,7 +12,6 @@ from .devices import DevicesServiceAdapter
 from .drive import DriveServiceAdapter
 from .photos import PhotosServiceAdapter
 from .reminders import RemindersServiceAdapter
-from .runtime import ServiceRuntime
 from .ubiquity import UbiquityServiceAdapter
 
 

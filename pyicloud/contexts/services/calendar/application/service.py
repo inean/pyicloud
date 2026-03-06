@@ -7,7 +7,7 @@ from datetime import datetime
 
 from pyicloud.contexts.services.contracts.services import CalendarServicePort
 from pyicloud.domain import CalendarDTO, CalendarEventDetailDTO, CalendarEventDTO
-from pyicloud.upstream import bind_upstream_context
+from pyicloud.platform.telemetry.upstream import bind_upstream_context
 
 
 class CalendarApplicationService:

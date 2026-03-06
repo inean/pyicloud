@@ -88,3 +88,10 @@ The following legacy code samples are intentionally removed in this cycle:
 - `pyicloud.services.*`
 - `pyicloud.legacy`
 - `pyicloud.cmdline`
+
+## Internal canonical modules (for contributors)
+
+- Provider runtime: `pyicloud.platform.provider.runtime`
+- Session store: `pyicloud.platform.storage.session_store`
+- Upstream telemetry helpers: `pyicloud.platform.telemetry.upstream`
+- Removed shim namespaces: `pyicloud.upstream`, `pyicloud.adapters.store`, `pyicloud.adapters.services.runtime`

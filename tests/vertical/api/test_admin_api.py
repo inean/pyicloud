@@ -7,7 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from pyicloud.adapters.access import InMemoryAccessControlStore
 from pyicloud.api import create_app
-from pyicloud.application.access_control import AccessControlApiService
+from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
 from tests.fakes.auth_scenarios import build_deterministic_core_services, build_fake_auth_api_service
 
 

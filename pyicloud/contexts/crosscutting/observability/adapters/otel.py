@@ -25,7 +25,12 @@ from pyicloud.contexts.crosscutting.telemetry.adapters.upstream_probe import (
 )
 from pyicloud.contexts.crosscutting.telemetry.contracts.upstream_probe import UpstreamTrafficProbePort
 from pyicloud.domain import BackendUnavailable, QueryExecutionFailed
-from pyicloud.upstream import bind_upstream_context, build_error_event, build_request_event, build_response_event
+from pyicloud.platform.telemetry.upstream import (
+    bind_upstream_context,
+    build_error_event,
+    build_request_event,
+    build_response_event,
+)
 
 OTEL_DEPENDENCY_ERROR = (
     "OTel observability adapter requires optional dependencies. Install with `uv sync --extra otel` and retry."

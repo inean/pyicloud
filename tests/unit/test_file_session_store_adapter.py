@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from pyicloud.adapters.store import FileSessionStoreAdapter
+from pyicloud.platform.storage import FileSessionStoreAdapter
 
 
 def test_file_session_store_save_and_load(tmp_path: Path):

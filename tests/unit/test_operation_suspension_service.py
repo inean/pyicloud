@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from pyicloud.adapters.operation_suspension import InMemorySuspendedOperationStore
-from pyicloud.application.operation_suspension import OperationSuspensionService
+from pyicloud.contexts.crosscutting.auth.application.operation_suspension import OperationSuspensionService
 from pyicloud.domain import Conflict
 
 

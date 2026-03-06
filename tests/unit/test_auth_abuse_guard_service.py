@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
+from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.domain import Forbidden
 
 

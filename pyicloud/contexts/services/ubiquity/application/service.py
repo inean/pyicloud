@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 
 from pyicloud.contexts.services.contracts.services import UbiquityServicePort
 from pyicloud.domain import UbiquityNodeDTO
-from pyicloud.upstream import bind_upstream_context
+from pyicloud.platform.telemetry.upstream import bind_upstream_context
 
 
 class UbiquityApplicationService:

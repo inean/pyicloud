@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pyicloud.upstream.sanitize import sanitize_body, sanitize_headers
+from pyicloud.platform.telemetry.upstream.sanitize import sanitize_body, sanitize_headers
 
 
 def test_sanitize_headers_redacts_sensitive_values_and_cookies():

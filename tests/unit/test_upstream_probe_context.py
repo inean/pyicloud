@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from pyicloud.upstream.context import bind_upstream_context, current_upstream_context, ensure_upstream_context
+from pyicloud.platform.telemetry.upstream.context import (
+    bind_upstream_context,
+    current_upstream_context,
+    ensure_upstream_context,
+)
 
 
 def test_ensure_upstream_context_generates_flow_and_account_hash():

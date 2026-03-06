@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from pyicloud.adapters.access import InMemoryAccessControlStore
-from pyicloud.application.access_control import AccessControlApiService
+from pyicloud.contexts.crosscutting.auth.application.access_control import AccessControlApiService
 from pyicloud.domain import Conflict, Forbidden
 from pyicloud.domain.api_models import AuthPrincipal
 
