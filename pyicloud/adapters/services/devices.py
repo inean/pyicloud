@@ -18,30 +18,34 @@ class DevicesServiceAdapter(LegacyServicesAdapterBase, DeviceServicePort):
     def _devices_client(self, *, username: str) -> DevicesClient:
         return LegacyDevicesClient(runtime=self._runtime, username=username)
 
-    def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        snapshots = self._devices_client(username=username).list_devices()
+    async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        snapshots = await self._run_blocking(lambda: self._devices_client(username=username).list_devices())
         return [map_device_snapshot(view) for view in snapshots]
 
-    def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
-        view = self._devices_client(username=username).location(device_id=device_id)
+    async def location(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+        view = await self._run_blocking(lambda: self._devices_client(username=username).location(device_id=device_id))
         return map_device_location(view)
 
-    def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
-        view = self._devices_client(username=username).status(device_id=device_id)
+    async def status(self, *, username: str, device_id: str) -> Mapping[str, Any]:
+        view = await self._run_blocking(lambda: self._devices_client(username=username).status(device_id=device_id))
         return map_device_status(view)
 
-    def play_sound(self, *, username: str, device_id: str, subject: str) -> None:
-        self._devices_client(username=username).play_sound(device_id=device_id, subject=subject)
-
-    def display_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
-        self._devices_client(username=username).display_message(
-            device_id=device_id,
-            subject=subject,
-            message=message,
-            sounds=sounds,
+    async def play_sound(self, *, username: str, device_id: str, subject: str) -> None:
+        await self._run_blocking(
+            lambda: self._devices_client(username=username).play_sound(device_id=device_id, subject=subject)
         )
 
-    def lost_mode(
+    async def display_message(self, *, username: str, device_id: str, subject: str, message: str, sounds: bool) -> None:
+        await self._run_blocking(
+            lambda: self._devices_client(username=username).display_message(
+                device_id=device_id,
+                subject=subject,
+                message=message,
+                sounds=sounds,
+            )
+        )
+
+    async def lost_mode(
         self,
         *,
         username: str,
@@ -50,9 +54,11 @@ class DevicesServiceAdapter(LegacyServicesAdapterBase, DeviceServicePort):
         text: str,
         newpasscode: str,
     ) -> None:
-        self._devices_client(username=username).lost_mode(
-            device_id=device_id,
-            number=number,
-            text=text,
-            newpasscode=newpasscode,
+        await self._run_blocking(
+            lambda: self._devices_client(username=username).lost_mode(
+                device_id=device_id,
+                number=number,
+                text=text,
+                newpasscode=newpasscode,
+            )
         )

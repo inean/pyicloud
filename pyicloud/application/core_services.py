@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
@@ -49,14 +48,11 @@ class CoreServicesApi:
         *,
         username: str,
         operation: str,
-        call: Callable[[], Awaitable[T] | T],
+        call: Callable[[], Awaitable[T]],
     ) -> T:
         step = "find_devices" if operation == "devices.list" else operation.split(".")[-1]
         with bind_upstream_context(username=username, operation=operation, step=step):
-            result = await asyncio.to_thread(call)
-            if hasattr(result, "__await__"):
-                return await result  # type: ignore[return-value]
-            return result
+            return await call()
 
     async def list_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
         return await self._run_with_operation(

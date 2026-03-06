@@ -18,11 +18,14 @@ class AccountServiceAdapter(LegacyServicesAdapterBase, AccountServicePort):
     def _account_client(self, *, username: str) -> AccountClient:
         return LegacyAccountClient(runtime=self._runtime, username=username)
 
-    def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_account_device(view) for view in self._account_client(username=username).devices()]
+    async def account_devices(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        views = await self._run_blocking(lambda: self._account_client(username=username).devices())
+        return [map_account_device(view) for view in views]
 
-    def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_account_family_member(view) for view in self._account_client(username=username).family()]
+    async def account_family(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        views = await self._run_blocking(lambda: self._account_client(username=username).family())
+        return [map_account_family_member(view) for view in views]
 
-    def account_storage(self, *, username: str) -> Mapping[str, Any]:
-        return map_account_storage(self._account_client(username=username).storage())
+    async def account_storage(self, *, username: str) -> Mapping[str, Any]:
+        storage = await self._run_blocking(lambda: self._account_client(username=username).storage())
+        return map_account_storage(storage)

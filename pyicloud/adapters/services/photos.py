@@ -19,10 +19,11 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
     def _photos_client(self, *, username: str) -> PhotosClient:
         return LegacyPhotosClient(runtime=self._runtime, username=username)
 
-    def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
-        return [map_photo_album(view) for view in self._photos_client(username=username).albums()]
+    async def list_albums(self, *, username: str) -> Sequence[Mapping[str, Any]]:
+        views = await self._run_blocking(lambda: self._photos_client(username=username).albums())
+        return [map_photo_album(view) for view in views]
 
-    def list_assets(
+    async def list_assets(
         self,
         *,
         username: str,
@@ -30,17 +31,21 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
         limit: int = 100,
         offset: int = 0,
     ) -> Sequence[Mapping[str, Any]]:
-        views = self._photos_client(username=username).assets(
-            album=album,
-            pagination=Pagination(limit=limit, offset=offset),
+        views = await self._run_blocking(
+            lambda: self._photos_client(username=username).assets(
+                album=album,
+                pagination=Pagination(limit=limit, offset=offset),
+            )
         )
         return [map_photo_asset(view) for view in views]
 
-    def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
-        view = self._photos_client(username=username).asset_metadata(asset_id=asset_id, album=album)
+    async def asset_metadata(self, *, username: str, asset_id: str, album: str = "All Photos") -> Mapping[str, Any]:
+        view = await self._run_blocking(
+            lambda: self._photos_client(username=username).asset_metadata(asset_id=asset_id, album=album)
+        )
         return map_photo_asset(view)
 
-    def asset_content(
+    async def asset_content(
         self,
         *,
         username: str,
@@ -48,8 +53,10 @@ class PhotosServiceAdapter(LegacyServicesAdapterBase, PhotosServicePort):
         album: str = "All Photos",
         version: str = "original",
     ) -> bytes:
-        return self._photos_client(username=username).asset_content(
-            asset_id=asset_id,
-            album=album,
-            version=version,
+        return await self._run_blocking(
+            lambda: self._photos_client(username=username).asset_content(
+                asset_id=asset_id,
+                album=album,
+                version=version,
+            )
         )
