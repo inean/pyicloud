@@ -23,7 +23,7 @@ uv sync --extra dev
 ## Run API
 
 ```bash
-uv run python -m pyicloud.api.main
+uv run python -m pyicloud.interfaces.api.main
 ```
 
 By default the API runs at `http://127.0.0.1:8000`.
@@ -55,7 +55,7 @@ icloud drive tree --path /
 |---|---|
 | `from pyicloud import PyiCloudService` | `icloud ...` commands or direct HTTP calls to `/v1/*` |
 | `pyicloud.services.*` imports | Domain endpoints under `/v1/devices`, `/v1/account`, `/v1/drive`, `/v1/calendar`, `/v1/contacts`, `/v1/reminders`, `/v1/photos`, `/v1/ubiquity` |
-| `pyicloud.cmdline` | `pyicloud.cli.main` (`icloud` command) |
+| `pyicloud.cmdline` | `pyicloud.interfaces.cli.main` (`icloud` command) |
 | `pyicloud.legacy` | Removed; use API/CLI routes and subcommands |
 
 ## Endpoint mapping examples
