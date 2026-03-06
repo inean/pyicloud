@@ -5,11 +5,11 @@ import pytest
 from pyicloud.adapters.access import FileAccessControlStore, InMemoryAccessControlStore
 from pyicloud.adapters.operation_suspension import FileSuspendedOperationStore, InMemorySuspendedOperationStore
 from pyicloud.adapters.session import FileApiSessionStore, InMemoryApiSessionStore
-from pyicloud.api.app import (
-    _build_default_access_control_service,
-    _build_default_auth_abuse_guard,
-    _build_default_auth_service,
-    _build_default_operation_suspension,
+from pyicloud.platform.composition.api import (
+    ApiCompositionSettings,
+    build_access_control_api_service,
+    build_auth_api_service,
+    build_operation_suspension_service,
 )
 
 
@@ -44,7 +44,7 @@ def test_non_dev_runtime_requires_explicit_secret(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("PYICLOUD_API_ENV", "production")
 
     with pytest.raises(RuntimeError, match="must be explicitly configured"):
-        _build_default_auth_service()
+        ApiCompositionSettings.from_env()
 
 
 def test_non_dev_runtime_rejects_weak_secret(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -53,7 +53,7 @@ def test_non_dev_runtime_rejects_weak_secret(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("PYICLOUD_API_JWT_SECRET", "short")
 
     with pytest.raises(RuntimeError, match="too weak"):
-        _build_default_auth_service()
+        build_auth_api_service(settings=ApiCompositionSettings.from_env())
 
 
 def test_build_default_auth_service_supports_file_session_backend(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -62,7 +62,7 @@ def test_build_default_auth_service_supports_file_session_backend(monkeypatch: p
     monkeypatch.setenv("PYICLOUD_API_SESSION_BACKEND", "file")
     monkeypatch.setenv("PYICLOUD_API_SESSION_STORE_DIR", str(tmp_path))
 
-    service = _build_default_auth_service()
+    service = build_auth_api_service(settings=ApiCompositionSettings.from_env())
 
     assert isinstance(service._session_query, FileApiSessionStore)
     assert isinstance(service._session_command, FileApiSessionStore)
@@ -72,7 +72,7 @@ def test_build_default_auth_service_uses_memory_backend_by_default(monkeypatch: 
     _clear_auth_env(monkeypatch)
     monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
 
-    service = _build_default_auth_service()
+    service = build_auth_api_service(settings=ApiCompositionSettings.from_env())
 
     assert isinstance(service._session_query, InMemoryApiSessionStore)
     assert isinstance(service._session_command, InMemoryApiSessionStore)
@@ -84,7 +84,7 @@ def test_build_default_auth_service_rejects_invalid_jwt_leeway(monkeypatch: pyte
     monkeypatch.setenv("PYICLOUD_API_JWT_LEEWAY_SECONDS", "invalid")
 
     with pytest.raises(RuntimeError, match="must be an integer"):
-        _build_default_auth_service()
+        ApiCompositionSettings.from_env()
 
 
 @pytest.mark.asyncio
@@ -97,7 +97,7 @@ async def test_build_default_auth_service_uses_scenario_backend_without_tree_run
     monkeypatch.setenv("PYICLOUD_SESSION_STORE_DIR", str(tmp_path))
     monkeypatch.setenv("PYICLOUD_API_AUTH_BACKEND", "scenario")
 
-    service = _build_default_auth_service()
+    service = build_auth_api_service(settings=ApiCompositionSettings.from_env())
     success = await service.login(username="success@example.com", password="secret")
     challenge = await service.login(username="requires2fa@example.com", password="secret")
 
@@ -111,17 +111,15 @@ async def test_build_default_auth_service_rejects_legacy_tree_backend(monkeypatc
     monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
     monkeypatch.setenv("PYICLOUD_API_AUTH_BACKEND", "legacy_tree")
 
-    service = _build_default_auth_service()
-
     with pytest.raises(RuntimeError, match="Unsupported PYICLOUD_API_AUTH_BACKEND"):
-        await service.login(username="success@example.com", password="secret")
+        ApiCompositionSettings.from_env()
 
 
 def test_build_default_access_control_service_uses_memory_backend_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     _clear_auth_env(monkeypatch)
     monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
 
-    service = _build_default_access_control_service()
+    service = build_access_control_api_service(settings=ApiCompositionSettings.from_env())
 
     assert isinstance(service._query, InMemoryAccessControlStore)
     assert isinstance(service._command, InMemoryAccessControlStore)
@@ -135,9 +133,10 @@ def test_build_default_access_control_service_requires_bootstrap_admin_in_non_de
     monkeypatch.setenv("PYICLOUD_API_ENV", "production")
     monkeypatch.setenv("PYICLOUD_API_ACL_BACKEND", "file")
     monkeypatch.setenv("PYICLOUD_API_ACL_STORE_DIR", str(tmp_path))
+    monkeypatch.setenv("PYICLOUD_API_JWT_SECRET", "VeryLongStrongSecretForProduction")
 
     with pytest.raises(RuntimeError, match="PYICLOUD_API_BOOTSTRAP_ADMIN"):
-        _build_default_access_control_service()
+        build_access_control_api_service(settings=ApiCompositionSettings.from_env())
 
 
 def test_build_default_access_control_service_bootstraps_admin_in_non_dev(
@@ -149,8 +148,9 @@ def test_build_default_access_control_service_bootstraps_admin_in_non_dev(
     monkeypatch.setenv("PYICLOUD_API_ACL_BACKEND", "file")
     monkeypatch.setenv("PYICLOUD_API_ACL_STORE_DIR", str(tmp_path))
     monkeypatch.setenv("PYICLOUD_API_BOOTSTRAP_ADMIN", "Admin@Example.com")
+    monkeypatch.setenv("PYICLOUD_API_JWT_SECRET", "VeryLongStrongSecretForProduction")
 
-    service = _build_default_access_control_service()
+    service = build_access_control_api_service(settings=ApiCompositionSettings.from_env())
 
     assert isinstance(service._query, FileAccessControlStore)
     assert service._query.active_admin_count() == 1
@@ -160,7 +160,7 @@ def test_build_default_operation_suspension_service_uses_memory_by_default(monke
     _clear_auth_env(monkeypatch)
     monkeypatch.setenv("PYICLOUD_API_ENV", "dev")
 
-    service = _build_default_operation_suspension()
+    service = build_operation_suspension_service(settings=ApiCompositionSettings.from_env())
 
     assert isinstance(service._query, InMemorySuspendedOperationStore)
     assert isinstance(service._command, InMemorySuspendedOperationStore)
@@ -174,8 +174,9 @@ def test_build_default_operation_suspension_service_uses_file_in_non_dev(
     monkeypatch.setenv("PYICLOUD_API_ENV", "production")
     monkeypatch.setenv("PYICLOUD_API_OPERATION_BACKEND", "file")
     monkeypatch.setenv("PYICLOUD_API_OPERATION_STORE_DIR", str(tmp_path))
+    monkeypatch.setenv("PYICLOUD_API_JWT_SECRET", "VeryLongStrongSecretForProduction")
 
-    service = _build_default_operation_suspension()
+    service = build_operation_suspension_service(settings=ApiCompositionSettings.from_env())
 
     assert isinstance(service._query, FileSuspendedOperationStore)
     assert isinstance(service._command, FileSuspendedOperationStore)
@@ -189,7 +190,7 @@ def test_build_default_operation_suspension_service_rejects_invalid_limit_value(
     monkeypatch.setenv("PYICLOUD_API_OPERATION_MAX_PENDING_GLOBAL", "invalid")
 
     with pytest.raises(RuntimeError, match="configuration values must be integers"):
-        _build_default_operation_suspension()
+        ApiCompositionSettings.from_env()
 
 
 def test_build_default_auth_abuse_guard_rejects_invalid_value(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,4 +198,4 @@ def test_build_default_auth_abuse_guard_rejects_invalid_value(monkeypatch: pytes
     monkeypatch.setenv("PYICLOUD_API_AUTH_MAX_ATTEMPTS_PER_IP", "invalid")
 
     with pytest.raises(RuntimeError, match="must be integers"):
-        _build_default_auth_abuse_guard()
+        ApiCompositionSettings.from_env()
