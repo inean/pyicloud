@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from pyicloud.adapters.observability import NullObservabilityAdapter
-from pyicloud.application.observability import ObservabilityApi
+from pyicloud.contexts.crosscutting.observability.application.observability import ObservabilityApi
 from pyicloud.domain import UnsupportedQueryMode
 
 

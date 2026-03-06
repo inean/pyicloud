@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from pyicloud.adapters.observability.otel import OTelObservabilityAdapter
-from pyicloud.application.observability import ObservabilityApi
+from pyicloud.contexts.crosscutting.observability.application.observability import ObservabilityApi
 
 
 @pytest.mark.integration

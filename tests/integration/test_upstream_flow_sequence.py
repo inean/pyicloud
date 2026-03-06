@@ -7,8 +7,8 @@ import pytest
 
 from pyicloud.adapters.auth import TreeAuthSessionAdapter
 from pyicloud.adapters.session.service_http import LegacyServiceSessionAdapter
-from pyicloud.application import AuthSessionService
 from pyicloud.constants import AppleHeaders
+from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.domain import AuthFlowRequest
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings

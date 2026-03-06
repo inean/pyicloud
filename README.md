@@ -79,6 +79,13 @@ icloud drive tree --path /
 - Provider runtime direction is locked to strict containment (Option B): legacy sync provider clients stay behind async adapters; no legacy runtime alias symbols are exposed in active adapter/runtime paths.
 - Vertical tests run in-process ASGI and block external network access.
 
+## Contributor notes (internal paths)
+
+- Canonical provider runtime: `pyicloud.platform.provider.runtime`.
+- Canonical session storage: `pyicloud.platform.storage.session_store`.
+- Canonical upstream telemetry helpers: `pyicloud.platform.telemetry.upstream`.
+- Removed shim namespaces (do not import): `pyicloud.upstream`, `pyicloud.adapters.store`, `pyicloud.adapters.services.runtime`.
+
 ## Observability
 
 The project includes optional observability query commands/endpoints:

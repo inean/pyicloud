@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
+
 import pyicloud.adapters.session.service_http as service_http
 import pyicloud.bootstrap.api_runtime as api_runtime
 import pyicloud.interfaces.api.app as api_app
 import pyicloud.interfaces.api.dependencies as api_dependencies
 
 
-def test_application_observability_shim_reexports_context_service() -> None:
-    legacy_module = importlib.import_module("pyicloud.application.observability")
-    canonical_module = importlib.import_module("pyicloud.contexts.crosscutting.observability.application.observability")
-
-    assert legacy_module.ObservabilityApi is canonical_module.ObservabilityApi
+def test_application_observability_shim_module_is_removed() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("pyicloud.application.observability")
 
 
 def test_active_api_path_uses_context_observability_service() -> None:

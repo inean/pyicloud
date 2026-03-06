@@ -4,7 +4,7 @@ import pytest
 
 from pyicloud.adapters.session import InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
-from pyicloud.application.api_auth import AuthApiService
+from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
 from pyicloud.domain import ChallengeExpired, InvalidChallengeTransition, SecurityCodeRequired
 
 

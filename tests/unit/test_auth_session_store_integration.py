@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pyicloud.application import AuthSessionService
+from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.domain import AuthFlowRequest
 from pyicloud.ports import AuthSessionPort
 

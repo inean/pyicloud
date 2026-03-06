@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pyicloud.application import ServiceEndpointRestoreService
+from pyicloud.contexts.crosscutting.auth.application.service_endpoint_restore import ServiceEndpointRestoreService
 
 
 class FakeStore:

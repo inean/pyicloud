@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from pyicloud.adapters.session_endpoint import LegacyServiceEndpointFactoryAdapter
-from pyicloud.application import ServiceEndpointRestoreService
+from pyicloud.contexts.crosscutting.auth.application.service_endpoint_restore import ServiceEndpointRestoreService
 from pyicloud.platform.storage import FileSessionStoreAdapter
 
 

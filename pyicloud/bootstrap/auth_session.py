@@ -8,7 +8,7 @@ from typing import Any
 from pyicloud.adapters.auth import TreeAuthSessionAdapter
 from pyicloud.adapters.auth_state_reset import CookieAuthStateResetPolicy
 from pyicloud.adapters.tree_runtime import FileBackedTreeRuntimeAdapter
-from pyicloud.application import AuthSessionService
+from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
 from pyicloud.platform.storage import FileSessionStoreAdapter

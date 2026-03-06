@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from pyicloud.application.auth_abuse_guard import AuthAbuseGuardService
+from pyicloud.contexts.crosscutting.auth.application.auth_abuse_guard import AuthAbuseGuardService
 from pyicloud.exceptions import PyiCloudAPIResponseError
 
 

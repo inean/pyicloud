@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from pyicloud.adapters.auth import TreeAuthSessionAdapter
-from pyicloud.application import AuthSessionService
+from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.domain import AuthFlowRequest, AuthStep
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings

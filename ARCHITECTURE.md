@@ -12,7 +12,7 @@ La libreria ya no expone superficies legacy sincronas para uso publico.
 ## Principios
 
 - API-first y CLI-first.
-- Dependencias dirigidas hacia el dominio (puertos en `pyicloud/ports`).
+- Dependencias dirigidas hacia el dominio (contratos canonicos en `pyicloud/contexts/*/contracts`).
 - Adaptadores de infraestructura en `pyicloud/adapters`.
 - Runtime de proveedor bloqueado en **Option B (strict containment)**:
   - clientes legacy sincronos encapsulados detras de frontera async estable.
@@ -42,23 +42,23 @@ Responsabilidad: orquestar casos de uso de autenticacion, servicios de dominio y
 
 ### 3) Domain contracts (ports)
 
-- `pyicloud/ports/auth.py`
-- `pyicloud/ports/services.py`
-- `pyicloud/ports/session.py`
-- `pyicloud/ports/observability.py`
-- `pyicloud/ports/upstream_probe.py`
+- `pyicloud/contexts/crosscutting/auth/contracts/*`
+- `pyicloud/contexts/services/contracts/services.py`
+- `pyicloud/contexts/crosscutting/observability/contracts/observability.py`
+- `pyicloud/contexts/crosscutting/telemetry/contracts/upstream_probe.py`
 
 Responsabilidad: definir interfaces estables para separar dominio e infraestructura.
+Nota: `pyicloud/ports/*` se mantiene como fachada de compatibilidad.
 
 ### 4) Infrastructure adapters
 
 - `pyicloud/adapters/auth/*`
 - `pyicloud/adapters/session/*`
-- `pyicloud/adapters/store/*`
 - `pyicloud/contexts/services/*/adapters/*`
 - `pyicloud/platform/provider/runtime.py`
 - `pyicloud/platform/storage/session_store.py`
-- `pyicloud/adapters/services/*` (shims + clientes/mappers en migracion)
+- `pyicloud/platform/telemetry/upstream/*`
+- `pyicloud/adapters/services/*` (clientes/mappers + facades acotadas)
 - `pyicloud/contexts/crosscutting/observability/adapters/*`
 - `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`
 
@@ -88,7 +88,7 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 - `pyicloud/contexts/services/*/{application,adapters}`: casos de uso y adapters por bounded context.
 - `pyicloud/platform/{provider,storage,telemetry}`: infraestructura tecnica transversal.
 - `pyicloud/application/`: shims de compatibilidad + casos de uso heredados en migracion.
-- `pyicloud/ports/`: contratos hexagonales.
+- `pyicloud/ports/`: fachadas de compatibilidad para contratos.
 - `pyicloud/adapters/`: infraestructura.
 - `pyicloud/domain/`: modelos/errores de dominio.
 - `pyicloud/sessions/`, `pyicloud/trees/`: flujos de sesion y auth.
@@ -114,9 +114,13 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
   - `LegacyServicesAdapterBase`
   - `LegacyCoreAdapterBundle`
   - `build_legacy_core_adapter_bundle`
+- No reintroducir namespaces shim eliminados:
+  - `pyicloud.upstream`
+  - `pyicloud.adapters.store`
+  - `pyicloud.adapters.services.runtime`
 - Nuevas capacidades deben entrar por:
-  1. Puerto en `pyicloud/ports`.
-  2. Implementacion en `pyicloud/adapters`.
-  3. Orquestacion en `pyicloud/application`.
+  1. Contrato en `pyicloud/contexts/*/contracts`.
+  2. Implementacion en `pyicloud/adapters` o `pyicloud/platform`.
+  3. Orquestacion en `pyicloud/contexts/*/application` (o facade cuando aplique).
   4. Exposicion en API/CLI.
   5. Tests unit + integration + vertical.

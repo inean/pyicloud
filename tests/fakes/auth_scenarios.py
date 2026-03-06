@@ -9,9 +9,9 @@ from pathlib import Path
 from pyicloud.adapters.auth import FakeScenarioAuthSessionAdapter
 from pyicloud.adapters.session import InMemoryApiSessionStore
 from pyicloud.adapters.token import JwtTokenSigner
-from pyicloud.application.api_auth import AuthApiService
-from pyicloud.application.auth_session import AuthSessionService
 from pyicloud.application.core_services import CoreServicesApi
+from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
+from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.platform.storage import FileSessionStoreAdapter
 from pyicloud.ports import AccessControlQueryPort
 

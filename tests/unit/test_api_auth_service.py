@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pyicloud.application.api_auth import AuthApiService
+from pyicloud.contexts.crosscutting.auth.application.api_auth import AuthApiService
 from pyicloud.domain import InvalidChallengeTransition, InvalidCredentials, SecurityCodeRequired, Unauthorized
 
 
