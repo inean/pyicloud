@@ -37,16 +37,14 @@ async def authenticate_legacy_endpoint(
     username: str,
     password: str,
     interactive: bool,
-    auth_runner: Callable[..., Any] | None = None,
+    auth_runner: Callable[..., Any],
     restore_builder: Callable[..., Any] | None = None,
     store: SessionStorePort | None = None,
     endpoint_factory: ServiceEndpointPort | None = None,
 ) -> Any:
     """Authenticate and return a services endpoint using the bootstrap flow."""
     if auth_runner is None:
-        from pyicloud.cli_auth import run_bootstrap_auth
-
-        auth_runner = run_bootstrap_auth
+        raise ValueError("auth_runner is required and must be injected by composition")
 
     await auth_runner(
         username=username,
