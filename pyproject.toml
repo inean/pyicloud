@@ -39,8 +39,8 @@ Changelog = "https://github.com/inean/releases"
 Homepage  = "https://github.com/inean/pyicloud"
 
 [project.scripts]
-icloud = "pyicloud.cli.main:main"
-icloud-api = "pyicloud.api.main:main"
+icloud = "pyicloud.interfaces.cli.main:main"
+icloud-api = "pyicloud.interfaces.api.main:main"
 
 [project.optional-dependencies]
 all = [
@@ -90,7 +90,7 @@ allow-direct-references = true
 packages = ["pyicloud"]
 
 [tool.pytest.ini_options]
-addopts      = "-ra -q --cov=pyicloud/api --cov=pyicloud/cli --cov=pyicloud/application --cov=pyicloud/adapters --cov=pyicloud/bootstrap --cov=pyicloud/ports --cov-report=term-missing --cov-fail-under=80"
+addopts      = "-ra -q --cov=pyicloud/interfaces/api --cov=pyicloud/interfaces/cli --cov=pyicloud/application --cov=pyicloud/adapters --cov=pyicloud/bootstrap --cov=pyicloud/ports --cov-report=term-missing --cov-fail-under=80"
 asyncio_mode = "auto"
 markers = [
     "unit: unit-level tests for modules and adapters",
@@ -166,4 +166,4 @@ module                = "tests.*"
 
 [[tool.mypy.overrides]]
 disallow_untyped_decorators = false
-module = "pyicloud.api.errors"
+module = "pyicloud.interfaces.api.errors"
