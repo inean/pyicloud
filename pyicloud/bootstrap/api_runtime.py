@@ -16,6 +16,7 @@ from pyicloud.application.core_services import CoreServicesApi
 from pyicloud.application.observability import ObservabilityApi
 from pyicloud.bootstrap.auth_session import build_auth_session_service
 from pyicloud.models.settings import Settings
+from pyicloud.ports import AccessControlQueryPort
 from pyicloud.trees.setup import SetupHooks
 
 
@@ -43,7 +44,7 @@ def _is_non_dev_runtime(runtime_env: str) -> bool:
     return runtime_env not in {"dev", "development", "local", "test", "testing"}
 
 
-def build_default_auth_api_service() -> AuthApiService:
+def build_default_auth_api_service(*, access_query: AccessControlQueryPort | None = None) -> AuthApiService:
     """Compose the default auth service used by the HTTP API runtime."""
     runtime_env = _runtime_env()
     is_non_dev = _is_non_dev_runtime(runtime_env)
@@ -83,6 +84,8 @@ def build_default_auth_api_service() -> AuthApiService:
         session_query=session_store,
         session_command=session_store,
         auth_service_factory=auth_service_factory,
+        access_query=access_query,
+        enforce_allowlist=is_non_dev,
     )
 
 

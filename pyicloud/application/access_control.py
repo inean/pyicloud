@@ -52,6 +52,16 @@ class AccessControlApiService:
         self._query = query
         self._command = command
 
+    @property
+    def query_port(self) -> AccessControlQueryPort:
+        """Expose read-only access port for auth/session services."""
+        return self._query
+
+    @property
+    def command_port(self) -> AccessControlCommandPort:
+        """Expose command port for bootstrap wiring and migrations."""
+        return self._command
+
     @staticmethod
     def _assert_admin(actor: AuthPrincipal) -> None:
         if actor.role != "admin":

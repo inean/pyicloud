@@ -32,8 +32,12 @@ from .routers import (
 )
 
 
-def _build_default_auth_service() -> AuthApiService:
-    return build_default_auth_api_service()
+def _build_default_auth_service(
+    *,
+    access_control_service: AccessControlApiService | None = None,
+) -> AuthApiService:
+    access_query = access_control_service.query_port if access_control_service is not None else None
+    return build_default_auth_api_service(access_query=access_query)
 
 
 def _build_default_access_control_service() -> AccessControlApiService:
@@ -61,8 +65,9 @@ def create_app(
     app = FastAPI(title="pyicloud API", version="1.0.0")
     if telemetry_enabled():
         app.add_middleware(ApiTelemetryMiddleware)
-    app.state.auth_service = auth_service or _build_default_auth_service()
-    app.state.access_control_service = access_control_service or _build_default_access_control_service()
+    resolved_access_control = access_control_service or _build_default_access_control_service()
+    app.state.access_control_service = resolved_access_control
+    app.state.auth_service = auth_service or _build_default_auth_service(access_control_service=resolved_access_control)
     app.state.core_services = core_services or _build_default_core_services()
     app.state.observability_service = observability_service or _build_default_observability_service()
     register_exception_handlers(app)

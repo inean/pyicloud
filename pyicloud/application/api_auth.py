@@ -8,15 +8,17 @@ from typing import Any
 from uuid import uuid4
 
 from pyicloud.domain import (
+    AccessControlEntry,
     AuthPrincipal,
     ChallengeExpired,
+    Forbidden,
     InvalidCredentials,
     InvalidSecurityCode,
     SecurityCodeRequired,
     Unauthorized,
 )
 from pyicloud.domain.auth_flow import AuthFlowRequest
-from pyicloud.ports import SessionCommandPort, SessionQueryPort, TokenSignerPort
+from pyicloud.ports import AccessControlQueryPort, SessionCommandPort, SessionQueryPort, TokenSignerPort
 
 AuthServiceFactory = Callable[[str, str], Any]
 
@@ -31,6 +33,8 @@ class AuthApiService:
         session_query: SessionQueryPort,
         session_command: SessionCommandPort,
         auth_service_factory: AuthServiceFactory,
+        access_query: AccessControlQueryPort | None = None,
+        enforce_allowlist: bool = False,
         token_ttl_seconds: int = 3600,
         challenge_ttl_seconds: int = 300,
     ):
@@ -40,12 +44,19 @@ class AuthApiService:
         self._token_ttl_seconds = token_ttl_seconds
         self._challenge_ttl_seconds = challenge_ttl_seconds
         self._auth_service_factory = auth_service_factory
+        self._access_query = access_query
+        self._enforce_allowlist = enforce_allowlist
 
-    def _issue_token(self, *, username: str) -> dict[str, Any]:
+    def _issue_token(self, *, username: str, role: str, acl_version: int) -> dict[str, Any]:
         token_id = str(uuid4())
         token = self._token_signer.sign(
             subject=username,
-            claims={"jti": token_id, "scope": "pyicloud.api"},
+            claims={
+                "jti": token_id,
+                "scope": "pyicloud.api",
+                "role": role,
+                "acl_version": acl_version,
+            },
             expires_in_seconds=self._token_ttl_seconds,
         )
         claims = self._token_signer.verify(token)
@@ -56,6 +67,31 @@ class AuthApiService:
             "token_id": token_id,
             "expires_at": int(claims.get("exp", int(time()) + self._token_ttl_seconds)),
         }
+
+    def _allowlist_entry(self, *, username: str) -> AccessControlEntry | None:
+        if self._access_query is None:
+            return None
+        return self._access_query.get_entry(username)
+
+    def _authorize_login_username(self, *, username: str) -> AccessControlEntry | None:
+        entry = self._allowlist_entry(username=username)
+        if entry is None:
+            if self._enforce_allowlist:
+                raise Forbidden("Account is not allowlisted for this backend")
+            return None
+        if entry.status != "active":
+            raise Forbidden("Account is disabled")
+        return entry
+
+    def _token_acl_context(self, *, username: str) -> tuple[str, int]:
+        entry = self._allowlist_entry(username=username)
+        if entry is None:
+            if self._enforce_allowlist:
+                raise Forbidden("Account is not allowlisted for this backend")
+            return ("member", 0)
+        if entry.status != "active":
+            raise Forbidden("Account is disabled")
+        return (entry.role, entry.acl_version)
 
     def _issue_challenge(
         self,
@@ -123,6 +159,7 @@ class AuthApiService:
         return f"{username}:{token_id}"
 
     async def login(self, *, username: str, password: str, flow_id: str | None = None) -> dict[str, Any]:
+        self._authorize_login_username(username=username)
         auth_service = self._auth_service_factory(username, password)
         flow_id = (flow_id or "").strip() or str(uuid4())
         request = AuthFlowRequest(
@@ -147,7 +184,8 @@ class AuthApiService:
         except RuntimeError as err:
             raise InvalidCredentials(str(err) or "Invalid credentials") from err
 
-        token_data = self._issue_token(username=username)
+        role, acl_version = self._token_acl_context(username=username)
+        token_data = self._issue_token(username=username, role=role, acl_version=acl_version)
         return {
             "status": "authenticated",
             "flow_id": flow_id,
@@ -170,6 +208,7 @@ class AuthApiService:
         username = (username or challenge_username).strip()
         if not username:
             raise InvalidCredentials("Challenge is missing account context")
+        self._authorize_login_username(username=username)
         if not password:
             raise InvalidCredentials("Password is required to complete challenge")
         flow_id = str(challenge.get("flow_id", "")).strip() or str(uuid4())
@@ -189,7 +228,8 @@ class AuthApiService:
             raise InvalidCredentials(str(err) or "Invalid credentials") from err
 
         self._session_command.delete_challenge(challenge_id)
-        token_data = self._issue_token(username=username)
+        role, acl_version = self._token_acl_context(username=username)
+        token_data = self._issue_token(username=username, role=role, acl_version=acl_version)
         return {
             "status": "authenticated",
             "flow_id": flow_id,
@@ -205,7 +245,17 @@ class AuthApiService:
         username = str(claims.get("sub", ""))
         token_id = str(claims.get("jti", ""))
         expires_at = int(claims.get("exp", 0))
+        role = str(claims.get("role", "member")).strip().lower()
+        raw_acl_version = claims.get("acl_version", 0)
+        try:
+            acl_version = int(raw_acl_version)
+        except (TypeError, ValueError) as err:
+            raise Unauthorized("Token payload is incomplete") from err
 
+        if role not in {"member", "admin"}:
+            raise Unauthorized("Token payload is incomplete")
+        if acl_version < 0:
+            raise Unauthorized("Token payload is incomplete")
         if not username or not token_id or expires_at <= 0:
             raise Unauthorized("Token payload is incomplete")
 
@@ -215,7 +265,26 @@ class AuthApiService:
         if self._session_query.is_token_revoked(token_id):
             raise Unauthorized("Token has been revoked")
 
-        return AuthPrincipal(username=username, token_id=token_id, expires_at=expires_at)
+        if self._access_query is not None:
+            entry = self._access_query.get_entry(username)
+            if entry is None:
+                if self._enforce_allowlist or acl_version > 0:
+                    raise Unauthorized("Token ACL context is stale")
+            else:
+                if entry.status != "active":
+                    raise Unauthorized("Token ACL context is stale")
+                if acl_version != entry.acl_version or role != entry.role:
+                    raise Unauthorized("Token ACL context is stale")
+                role = entry.role
+                acl_version = entry.acl_version
+
+        return AuthPrincipal(
+            username=username,
+            token_id=token_id,
+            expires_at=expires_at,
+            role=role if role in {"member", "admin"} else "member",
+            acl_version=acl_version,
+        )
 
     def logout(self, *, token: str) -> None:
         principal = self.session(token=token)
