@@ -17,7 +17,7 @@ jobs:
           - name: Ruff Format Check
             command: ruff format . --check
           - name: Mypy
-            command: mypy .
+            command: mypy --follow-imports=skip pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.13

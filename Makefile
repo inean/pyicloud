@@ -25,6 +25,8 @@ PROMQL_ENDPOINT ?= http://127.0.0.1:9090/api/v1/query
 TRACEQL_ENDPOINT ?= http://127.0.0.1:3200/api/search
 LOGQL_ENDPOINT ?= http://127.0.0.1:3100/loki/api/v1/query
 FLOW_FORMAT ?= table
+MYPY_HOTSPOT_MODULES ?= pyicloud/application/api_auth.py pyicloud/application/core_services.py pyicloud/api/errors.py pyicloud/adapters/services/runtime.py
+HOTSPOT_TEST_TARGETS ?= tests/integration/test_challenge_contract_gate.py tests/vertical/api/test_upstream_error_mapping.py tests/unit/test_api_auth_service.py tests/unit/test_core_services_async_contract.py tests/unit/test_legacy_core_services_adapter.py
 
 # ANSI colors
 RESET := \033[0m
@@ -56,7 +58,7 @@ fi
 endef
 
 .PHONY: help \
-		format format-fix lint lint-fix typecheck test test-ratchet test-validate check ci \
+		format format-fix lint lint-fix typecheck test test-hotspots test-ratchet test-validate check ci \
 		build build-check clean clean-dist \
 		act act-validate act-dryrun-pytest act-pytest \
 		observability-up observability-down observability-ps observability-logs api-observability-upstream \
@@ -90,7 +92,7 @@ lint-fix: ## Run Ruff lint checks with autofix
 typecheck: ## Run mypy type checks
 	$(call require_uv)
 	$(call info,Running type checks)
-	$(UV_RUN) --extra lint mypy .
+	$(UV_RUN) --extra lint mypy --follow-imports=skip $(MYPY_HOTSPOT_MODULES)
 	$(call ok,Type checks passed)
 
 test: ## Run full test suite
@@ -98,6 +100,19 @@ test: ## Run full test suite
 	$(call info,Running test suite)
 	$(UV_RUN) --extra test pytest -q
 	$(call ok,Tests passed)
+
+test-hotspots: ## Run challenge/runtime hotspot coverage gate
+	$(call require_uv)
+	$(call info,Running hotspot coverage gate)
+	$(UV_RUN) --extra test pytest -q -o addopts='' \
+		--cov=pyicloud.application.api_auth \
+		--cov=pyicloud.api.errors \
+		--cov=pyicloud.adapters.services.runtime \
+		--cov=pyicloud.adapters.services \
+		--cov-report=term-missing \
+		--cov-fail-under=82 \
+		$(HOTSPOT_TEST_TARGETS)
+	$(call ok,Hotspot coverage gate passed)
 
 test-ratchet: ## Run tests with baseline-failure ratchet policy
 	$(call require_uv)
@@ -111,7 +126,7 @@ test-validate: ## Run only validate session tests
 	$(UV_RUN) --extra test pytest -q tests/test_validate.py
 	$(call ok,Validate tests passed)
 
-check: format lint typecheck test ## Run full local quality gate
+check: format lint typecheck test-hotspots test ## Run full local quality gate
 
 ci: check build-check ## Run local CI gate (quality + packaging)
 

@@ -19,6 +19,20 @@ jobs:
       - name: Install Dependencies
         run: |
           uv sync --extra test
+      - name: Run Challenge/Runtime Hotspot Coverage Gate
+        run: |
+          uv run --extra test pytest -q -o addopts='' \
+            --cov=pyicloud.application.api_auth \
+            --cov=pyicloud.api.errors \
+            --cov=pyicloud.adapters.services.runtime \
+            --cov=pyicloud.adapters.services \
+            --cov-report=term-missing \
+            --cov-fail-under=82 \
+            tests/integration/test_challenge_contract_gate.py \
+            tests/vertical/api/test_upstream_error_mapping.py \
+            tests/unit/test_api_auth_service.py \
+            tests/unit/test_core_services_async_contract.py \
+            tests/unit/test_legacy_core_services_adapter.py
       - name: Run Tests and Record Coverage
         run: |
           uv run --with coverage coverage run --omit='*/tests/*' -m pytest -q
