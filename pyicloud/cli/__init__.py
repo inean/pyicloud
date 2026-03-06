@@ -1,5 +1,7 @@
 """Compatibility package forwarding imports to pyicloud.interfaces.cli."""
 
+import sys
+
 from pyicloud.interfaces import cli as _canonical_cli
 
-__path__ = _canonical_cli.__path__
+sys.modules[__name__] = _canonical_cli
