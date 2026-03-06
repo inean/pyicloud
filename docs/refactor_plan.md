@@ -55,9 +55,9 @@
 
 ## Phase Board
 - Planned:
-  - Phase 43 Consolidation Execution + Final Prune
+  - None
 - In Progress:
-  - Phase 42 Dead Code Baseline + Behavioral Definition
+  - None
 - Done:
   - Phase 31 Operation Suspension Pattern (Server-Side)
   - Phase 32 Abuse/Safety Hardening for New Flows
@@ -70,6 +70,8 @@
   - Phase 39 Services Context Migration
   - Phase 40 Platform Extraction + Legacy Deletion
   - Phase 41 Shim Removal + Final Cutover
+  - Phase 42 Dead Code Baseline + Behavioral Definition
+  - Phase 43 Consolidation Execution + Final Prune
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -647,41 +649,41 @@ Estructura final estable, guardrails estrictos y documentación totalmente aline
 Produce a decision-complete keep/move/remove map for `utils`, `trees`, `sessions`, and `log`, and lock cleanup behavior before execution.
 
 ### Checklist
-- [ ] Build symbol inventory for `utils`, `trees`, `sessions`, and `log` with tags: `active`, `legacy-boundary`, `dead-candidate`.
-- [ ] Classify ambiguous constructs (`pass`, ellipsis classes, silent fallthroughs) as intentional vs undefined behavior.
-- [ ] Define transport split plan for session transport:
-  - [ ] request resolution
-  - [ ] telemetry emission
-  - [ ] HTTP execution
-  - [ ] session state synchronization
-  - [ ] Apple header/content policy
-- [ ] Define rename plan:
-  - [ ] `BaseTransport`/`OAuthTransport` -> session-oriented naming (Apple session transport naming).
-  - [ ] one-phase alias window for migration.
-- [ ] Define logging consolidation:
-  - [ ] move rich console HTTP output to optional telemetry-console adapter behavior.
-  - [ ] remove default runtime coupling from core session/service transport paths.
-- [ ] Define tree cleanup:
-  - [ ] remove orphan `trees/renew.py`.
-  - [ ] keep active boundary tree code only (`setup`/`session`).
-  - [ ] codify `validate-first` renewal fast path in active auth orchestration.
-- [ ] Add CI dead-code/ratchet design (hard-fail), including no-reintroduction guardrails.
-- [ ] Define acceptance test matrix to execute in Phase 43:
-  - [ ] renewal fast path tests:
-    - [ ] valid session -> `session_validate` path without full sign-in chain.
-    - [ ] invalid session -> fallback to full auth sequence.
-  - [ ] transport refactor parity tests:
-    - [ ] request/response mapping semantics remain unchanged.
-    - [ ] cookie/settings synchronization behavior remains unchanged.
-    - [ ] telemetry request/response event sequencing remains unchanged.
-  - [ ] logging tests:
-    - [ ] telemetry console adapter is opt-in.
-    - [ ] no implicit pretty-print logging in default runtime paths.
-  - [ ] ratchet tests:
-    - [ ] removed files/symbols cannot reappear.
-    - [ ] dead-code CI gate hard-fails on newly unused symbols.
-  - [ ] full gate command definition:
-    - [ ] `uv run --extra test pytest -q`.
+- [x] Build symbol inventory for `utils`, `trees`, `sessions`, and `log` with tags: `active`, `legacy-boundary`, `dead-candidate`.
+- [x] Classify ambiguous constructs (`pass`, ellipsis classes, silent fallthroughs) as intentional vs undefined behavior.
+- [x] Define transport split plan for session transport:
+  - [x] request resolution
+  - [x] telemetry emission
+  - [x] HTTP execution
+  - [x] session state synchronization
+  - [x] Apple header/content policy
+- [x] Define rename plan:
+  - [x] `BaseTransport`/`OAuthTransport` -> session-oriented naming (Apple session transport naming).
+  - [x] one-phase alias window for migration.
+- [x] Define logging consolidation:
+  - [x] move rich console HTTP output to optional telemetry-console adapter behavior.
+  - [x] remove default runtime coupling from core session/service transport paths.
+- [x] Define tree cleanup:
+  - [x] remove orphan `trees/renew.py`.
+  - [x] keep active boundary tree code only (`setup`/`session`).
+  - [x] codify `validate-first` renewal fast path in active auth orchestration.
+- [x] Add CI dead-code/ratchet design (hard-fail), including no-reintroduction guardrails.
+- [x] Define acceptance test matrix to execute in Phase 43:
+  - [x] renewal fast path tests:
+    - [x] valid session -> `session_validate` path without full sign-in chain.
+    - [x] invalid session -> fallback to full auth sequence.
+  - [x] transport refactor parity tests:
+    - [x] request/response mapping semantics remain unchanged.
+    - [x] cookie/settings synchronization behavior remains unchanged.
+    - [x] telemetry request/response event sequencing remains unchanged.
+  - [x] logging tests:
+    - [x] telemetry console adapter is opt-in.
+    - [x] no implicit pretty-print logging in default runtime paths.
+  - [x] ratchet tests:
+    - [x] removed files/symbols cannot reappear.
+    - [x] dead-code CI gate hard-fails on newly unused symbols.
+  - [x] full gate command definition:
+    - [x] `uv run --extra test pytest -q`.
 
 ### Exit Criteria
 - Every symbol in target packages is classified with explicit keep/move/remove decision.
@@ -689,13 +691,23 @@ Produce a decision-complete keep/move/remove map for `utils`, `trees`, `sessions
 - Phase 43 execution tasks are decision-complete.
 
 ### Handoff: Phase 42 - Dead Code Baseline + Behavioral Definition
-- Date:
-- Status: In Progress
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Added decision-complete symbol inventory baseline for `utils`, `trees`, `sessions`, and `log` in `docs/phase42_symbol_inventory.json`.
+  - Classified ambiguous constructs and locked keep/move/remove ownership tags (`active`, `legacy-boundary`, `dead-candidate`).
+  - Added CI ratchet test to hard-fail when inventory drifts or removed files reappear.
+  - Finalized Phase 43 execution matrix from locked Program 42+ decisions.
 - Files changed:
+  - `docs/refactor_plan.md`
+  - `docs/phase42_symbol_inventory.json`
+  - `tests/unit/test_phase42_symbol_inventory_ratchet.py`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_phase42_symbol_inventory_ratchet.py`
 - Risks / TBD:
+  - None. Phase 43 execution started immediately.
 - Next recommended phase:
+  - Phase 43 Consolidation Execution + Final Prune.
 
 ---
 
@@ -704,31 +716,31 @@ Produce a decision-complete keep/move/remove map for `utils`, `trees`, `sessions
 Implement Phase 42 decisions and enforce permanent dead-code guardrails in `utils`, `trees`, `sessions`, and `log`.
 
 ### Checklist
-- [ ] Apply session transport split and session-oriented rename with alias window.
-- [ ] Implement `validate-first` renewal fast path in active auth service orchestration.
-- [ ] Remove `trees/renew.py`; prune dead tree orchestration helpers not used by active boundary.
-- [ ] Move/trim `log` utilities into telemetry-console adapter shape; eliminate default rich transport coupling.
-- [ ] Remove dead utilities and move surviving generic helpers to semantically aligned modules (`contexts/*`, `platform/*`, or `shared/kernel/*`).
-- [ ] Harden ratchets:
-  - [ ] removed files/symbols cannot reappear.
-  - [ ] dead-code scanner baseline cannot regress.
-- [ ] Execute acceptance matrix:
-  - [ ] renewal fast path tests:
-    - [ ] valid session uses `session_validate` without full sign-in chain.
-    - [ ] invalid session falls back to full auth sequence.
-  - [ ] transport parity tests:
-    - [ ] request/response mapping semantics preserved.
-    - [ ] cookie/settings synchronization preserved.
-    - [ ] telemetry request/response event sequencing preserved.
-  - [ ] logging tests:
-    - [ ] telemetry console adapter remains opt-in.
-    - [ ] default runtime path has no implicit pretty-print logging.
-  - [ ] ratchet tests:
-    - [ ] removed files/symbols reintroduction is rejected.
-    - [ ] dead-code scanner hard-fails on new unused symbols.
-  - [ ] full gate:
-    - [ ] `uv run --extra test pytest -q`.
-- [ ] Update architecture/docs to reflect final ownership and behavior.
+- [x] Apply session transport split and session-oriented rename with alias window.
+- [x] Implement `validate-first` renewal fast path in active auth service orchestration.
+- [x] Remove `trees/renew.py`; prune dead tree orchestration helpers not used by active boundary.
+- [x] Move/trim `log` utilities into telemetry-console adapter shape; eliminate default rich transport coupling.
+- [x] Remove dead utilities and move surviving generic helpers to semantically aligned modules (`contexts/*`, `platform/*`, or `shared/kernel/*`).
+- [x] Harden ratchets:
+  - [x] removed files/symbols cannot reappear.
+  - [x] dead-code scanner baseline cannot regress.
+- [x] Execute acceptance matrix:
+  - [x] renewal fast path tests:
+    - [x] valid session uses `session_validate` without full sign-in chain.
+    - [x] invalid session falls back to full auth sequence.
+  - [x] transport parity tests:
+    - [x] request/response mapping semantics preserved.
+    - [x] cookie/settings synchronization preserved.
+    - [x] telemetry request/response event sequencing preserved.
+  - [x] logging tests:
+    - [x] telemetry console adapter remains opt-in.
+    - [x] default runtime path has no implicit pretty-print logging.
+  - [x] ratchet tests:
+    - [x] removed files/symbols reintroduction is rejected.
+    - [x] dead-code scanner hard-fails on new unused symbols.
+  - [x] full gate:
+    - [x] `uv run --extra test pytest -q`.
+- [x] Update architecture/docs to reflect final ownership and behavior.
 
 ### Exit Criteria
 - Dead-code scanner and ratchets pass in CI hard-fail mode.
@@ -737,18 +749,51 @@ Implement Phase 42 decisions and enforce permanent dead-code guardrails in `util
 - No dead/orphan code remains in `utils`, `trees`, `sessions`, and `log` according to Phase 42 classification.
 
 ### Handoff: Phase 43 - Consolidation Execution + Final Prune
-- Date:
-- Status: Done | In Progress | Blocked
+- Date: 2026-03-06
+- Status: Done
 - Summary:
+  - Added validate-first fast path in active auth orchestration (`AuthSessionService`) with fallback to full signin/security/trust/account-login flow.
+  - Removed orphan `pyicloud/trees/renew.py` and hardened file reintroduction ratchets.
+  - Refactored session transport naming to `SessionTransport` and `AppleSessionTransport` with one-phase compatibility aliases (`BaseTransport`, `OAuthTransport`).
+  - Moved rich console HTTP logging behavior into optional telemetry adapter (`pyicloud.contexts.crosscutting.telemetry.adapters.console_http`), disabled by default runtime path (`PYICLOUD_HTTP_CONSOLE_TELEMETRY=true` to opt in).
+  - Consolidated generic utility helpers into `pyicloud/shared/kernel/*` with `pyicloud/utils/*` retained as compatibility facades.
+  - Updated architecture and cleanup inventory docs to reflect final ownership and behavior.
 - Files changed:
+  - `pyicloud/contexts/crosscutting/auth/application/auth_session.py`
+  - `pyicloud/adapters/auth/fake_scenario_auth.py`
+  - `tests/unit/test_auth_session_flow.py`
+  - `pyicloud/contexts/crosscutting/telemetry/adapters/console_http.py`
+  - `pyicloud/contexts/crosscutting/telemetry/adapters/__init__.py`
+  - `pyicloud/adapters/session/service_http.py`
+  - `pyicloud/log/httpx.py`
+  - `tests/unit/test_session_adapter.py`
+  - `pyicloud/sessions/_transport.py`
+  - `pyicloud/sessions/__init__.py`
+  - `tests/unit/test_session_base_transport.py`
+  - `pyicloud/trees/renew.py` (deleted)
+  - `tests/unit/test_removed_shim_files_ratchet.py`
+  - `pyicloud/shared/kernel/{context.py,decorators.py,mapping.py,__init__.py}`
+  - `pyicloud/utils/{context.py,decorators.py,mapping.py}`
+  - `pyicloud/models/{__init__.py,settings.py}`
+  - `pyicloud/paths.py`
+  - `ARCHITECTURE.md`
+  - `docs/phase42_symbol_inventory.json`
+  - `docs/refactor_plan.md`
 - Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_auth_session_flow.py tests/unit/test_api_auth_service.py tests/vertical/api/test_auth_challenge_api.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_session_adapter.py tests/unit/test_service_http_retry_and_error_parse.py tests/integration/test_upstream_flow_sequence.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_session_base_transport.py tests/unit/test_validate.py tests/unit/test_signin.py tests/unit/test_account_login.py tests/unit/test_security_code.py tests/unit/test_trust.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_removed_shim_files_ratchet.py tests/unit/test_phase42_symbol_inventory_ratchet.py`
+  - `uv run --extra test pytest -q`
 - Risks / TBD:
+  - Optional rich console adapter requires `rich` installed to render pretty output; default runtime path remains unaffected when adapter is not enabled.
 - Next recommended phase:
+  - Program 42+ complete (cleanup wave complete).
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Continue with: Phase 42 Dead Code Baseline + Behavioral Definition.
-# Start by generating symbol inventory and behavior classification for utils/trees/sessions/log.
+# Program 42+ cleanup phases complete.
+# Continue with maintenance or next roadmap wave.
 ```

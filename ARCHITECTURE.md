@@ -102,6 +102,24 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 - Write-side de trazabilidad en `pyicloud/contexts/crosscutting/telemetry/adapters/upstream_probe/*`.
 - La aplicacion debe funcionar sin dependencias de observabilidad (adaptadores `null`).
 
+## Program 42+ Consolidation Notes
+
+- Renewal orchestration now follows validate-first behavior in active auth flow:
+  - `AuthSessionService` attempts `session_validate` first when `refresh_signin=False`.
+  - On validation failure, it falls back to full signin/security/trust/account-login flow.
+- Tree orchestration is bounded to active auth/session paths:
+  - orphan `pyicloud/trees/renew.py` was removed and protected by ratchets.
+- Session transport naming moved to session-oriented terms with compatibility aliases:
+  - canonical names: `SessionTransport`, `AppleSessionTransport`
+  - compatibility aliases retained for one phase: `BaseTransport`, `OAuthTransport`
+- Rich HTTP console logging is no longer part of default runtime transport behavior:
+  - `pyicloud/log/httpx.py` is now a compatibility shim.
+  - pretty console HTTP output lives in optional telemetry adapter
+    `pyicloud.contexts.crosscutting.telemetry.adapters.console_http`.
+  - opt-in via `PYICLOUD_HTTP_CONSOLE_TELEMETRY=true`.
+- Generic utility helpers were consolidated in `pyicloud/shared/kernel/*` with
+  `pyicloud/utils/*` retained as compatibility facades.
+
 ## Reglas de evolucion
 
 - No reintroducir superficies retiradas:
