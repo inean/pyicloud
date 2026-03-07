@@ -7,9 +7,9 @@ from typing import Any
 
 from pyicloud.adapters.tree_runtime import FileBackedTreeRuntimeAdapter
 from pyicloud.domain import SecurityCodeRequired
+from pyicloud.platform.legacy_auth_tree.setup import SetupModelTree
 from pyicloud.ports import AuthSessionPort
 from pyicloud.sessions._contracts import BaseResponse
-from pyicloud.trees.setup import SetupModelTree
 
 
 class TreeAuthSessionAdapter(AuthSessionPort):

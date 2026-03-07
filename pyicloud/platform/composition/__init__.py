@@ -11,6 +11,7 @@ from .api import (
     build_operation_suspension_service,
 )
 from .cli import CliContainer, CliRuntime, build_default_cli_container
+from .legacy_auth import build_auth_session_service, build_service_endpoint_restore
 from .settings import (
     AccessControlSettings,
     ApiAuthSettings,
@@ -38,6 +39,8 @@ __all__ = [
     "build_core_services_api",
     "build_default_api_container",
     "build_default_cli_container",
+    "build_auth_session_service",
+    "build_service_endpoint_restore",
     "build_observability_api_service",
     "build_operation_suspension_service",
 ]

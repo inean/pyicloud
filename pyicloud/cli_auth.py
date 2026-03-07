@@ -6,11 +6,11 @@ import getpass
 from collections.abc import Callable
 from typing import Any
 
-from pyicloud.bootstrap import build_auth_session_service
 from pyicloud.contexts.crosscutting.auth.application.auth_session import AuthSessionService
 from pyicloud.domain import AuthFlowRequest, AuthFlowResult, SecurityCodeRequired
 from pyicloud.models.settings import Settings
-from pyicloud.trees.setup import SetupHooks
+from pyicloud.platform.composition.legacy_auth import build_auth_session_service
+from pyicloud.platform.legacy_auth_tree.setup import SetupHooks
 
 
 class CliSetupHooks(SetupHooks):
