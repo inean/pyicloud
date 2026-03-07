@@ -7,9 +7,9 @@ import importlib
 import pytest
 
 import pyicloud.adapters.session.service_http as service_http
-import pyicloud.bootstrap.api_runtime as api_runtime
 import pyicloud.interfaces.api.app as api_app
 import pyicloud.interfaces.api.dependencies as api_dependencies
+import pyicloud.platform.composition.api as api_composition
 
 
 def test_application_observability_shim_module_is_removed() -> None:
@@ -21,13 +21,13 @@ def test_active_api_path_uses_context_observability_service() -> None:
     assert api_dependencies.ObservabilityApi.__module__.startswith(
         "pyicloud.contexts.crosscutting.observability.application."
     )
-    assert api_runtime.ObservabilityApi.__module__.startswith(
+    assert api_composition.ObservabilityApi.__module__.startswith(
         "pyicloud.contexts.crosscutting.observability.application."
     )
-    assert api_runtime.NullObservabilityAdapter.__module__.startswith(
+    assert api_composition.NullObservabilityAdapter.__module__.startswith(
         "pyicloud.contexts.crosscutting.observability.adapters."
     )
-    assert api_runtime.OTelObservabilityAdapter.__module__.startswith(
+    assert api_composition.OTelObservabilityAdapter.__module__.startswith(
         "pyicloud.contexts.crosscutting.observability.adapters."
     )
 

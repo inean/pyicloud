@@ -91,7 +91,8 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
 - `pyicloud/ports/`: fachadas de compatibilidad para contratos.
 - `pyicloud/adapters/`: infraestructura.
 - `pyicloud/domain/`: modelos/errores de dominio.
-- `pyicloud/sessions/`, `pyicloud/trees/`: flujos de sesion y auth.
+- `pyicloud/sessions/`, `pyicloud/platform/legacy_auth_tree/`: flujos legacy de sesion y auth.
+- `pyicloud/trees/`: alias de compatibilidad temporal hacia `platform/legacy_auth_tree`.
 - `tests/unit|integration|vertical|smoke`: matriz de pruebas.
 
 ## Observabilidad
@@ -109,6 +110,8 @@ Responsabilidad: implementar puertos (HTTP cliente, almacenamiento de sesion, te
   - On validation failure, it falls back to full signin/security/trust/account-login flow.
 - Tree orchestration is bounded to active auth/session paths:
   - orphan `pyicloud/trees/renew.py` was removed and protected by ratchets.
+  - canonical tree implementation lives in `pyicloud/platform/legacy_auth_tree/*`.
+  - `pyicloud/trees/*` is compatibility-only alias surface for one phase.
 - Session transport naming moved to session-oriented terms with compatibility aliases:
   - canonical names: `SessionTransport`, `AppleSessionTransport`
   - compatibility aliases retained for one phase: `BaseTransport`, `OAuthTransport`

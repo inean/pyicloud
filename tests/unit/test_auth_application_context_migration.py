@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-import pyicloud.bootstrap.api_runtime as api_runtime
 import pyicloud.interfaces.api.dependencies as api_dependencies
+import pyicloud.platform.composition.api as api_composition
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -41,7 +41,7 @@ def test_active_api_path_uses_context_auth_services() -> None:
     assert api_dependencies.OperationSuspensionService.__module__.startswith(
         "pyicloud.contexts.crosscutting.auth.application."
     )
-    assert api_runtime.AuthApiService.__module__.startswith("pyicloud.contexts.crosscutting.auth.application.")
+    assert api_composition.AuthApiService.__module__.startswith("pyicloud.contexts.crosscutting.auth.application.")
 
 
 def _iter_import_modules(path: Path) -> list[str]:
@@ -59,8 +59,8 @@ def _iter_import_modules(path: Path) -> list[str]:
 
 def test_active_auth_api_path_has_no_direct_trees_or_sessions_imports() -> None:
     guarded_files = (
-        REPO_ROOT / "pyicloud/bootstrap/__init__.py",
-        REPO_ROOT / "pyicloud/bootstrap/api_runtime.py",
+        REPO_ROOT / "pyicloud/platform/composition/api.py",
+        REPO_ROOT / "pyicloud/platform/composition/settings.py",
         REPO_ROOT / "pyicloud/interfaces/api/app.py",
         REPO_ROOT / "pyicloud/interfaces/api/dependencies.py",
         REPO_ROOT / "pyicloud/interfaces/api/routers/auth.py",

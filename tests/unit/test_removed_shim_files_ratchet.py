@@ -21,6 +21,10 @@ REMOVED_SHIM_PATHS = (
     "pyicloud/application/observability.py",
     "pyicloud/application/operation_suspension.py",
     "pyicloud/application/service_endpoint_restore.py",
+    "pyicloud/bootstrap/__init__.py",
+    "pyicloud/bootstrap/api_runtime.py",
+    "pyicloud/bootstrap/auth_session.py",
+    "pyicloud/bootstrap/session_endpoint_restore.py",
     "pyicloud/trees/renew.py",
 )
 

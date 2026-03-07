@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from pyicloud.bootstrap import build_auth_session_service
 from pyicloud.domain import AuthFlowRequest
 from pyicloud.models.cookies import Cookies
 from pyicloud.models.settings import Settings
-from pyicloud.trees.setup import SetupHooks
+from pyicloud.platform.composition.legacy_auth import build_auth_session_service
+from pyicloud.platform.legacy_auth_tree.setup import SetupHooks
 
 
 class DummyHooks(SetupHooks):

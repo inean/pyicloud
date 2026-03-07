@@ -60,6 +60,13 @@
 - API/CLI contracts remain unchanged (`/v1/*`, `pyicloud.interfaces.cli.main`).
 - `pyicloud.bootstrap` remains a one-phase compatibility shim that forwards to platform composition.
 
+## Program 45 Bootstrap Retirement Decisions (locked)
+- `pyicloud.bootstrap/*` is hard-removed (no deprecation stub).
+- Tree-auth canonical implementation moves to `pyicloud.platform.legacy_auth_tree/*`.
+- `pyicloud.trees/*` remains only as one-phase compatibility alias surface (forwarding only).
+- Runtime modules must not import `pyicloud.trees/*`; canonical imports use `pyicloud.platform.legacy_auth_tree/*`.
+- Public API/CLI behavior remains unchanged (`/v1/*`, `pyicloud.interfaces.cli.main`, `pyicloud.cli_auth.run_bootstrap_auth`).
+
 ## Phase Board
 - Planned:
   - None
@@ -80,6 +87,7 @@
   - Phase 42 Dead Code Baseline + Behavioral Definition
   - Phase 43 Consolidation Execution + Final Prune
   - Phase 44 Entrypoint DI Consolidation (`dependency-injector`)
+  - Phase 45 Remove `bootstrap` + Isolate `trees` Legacy Boundary
 - Archived:
   - Phase 0-10: `docs/refactor_plan_phases_1_10.md`
   - Phase 10A-20: `docs/refactor_plan_phases_10_20.md`
@@ -104,6 +112,8 @@
 - No HTTP/CLI public behavior break is allowed in Program 42+ cleanup phases.
 - `pyicloud.ports/*` remains a compatibility facade unless explicitly scheduled for later removal.
 - New Program 42+ sections and handoff entries are English-only.
+- `pyicloud.bootstrap/*` is retired in Program 45 and must not be reintroduced.
+- `pyicloud.trees/*` is compatibility-only in Program 45; canonical tree runtime is `pyicloud.platform.legacy_auth_tree/*`.
 
 ## Handoff Template (append after each phase)
 ```md
@@ -860,12 +870,77 @@ Introduce dependency-injector-based composition at API/CLI entrypoints without c
 - Risks / TBD:
   - `pyicloud.bootstrap` remains intentionally as compatibility forwarding layer for one phase and can be retired in the next cleanup wave.
 - Next recommended phase:
-  - Remove bootstrap forwarding shims and migrate remaining bootstrap imports to `pyicloud.platform.composition.*`.
+  - Phase 45 Remove `bootstrap` + Isolate `trees` Legacy Boundary.
+
+---
+
+## Phase 45: Remove `bootstrap` + Isolate `trees` Legacy Boundary
+### Goal
+Hard-remove `pyicloud.bootstrap`, move tree-auth runtime to canonical platform legacy-auth modules, and keep `pyicloud.trees` as forwarding compatibility alias only.
+
+### Checklist
+- [x] Create canonical legacy auth composition module:
+  - [x] `pyicloud.platform.composition.legacy_auth.build_auth_session_service`
+  - [x] `pyicloud.platform.composition.legacy_auth.build_service_endpoint_restore`
+- [x] Create canonical legacy tree-auth package:
+  - [x] `pyicloud.platform.legacy_auth_tree.engine`
+  - [x] `pyicloud.platform.legacy_auth_tree.session`
+  - [x] `pyicloud.platform.legacy_auth_tree.setup`
+- [x] Rewire runtime imports:
+  - [x] `pyicloud.cli_auth` uses `platform.composition.legacy_auth`.
+  - [x] `pyicloud.adapters.auth.tree_auth` uses `platform.legacy_auth_tree.setup`.
+- [x] Convert `pyicloud.trees/*` to forwarding compatibility aliases only.
+- [x] Hard-remove `pyicloud.bootstrap/*`.
+- [x] Update migration tests to canonical composition imports (no `pyicloud.bootstrap` usage).
+- [x] Harden guardrails:
+  - [x] forbid `pyicloud.bootstrap` imports in legacy import ratchet.
+  - [x] ensure runtime modules do not import `pyicloud.trees` alias surface.
+  - [x] ensure removed bootstrap files do not reappear.
+  - [x] ensure `import pyicloud.bootstrap*` fails.
+- [x] Keep API/CLI contracts unchanged and pass full gate:
+  - [x] `uv run --extra test pytest -q`
+
+### Exit Criteria
+- `pyicloud.bootstrap/*` does not exist.
+- Runtime uses canonical legacy-auth tree paths under `pyicloud.platform.legacy_auth_tree/*`.
+- `pyicloud.trees/*` is compatibility forwarding only.
+- Ratchets reject bootstrap reintroduction and runtime imports of tree alias paths.
+- Full suite passes.
+
+### Handoff: Phase 45 - Remove `bootstrap` + Isolate `trees` Legacy Boundary
+- Date: 2026-03-07
+- Status: Done
+- Summary:
+  - Removed the full `pyicloud.bootstrap` package and rewired all runtime/test imports to canonical composition modules.
+  - Added `pyicloud.platform.composition.legacy_auth` and moved legacy auth/session builders there.
+  - Moved canonical tree-auth engine/setup/session implementation to `pyicloud.platform.legacy_auth_tree/*`.
+  - Converted `pyicloud.trees/*` to compatibility forwarding aliases backed by canonical legacy-auth tree modules.
+  - Hardened ratchets to forbid `pyicloud.bootstrap` reintroduction and runtime imports of `pyicloud.trees` alias paths.
+  - Updated coverage config and architecture notes to reflect bootstrap retirement and canonical tree-auth ownership.
+- Files changed:
+  - `pyicloud/platform/composition/{__init__.py,legacy_auth.py}`
+  - `pyicloud/platform/legacy_auth_tree/{__init__.py,engine.py,session.py,setup.py}`
+  - `pyicloud/cli_auth.py`
+  - `pyicloud/adapters/auth/tree_auth.py`
+  - `pyicloud/trees/{__init__.py,session.py,setup.py}`
+  - `pyicloud/bootstrap/{__init__.py,api_runtime.py,auth_session.py,session_endpoint_restore.py}` (deleted)
+  - `tests/unit/{test_auth_bootstrap.py,test_platform_runtime_storage_migration.py,test_auth_application_context_migration.py,test_observability_context_migration.py,test_retired_legacy_surfaces.py,test_legacy_import_ratchet.py,test_removed_shim_files_ratchet.py,test_hexagonal_import_boundaries.py,test_trees_compat_alias.py}`
+  - `pyproject.toml`
+  - `ARCHITECTURE.md`
+  - `docs/refactor_plan.md`
+- Tests executed:
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_auth_bootstrap.py tests/unit/test_cli_auth.py tests/unit/test_platform_runtime_storage_migration.py tests/unit/test_auth_application_context_migration.py tests/unit/test_observability_context_migration.py tests/unit/test_legacy_import_ratchet.py tests/unit/test_removed_shim_files_ratchet.py tests/unit/test_retired_legacy_surfaces.py tests/unit/test_hexagonal_import_boundaries.py tests/unit/test_trees_compat_alias.py tests/unit/test_tree_auth_adapter.py tests/unit/test_tree_runtime_lifecycle.py tests/unit/test_setup_tree_srp.py tests/unit/test_session_tree_cookies.py`
+  - `uv run --extra test pytest -q -o addopts='' tests/unit/test_retired_legacy_surfaces.py tests/unit/test_setup_tree_srp.py tests/unit/test_trees_compat_alias.py`
+  - `uv run --extra test pytest -q`
+- Risks / TBD:
+  - `pyicloud.trees/*` alias window is intentionally temporary and should be removed in the next cleanup wave after downstream import migration.
+- Next recommended phase:
+  - Remove `pyicloud.trees/*` compatibility alias and migrate remaining tests/consumers to `pyicloud.platform.legacy_auth_tree/*`.
 
 ## Next Session Start Here
 ```bash
 cd /Users/inean/Projects/Legacy/Sandbox/pyicloud
 uv run --extra test pytest -q
-# Program 42+ and Phase 44 complete.
-# Continue with bootstrap shim retirement or next roadmap wave.
+# Program 42+, Phase 44, and Phase 45 complete.
+# Continue with trees alias retirement or next roadmap wave.
 ```
