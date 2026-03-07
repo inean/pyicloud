@@ -10,9 +10,8 @@ MANAGED_LAYERS = {
     "ports": {"ports", "domain"},
     "application": {"application", "ports", "domain"},
     "adapters": {"adapters", "ports", "domain", "sessions", "trees"},
-    "api": {"api", "application", "ports", "domain", "bootstrap", "adapters"},
+    "api": {"api", "application", "ports", "domain", "adapters"},
     "cli": {"cli", "application", "ports", "domain"},
-    "bootstrap": {"bootstrap", "application", "adapters", "ports", "domain", "trees"},
     "sessions": {"sessions", "ports", "domain"},
     "trees": {"trees", "sessions", "ports", "domain"},
 }
