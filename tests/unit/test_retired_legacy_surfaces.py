@@ -17,6 +17,10 @@ import pytest
         "pyicloud.adapters.session.legacy_service_http",
         "pyicloud.adapters.service_endpoint",
         "pyicloud.adapters.auth.endpoint_restore",
+        "pyicloud.bootstrap",
+        "pyicloud.bootstrap.api_runtime",
+        "pyicloud.bootstrap.auth_session",
+        "pyicloud.bootstrap.session_endpoint_restore",
         "pyicloud.bootstrap.service_endpoint",
     ],
 )

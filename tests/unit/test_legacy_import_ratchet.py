@@ -23,6 +23,7 @@ FORBIDDEN_LEGACY_IMPORT_PREFIXES = {
     "pyicloud.application.observability",
     "pyicloud.application.operation_suspension",
     "pyicloud.application.service_endpoint_restore",
+    "pyicloud.bootstrap",
     "pyicloud.bootstrap.service_endpoint",
     "pyicloud.upstream",
 }
@@ -81,3 +82,15 @@ def _discover_legacy_import_violations() -> list[str]:
 def test_runtime_modules_do_not_reintroduce_legacy_imports() -> None:
     violations = _discover_legacy_import_violations()
     assert violations == [], f"Forbidden legacy imports detected: {violations}"
+
+
+def test_runtime_modules_do_not_import_trees_compat_aliases() -> None:
+    violations: list[str] = []
+    for path in sorted(PYICLOUD_ROOT.rglob("*.py")):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel.startswith("pyicloud/trees/"):
+            continue
+        for imported_module in _iter_import_modules(path):
+            if imported_module == "pyicloud.trees" or imported_module.startswith("pyicloud.trees."):
+                violations.append(f"{rel} -> {imported_module}")
+    assert violations == [], f"Runtime modules importing trees compatibility alias: {violations}"
